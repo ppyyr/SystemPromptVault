@@ -140,13 +140,31 @@ const applyPrompt = async (promptId) => {
   }
   const editor = elements.configEditor;
   if (!editor) return;
+  // 直接替换内容，而不是追加
+  editor.value = prompt.content;
+  state.configContent = prompt.content;
+  const saved = await saveConfigFile({ silent: true });
+  if (saved) {
+    showToast(`已应用提示词「${prompt.name}」`, "success");
+  }
+};
+
+const appendPrompt = async (promptId) => {
+  const prompt = state.prompts.find((item) => item.id === promptId);
+  if (!prompt) {
+    showToast("未找到提示词", "error");
+    return;
+  }
+  const editor = elements.configEditor;
+  if (!editor) return;
+  // 追加内容到现有内容后面
   const needsSpacer = editor.value.trim().length > 0;
   const nextValue = `${editor.value}${needsSpacer ? "\n\n" : ""}${prompt.content}`;
   editor.value = nextValue;
   state.configContent = nextValue;
   const saved = await saveConfigFile({ silent: true });
   if (saved) {
-    showToast(`已应用提示词「${prompt.name}」`, "success");
+    showToast(`已追加提示词「${prompt.name}」`, "success");
   }
 };
 
@@ -249,12 +267,24 @@ const renderPromptList = () => {
 
     header.appendChild(info);
 
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "prompt-card-buttons";
+
     const applyBtn = document.createElement("button");
     applyBtn.type = "button";
     applyBtn.className = "btn btn-primary";
     applyBtn.textContent = "应用";
     applyBtn.addEventListener("click", () => applyPrompt(prompt.id));
-    header.appendChild(applyBtn);
+    buttonContainer.appendChild(applyBtn);
+
+    const appendBtn = document.createElement("button");
+    appendBtn.type = "button";
+    appendBtn.className = "btn btn-secondary-outline";
+    appendBtn.textContent = "追加";
+    appendBtn.addEventListener("click", () => appendPrompt(prompt.id));
+    buttonContainer.appendChild(appendBtn);
+
+    header.appendChild(buttonContainer);
 
     const content = document.createElement("pre");
     content.className = "prompt-content";

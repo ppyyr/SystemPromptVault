@@ -47,8 +47,8 @@ impl ClientConfig {
 /// 默认内置客户端列表
 pub fn default_clients() -> Vec<ClientConfig> {
     vec![
-        ClientConfig::new_builtin("claude", "Claude", "~/.claude/CLAUDE.md", true),
-        ClientConfig::new_builtin("codex", "Codex", "~/.codex/CODEX.md", true),
-        ClientConfig::new_builtin("gemini", "Gemini", "~/.gemini/GEMINI.md", true),
+        ClientConfig::new_builtin("Claude", "Claude", "~/.claude/CLAUDE.md", true),
+        ClientConfig::new_builtin("Codex", "Codex", "~/.codex/AGENTS.md", true),
+        ClientConfig::new_builtin("Gemini", "Gemini", "~/.gemini/GEMINI.md", true),
     ]
 }

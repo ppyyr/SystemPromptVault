@@ -14,7 +14,7 @@
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 * {
@@ -42,7 +42,7 @@ a {
   min-height: 100vh;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 32px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -52,7 +52,7 @@ a {
   min-height: 100vh;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 32px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -62,7 +62,7 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .client-tabs {
@@ -75,7 +75,7 @@ a {
 .client-tab {
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  padding: 8px 18px;
+  padding: 6px 14px;
   background: var(--color-surface);
   color: var(--color-muted);
   font-weight: 600;
@@ -100,7 +100,7 @@ a {
   background: var(--color-surface);
   color: var(--color-text);
   border-radius: var(--radius-md);
-  padding: 10px 16px;
+  padding: 8px 12px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -113,7 +113,7 @@ a {
 .main-content {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
+  gap: 16px;
   flex: 1;
 }
 
@@ -121,7 +121,7 @@ a {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 18px;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
@@ -134,7 +134,12 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
 }
 
 .left-panel .config-editor {
@@ -148,7 +153,7 @@ a {
   border: 1px solid var(--color-border);
   padding: 16px;
   font-family: "SF Mono", "JetBrains Mono", monospace;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   resize: vertical;
   background: #fafafa;
 }
@@ -169,7 +174,7 @@ a {
 .tag-filter-btn {
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  padding: 6px 14px;
+  padding: 4px 12px;
   background: var(--color-surface);
   color: var(--color-muted);
   cursor: pointer;
@@ -196,7 +201,7 @@ a {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -204,10 +209,10 @@ a {
 .prompt-card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   background: #fafafa;
 }
 
@@ -218,9 +223,15 @@ a {
   gap: 12px;
 }
 
+.prompt-card-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .prompt-info h4 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .prompt-info {
@@ -238,9 +249,9 @@ a {
 .prompt-tag {
   background: #eef2ff;
   color: var(--color-primary);
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 0.85rem;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.8rem;
 }
 
 .prompt-content {
@@ -251,6 +262,7 @@ a {
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   padding: 12px;
+  line-height: 1.4;
   max-height: 220px;
   overflow-y: auto;
 }
@@ -301,7 +313,7 @@ a {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   border-radius: 999px;
-  padding: 8px 20px;
+  padding: 6px 16px;
   font-weight: 600;
   cursor: pointer;
   color: var(--color-muted);
@@ -338,7 +350,7 @@ a {
 
 .data-table th,
 .data-table td {
-  padding: 14px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--color-border);
   text-align: left;
   font-size: 0.95rem;
@@ -362,8 +374,15 @@ a {
 .table-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 4px;
   flex-wrap: wrap;
+}
+
+.table-actions .btn {
+  padding: 6px 14px;
+  min-height: 32px;
 }
 
 .table-empty {
@@ -395,7 +414,7 @@ a {
 .modal-content {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 20px;
   width: min(520px, 92vw);
   box-shadow: var(--shadow-md);
   display: flex;
@@ -603,7 +622,7 @@ a {
 }
 
 .form-field input {
-  padding: 12px;
+  padding: 10px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   font-size: 1rem;
@@ -717,5 +736,16 @@ a {
 
   .table-actions {
     justify-content: flex-start;
+  }
+
+  .prompt-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .prompt-card-buttons {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
