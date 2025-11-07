@@ -33,4 +33,4 @@ node_modules/
 
 # Build outputs (Tauri bundles)
 src-tauri/target/release/bundle/
-build/
+build/dist/css/tailwind.css

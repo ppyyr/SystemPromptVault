@@ -27,6 +27,8 @@ const cacheElements = () => {
   };
   elements.promptTable = document.getElementById("promptTable");
   elements.clientTable = document.getElementById("clientTable");
+  elements.emptyStatePrompt = document.getElementById("emptyState");
+  elements.emptyStateClient = document.getElementById("emptyStateClient");
   elements.modalPrompt = document.getElementById("modalPrompt");
   elements.modalClient = document.getElementById("modalClient");
   elements.modalPromptTitle = document.getElementById("modalPromptTitle");
@@ -114,27 +116,45 @@ const loadClients = async () => {
 const renderPromptTable = () => {
   const tbody = elements.promptTable;
   if (!tbody) return;
-  tbody.innerHTML = "";
+
+  // 隐藏或显示空状态
+  if (elements.emptyStatePrompt) {
+    if (state.prompts.length === 0) {
+      elements.emptyStatePrompt.classList.remove("hidden");
+    } else {
+      elements.emptyStatePrompt.classList.add("hidden");
+    }
+  }
+
+  // 清除除空状态行之外的所有行
+  const rows = Array.from(tbody.querySelectorAll("tr")).filter(
+    (row) => row.id !== "emptyState"
+  );
+  rows.forEach((row) => row.remove());
+
   if (!state.prompts.length) {
-    appendEmptyRow(tbody, 4, "暂无提示词");
     return;
   }
+
   const sorted = [...state.prompts].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
   sorted.forEach((prompt) => {
     const row = document.createElement("tr");
+    row.className = "hover:bg-gray-50/50";
 
     const nameCell = document.createElement("td");
+    nameCell.className = "px-4 py-3 text-sm text-gray-900 border-b border-gray-200";
     nameCell.textContent = prompt.name;
 
     const tagCell = document.createElement("td");
+    tagCell.className = "px-4 py-3 text-sm text-gray-900 border-b border-gray-200";
     if (prompt.tags?.length) {
       const group = document.createElement("div");
-      group.className = "tag-group";
+      group.className = "flex flex-wrap gap-2";
       prompt.tags.forEach((tag) => {
         const badge = document.createElement("span");
-        badge.className = "prompt-tag";
+        badge.className = "inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-primary-50 text-primary";
         badge.textContent = tag;
         group.appendChild(badge);
       });
@@ -144,24 +164,29 @@ const renderPromptTable = () => {
     }
 
     const timeCell = document.createElement("td");
+    timeCell.className = "px-4 py-3 text-sm text-gray-600 border-b border-gray-200";
     timeCell.textContent = formatDateTime(prompt.created_at);
 
     const actionCell = document.createElement("td");
-    actionCell.className = "table-actions table-actions-column";
+    actionCell.className = "px-4 py-3 text-sm text-right border-b border-gray-200";
+    const buttonGroup = document.createElement("div");
+    buttonGroup.className = "flex justify-end gap-2 flex-wrap";
+
     const editBtn = document.createElement("button");
     editBtn.type = "button";
-    editBtn.className = "btn btn-secondary-outline";
+    editBtn.className = "bg-white text-gray-700 border border-gray-300 rounded-md px-3 py-1 text-sm font-semibold hover:border-primary hover:text-primary transition-all duration-200";
     editBtn.textContent = "编辑";
     editBtn.addEventListener("click", () => showPromptModal(prompt.id));
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
-    deleteBtn.className = "btn btn-secondary-outline";
+    deleteBtn.className = "bg-white text-error border border-error rounded-md px-3 py-1 text-sm font-semibold hover:opacity-90 transition-all duration-200";
     deleteBtn.textContent = "删除";
     deleteBtn.addEventListener("click", () => deletePrompt(prompt.id));
 
-    actionCell.appendChild(editBtn);
-    actionCell.appendChild(deleteBtn);
+    buttonGroup.appendChild(editBtn);
+    buttonGroup.appendChild(deleteBtn);
+    actionCell.appendChild(buttonGroup);
 
     row.appendChild(nameCell);
     row.appendChild(tagCell);
@@ -174,11 +199,26 @@ const renderPromptTable = () => {
 const renderClientTable = () => {
   const tbody = elements.clientTable;
   if (!tbody) return;
-  tbody.innerHTML = "";
+
+  // 隐藏或显示空状态
+  if (elements.emptyStateClient) {
+    if (state.clients.length === 0) {
+      elements.emptyStateClient.classList.remove("hidden");
+    } else {
+      elements.emptyStateClient.classList.add("hidden");
+    }
+  }
+
+  // 清除除空状态行之外的所有行
+  const rows = Array.from(tbody.querySelectorAll("tr")).filter(
+    (row) => row.id !== "emptyStateClient"
+  );
+  rows.forEach((row) => row.remove());
+
   if (!state.clients.length) {
-    appendEmptyRow(tbody, 6, "暂无客户端");
     return;
   }
+
   const sorted = [...state.clients].sort((a, b) => {
     if (a.is_builtin === b.is_builtin) {
       return a.name.localeCompare(b.name, "zh-CN");
@@ -187,38 +227,52 @@ const renderClientTable = () => {
   });
   sorted.forEach((client) => {
     const row = document.createElement("tr");
+    row.className = "hover:bg-gray-50/50";
+
     const idCell = document.createElement("td");
+    idCell.className = "px-4 py-3 text-sm text-gray-900 border-b border-gray-200 font-mono";
     idCell.textContent = client.id;
 
     const nameCell = document.createElement("td");
+    nameCell.className = "px-4 py-3 text-sm text-gray-900 border-b border-gray-200";
     nameCell.textContent = client.name;
 
     const pathCell = document.createElement("td");
+    pathCell.className = "px-4 py-3 text-sm text-gray-600 border-b border-gray-200 font-mono text-xs";
     pathCell.textContent = client.config_file_path;
 
     const autoTagCell = document.createElement("td");
+    autoTagCell.className = "px-4 py-3 text-sm text-gray-900 border-b border-gray-200";
     autoTagCell.textContent = client.auto_tag ? "是" : "否";
 
     const builtinCell = document.createElement("td");
+    builtinCell.className = "px-4 py-3 text-sm text-gray-900 border-b border-gray-200";
     builtinCell.textContent = client.is_builtin ? "是" : "否";
 
     const actionCell = document.createElement("td");
-    actionCell.className = "table-actions table-actions-column";
+    actionCell.className = "px-4 py-3 text-sm text-right border-b border-gray-200";
+    const buttonGroup = document.createElement("div");
+    buttonGroup.className = "flex justify-end gap-2 flex-wrap";
 
     const editBtn = document.createElement("button");
     editBtn.type = "button";
-    editBtn.className = "btn btn-secondary-outline";
+    editBtn.className = "bg-white text-gray-700 border border-gray-300 rounded-md px-3 py-1 text-sm font-semibold hover:border-primary hover:text-primary transition-all duration-200";
     editBtn.textContent = "编辑";
     editBtn.addEventListener("click", () => showClientModal(client.id));
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
-    deleteBtn.className = "btn btn-secondary-outline";
+    deleteBtn.className = "bg-white text-error border border-error rounded-md px-3 py-1 text-sm font-semibold hover:opacity-90 transition-all duration-200";
     deleteBtn.textContent = "删除";
+    deleteBtn.disabled = client.is_builtin;
+    deleteBtn.title = client.is_builtin ? "内置客户端不可删除" : "";
     deleteBtn.addEventListener("click", () => deleteClient(client.id));
 
-    actionCell.appendChild(editBtn);
-    actionCell.appendChild(deleteBtn);
+    buttonGroup.appendChild(editBtn);
+    if (!client.is_builtin) {
+      buttonGroup.appendChild(deleteBtn);
+    }
+    actionCell.appendChild(buttonGroup);
 
     row.appendChild(idCell);
     row.appendChild(nameCell);
@@ -436,11 +490,25 @@ const toggleModal = (modal, visible) => {
 const setActiveTab = (targetId) => {
   elements.tabButtons.forEach((button) => {
     const isActive = button.dataset.target === targetId;
-    button.classList.toggle("active", isActive);
-    button.setAttribute("aria-selected", String(isActive));
+
+    // 更新按钮样式
+    if (isActive) {
+      button.className = "border border-primary bg-primary text-white rounded-full px-4 py-2 font-semibold shadow-sm transition-all duration-200";
+      button.setAttribute("aria-selected", "true");
+    } else {
+      button.className = "border border-gray-300 bg-white text-gray-700 rounded-full px-4 py-2 font-semibold hover:border-primary hover:text-primary transition-all duration-200";
+      button.setAttribute("aria-selected", "false");
+    }
   });
+
+  // 切换面板显示
   Object.entries(elements.tabPanels).forEach(([id, panel]) => {
-    panel?.classList.toggle("active", id === targetId);
+    if (!panel) return;
+    if (id === targetId) {
+      panel.classList.remove("hidden");
+    } else {
+      panel.classList.add("hidden");
+    }
   });
 };
 

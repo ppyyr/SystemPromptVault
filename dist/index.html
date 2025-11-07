@@ -4,40 +4,79 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SysPromptSwitcher</title>
+    <!-- Tailwind CSS Play CDN - 用于开发 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['"SF Pro Display"', '"Segoe UI"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+              mono: ['"SF Mono"', '"JetBrains Mono"', 'monospace'],
+            },
+            colors: {
+              primary: {
+                DEFAULT: '#0066cc',
+                dark: '#0053a3',
+                50: '#e6f0ff',
+                500: '#0066cc',
+                600: '#0053a3',
+              },
+              success: '#1d9b6c',
+              error: '#d64545',
+              warning: '#e08b2e',
+            },
+            boxShadow: {
+              'sm': '0 2px 8px rgba(0, 0, 0, 0.05)',
+              'md': '0 12px 32px rgba(0, 0, 0, 0.12)',
+            },
+            borderRadius: {
+              'sm': '6px',
+              'md': '10px',
+              'lg': '16px',
+              'xl': '20px',
+            },
+          },
+        },
+      }
+    </script>
+    <!-- 保留原有样式以确保平滑过渡 -->
     <link rel="stylesheet" href="css/main.css" />
     <link rel="stylesheet" href="css/components.css" />
   </head>
-  <body>
-    <div class="app-container">
-      <header class="client-switcher">
-        <div class="client-tabs" id="clientTabs"></div>
-        <button class="btn-settings" type="button" onclick="location.href='settings.html'">设置</button>
+  <body class="bg-gray-100 min-h-screen">
+    <div class="min-h-screen max-w-7xl mx-auto p-5 flex flex-col gap-6">
+      <header class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 flex-wrap" id="clientTabs"></div>
+        <button class="border border-gray-300 bg-white text-gray-800 rounded-md px-3 py-2 hover:border-primary hover:text-primary transition-all duration-200" type="button" onclick="location.href='settings.html'">设置</button>
       </header>
 
-      <div class="main-content">
-        <section class="panel left-panel">
-          <div class="panel-header">
-            <h3 id="configFileName">CLAUDE.md</h3>
-            <button class="btn btn-primary" id="btnSaveConfig" type="button">保存</button>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+        <section class="bg-white border border-gray-200 rounded-lg p-5 shadow-sm flex flex-col gap-4 min-h-[520px]">
+          <div class="flex items-center justify-between gap-3">
+            <h3 id="configFileName" class="text-base font-semibold">CLAUDE.md</h3>
+            <button class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors" id="btnSaveConfig" type="button">保存</button>
           </div>
-          <textarea id="configEditor" class="config-editor" placeholder="在此编辑选中客户端的配置文件"></textarea>
+          <textarea id="configEditor" class="w-full min-h-[420px] border border-gray-300 rounded-md p-4 font-mono text-sm resize-y bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed" placeholder="在此编辑选中客户端的配置文件"></textarea>
         </section>
 
-        <section class="panel right-panel">
-          <div class="panel-header">
-            <h3>提示词库</h3>
-            <div class="tag-filter" id="tagFilter"></div>
+        <section class="bg-white border border-gray-200 rounded-lg p-5 shadow-sm flex flex-col gap-4 min-h-[520px]">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-base font-semibold">提示词库</h3>
+            <div class="flex items-center gap-2 flex-wrap justify-end" id="tagFilter"></div>
           </div>
-          <div class="prompt-list" id="promptList"></div>
+          <div class="flex-1 flex flex-col gap-3 overflow-y-auto pr-1" id="promptList"></div>
         </section>
       </div>
     </div>
 
-    <div id="toastContainer" class="toast-container" role="status" aria-live="polite"></div>
+    <div id="toastContainer" class="fixed top-4 right-4 z-[1800] max-w-sm" role="status" aria-live="polite"></div>
 
-    <div id="loadingOverlay" class="loading-overlay hidden" aria-hidden="true" role="alert" aria-label="正在处理">
-      <div class="spinner"></div>
-      <span>处理中...</span>
+    <div id="loadingOverlay" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 hidden" aria-hidden="true" role="alert" aria-label="正在处理">
+      <div class="bg-white rounded-lg p-6 flex items-center gap-3">
+        <div class="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
+        <span>处理中...</span>
+      </div>
     </div>
 
     <script type="module" src="js/main.js"></script>
