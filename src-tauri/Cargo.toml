@@ -1,0 +1,32 @@
+[package]
+name = "sysprompt-switcher"
+version = "0.1.0"
+description = "SysPromptSwitcher Tauri App"
+authors = ["user"]
+edition = "2021"
+
+[lib]
+name = "sysprompt_switcher"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[features]
+default = []
+legacy-tauri-api = []
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+tauri-plugin-dialog = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dirs = "5.0"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"

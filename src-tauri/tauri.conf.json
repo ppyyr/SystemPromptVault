@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/v2.0.0/tooling/cli/schema.json",
+  "productName": "SysPromptSwitcher",
+  "version": "0.1.0",
+  "identifier": "com.example.syspromptswitcher",
+  "build": {
+    "beforeBuildCommand": "",
+    "beforeDevCommand": "",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "SysPromptSwitcher",
+        "width": 1200,
+        "height": 800,
+        "resizable": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "app", "nsis", "deb"],
+    "icon": [
+      "icons/icon.png"
+    ]
+  }
+}

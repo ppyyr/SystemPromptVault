@@ -1,0 +1,36 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Tauri
+src-tauri/target/
+src-tauri/WixTools/
+src-tauri/*.exe
+src-tauri/*.msi
+
+# System files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Logs and temp files
+*.log
+*.tmp
+.env
+
+# Application data (development)
+dist/.DS_Store
+
+# Node.js (if frontend uses it)
+node_modules/
+
+# Build outputs (Tauri bundles)
+src-tauri/target/release/bundle/
+build/

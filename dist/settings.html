@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>设置中心 - SysPromptSwitcher</title>
+    <link rel="stylesheet" href="css/main.css" />
+    <link rel="stylesheet" href="css/components.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <header class="app-header">
+        <h1>设置中心</h1>
+        <div class="header-actions">
+          <a class="btn btn-secondary" href="index.html">返回主页</a>
+        </div>
+      </header>
+
+      <main class="settings-main">
+        <div class="settings-tabs" role="tablist">
+          <button
+            type="button"
+            class="settings-tab active"
+            data-target="tabPrompts"
+            id="tabPromptsBtn"
+            role="tab"
+            aria-controls="tabPrompts"
+            aria-selected="true"
+          >
+            提示词管理
+          </button>
+          <button
+            type="button"
+            class="settings-tab"
+            data-target="tabClients"
+            id="tabClientsBtn"
+            role="tab"
+            aria-controls="tabClients"
+            aria-selected="false"
+          >
+            客户端管理
+          </button>
+        </div>
+
+        <section class="tab-panel active" id="tabPrompts" role="tabpanel" aria-labelledby="tabPromptsBtn">
+          <div class="panel-header">
+            <h2>提示词管理</h2>
+            <button class="btn btn-primary" id="btnNewPrompt" type="button">+ 新建提示词</button>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>标签</th>
+                  <th>创建时间</th>
+                  <th class="table-actions-column">操作</th>
+                </tr>
+              </thead>
+              <tbody id="promptTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tabClients" role="tabpanel" aria-labelledby="tabClientsBtn">
+          <div class="panel-header">
+            <h2>客户端管理</h2>
+            <button class="btn btn-primary" id="btnNewClient" type="button">+ 新增客户端</button>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>名称</th>
+                  <th>配置路径</th>
+                  <th>自动Tag</th>
+                  <th>内置</th>
+                  <th class="table-actions-column">操作</th>
+                </tr>
+              </thead>
+              <tbody id="clientTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div
+      id="modalPrompt"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalPromptTitle"
+      aria-hidden="true"
+    >
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalPromptTitle">新建提示词</h3>
+          <button type="button" class="modal-close" data-close-modal="modalPrompt">&times;</button>
+        </div>
+        <form id="formPrompt" class="modal-form" novalidate>
+          <label class="form-field">
+            <span>名称</span>
+            <input type="text" id="inputPromptName" placeholder="输入提示词名称" required />
+          </label>
+          <label class="form-field">
+            <span>标签（用逗号或空格分隔）</span>
+            <input
+              type="text"
+              id="inputPromptTags"
+              placeholder="如：claude, system"
+              list="tagSuggestions"
+            />
+          </label>
+          <label class="form-field">
+            <span>内容</span>
+            <textarea
+              id="inputPromptContent"
+              rows="8"
+              placeholder="输入提示词内容"
+              required
+            ></textarea>
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" data-close-modal="modalPrompt">取消</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="modalClient"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalClientTitle"
+      aria-hidden="true"
+    >
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalClientTitle">新建客户端</h3>
+          <button type="button" class="modal-close" data-close-modal="modalClient">&times;</button>
+        </div>
+        <form id="formClient" class="modal-form" novalidate>
+          <label class="form-field">
+            <span>ID</span>
+            <input type="text" id="inputClientId" placeholder="如：claude" required />
+          </label>
+          <label class="form-field">
+            <span>名称</span>
+            <input type="text" id="inputClientName" placeholder="客户端名称" required />
+          </label>
+          <label class="form-field">
+            <span>配置文件路径</span>
+            <input type="text" id="inputClientPath" placeholder="~/.client/CONFIG.md" required />
+          </label>
+          <label class="form-field form-field-inline">
+            <input type="checkbox" id="inputClientAutoTag" />
+            <span>自动根据客户端ID过滤标签</span>
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" data-close-modal="modalClient">取消</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <datalist id="tagSuggestions"></datalist>
+
+    <div id="toastContainer" class="toast-container" role="status" aria-live="polite"></div>
+    <div id="loadingOverlay" class="loading-overlay hidden" aria-hidden="true" role="alert" aria-label="正在处理">
+      <div class="spinner"></div>
+      <span>处理中...</span>
+    </div>
+
+    <script type="module" src="js/settings.js"></script>
+  </body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SysPromptSwitcher</title>
+    <link rel="stylesheet" href="css/main.css" />
+    <link rel="stylesheet" href="css/components.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <header class="client-switcher">
+        <div class="client-tabs" id="clientTabs"></div>
+        <button class="btn-settings" type="button" onclick="location.href='settings.html'">设置</button>
+      </header>
+
+      <div class="main-content">
+        <section class="panel left-panel">
+          <div class="panel-header">
+            <h3 id="configFileName">CLAUDE.md</h3>
+            <button class="btn btn-primary" id="btnSaveConfig" type="button">保存</button>
+          </div>
+          <textarea id="configEditor" class="config-editor" placeholder="在此编辑选中客户端的配置文件"></textarea>
+        </section>
+
+        <section class="panel right-panel">
+          <div class="panel-header">
+            <h3>提示词库</h3>
+            <div class="tag-filter" id="tagFilter"></div>
+          </div>
+          <div class="prompt-list" id="promptList"></div>
+        </section>
+      </div>
+    </div>
+
+    <div id="toastContainer" class="toast-container" role="status" aria-live="polite"></div>
+
+    <div id="loadingOverlay" class="loading-overlay hidden" aria-hidden="true" role="alert" aria-label="正在处理">
+      <div class="spinner"></div>
+      <span>处理中...</span>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
