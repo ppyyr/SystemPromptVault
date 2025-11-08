@@ -8,14 +8,14 @@
 
   ```toml
   [package]
-  name = "sysprompt-switcher"
+  name = "systemprompt-vault"
   version = "1.0.0"
   description = "配置文件切换工具"
   authors = ["you"]
   edition = "2021"
 
   [lib]
-  name = "sysprompt_switcher_lib"
+  name = "systemprompt_vault_lib"
   crate-type = ["cdylib", "staticlib", "lib"]
 
   [build-dependencies]
@@ -98,7 +98,7 @@
   pub fn get_app_data_dir() -> Result<String, String> {
       match dirs::data_dir() {
           Some(mut path) => {
-              path.push("SysPromptSwitcher");
+              path.push("SystemPromptVault");
               std::fs::create_dir_all(&path)
                   .map_err(|e| format!("创建目录失败: {}", e))?;
               Ok(path.to_string_lossy().to_string())
@@ -221,9 +221,9 @@
 
   ```json
   {
-    "productName": "SysPromptSwitcher",
+    "productName": "SystemPromptVault",
     "version": "1.0.0",
-    "identifier": "com.syspromptswitcher.app",
+    "identifier": "com.systemprompt-vault.app",
     "build": {
       "beforeDevCommand": "npm run dev",
       "beforeBuildCommand": "npm run build",
@@ -258,7 +258,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
 
-  class SysPromptSwitcher {
+  class SystemPromptVault {
       constructor() {
           this.appDataDir = null;
           this.currentDirectory = null;
@@ -406,13 +406,13 @@
   }
 
   // 初始化应用
-  const app = new SysPromptSwitcher();
+  const app = new SystemPromptVault();
 
   // 页面加载完成后初始化
   document.addEventListener('DOMContentLoaded', async () => {
       try {
           await app.getAppDataDir();
-          console.log('SysPromptSwitcher 初始化完成');
+          console.log('SystemPromptVault 初始化完成');
       } catch (error) {
           console.error('应用初始化失败:', error);
       }

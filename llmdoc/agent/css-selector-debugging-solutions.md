@@ -1,6 +1,6 @@
 ### Code Sections
 
-- `/Volumes/PC811/Users/user/apps/SysPromptSwitcher/dist/css/main.css:200-207` (prompt-list 样式): 提示词列表容器的布局和样式
+- `/Volumes/PC811/Users/user/apps/SystemPromptVault/dist/css/main.css:200-207` (prompt-list 样式): 提示词列表容器的布局和样式
 
   ```css
   .prompt-list {
@@ -13,7 +13,7 @@
   }
   ```
 
-- `/Volumes/PC811/Users/user/apps/SysPromptSwitcher/dist/css/main.css:209-224` (prompt-card 和 prompt-card-header 样式): 卡片及其头部的布局结构
+- `/Volumes/PC811/Users/user/apps/SystemPromptVault/dist/css/main.css:209-224` (prompt-card 和 prompt-card-header 样式): 卡片及其头部的布局结构
 
   ```css
   .prompt-card {
@@ -34,7 +34,7 @@
   }
   ```
 
-- `/Volumes/PC811/Users/user/apps/SysPromptSwitcher/dist/css/components.css:5-31` (按钮样式层级): 按钮的基础样式和主要按钮样式
+- `/Volumes/PC811/Users/user/apps/SystemPromptVault/dist/css/components.css:5-31` (按钮样式层级): 按钮的基础样式和主要按钮样式
 
   ```css
   .btn {

@@ -1,3 +1,4 @@
+use crate::commands::prompt::ImportResult;
 use crate::models::Prompt;
 use crate::utils::file_ops::atomic_write;
 use std::collections::HashMap;
@@ -57,6 +58,39 @@ impl PromptRepository {
         Ok(removed)
     }
 
+    pub fn import_prompts(&mut self, prompts: Vec<Prompt>) -> Result<ImportResult, String> {
+        if prompts.is_empty() {
+            return Ok(ImportResult {
+                total: 0,
+                added: 0,
+                updated: 0,
+            });
+        }
+
+        let mut merged = self.prompts.clone();
+        let mut added = 0usize;
+        let mut updated = 0usize;
+        for prompt in prompts {
+            if merged.contains_key(&prompt.id) {
+                updated += 1;
+            } else {
+                added += 1;
+            }
+            merged.insert(prompt.id.clone(), prompt);
+        }
+
+        let merged_list: Vec<Prompt> = merged.values().cloned().collect();
+        let content = serde_json::to_string_pretty(&merged_list)
+            .map_err(|e| format!("序列化提示词失败: {}", e))?;
+        atomic_write(&self.path, &content)?;
+        self.prompts = merged;
+        Ok(ImportResult {
+            total: added + updated,
+            added,
+            updated,
+        })
+    }
+
     fn load_prompts(path: &Path) -> Result<HashMap<String, Prompt>, String> {
         let raw = fs::read_to_string(path).map_err(|e| format!("读取提示词失败: {}", e))?;
         let prompts: Vec<Prompt> =
@@ -66,8 +100,8 @@ impl PromptRepository {
 
     fn persist(&self) -> Result<(), String> {
         let prompts: Vec<Prompt> = self.prompts.values().cloned().collect();
-        let content =
-            serde_json::to_string_pretty(&prompts).map_err(|e| format!("序列化提示词失败: {}", e))?;
+        let content = serde_json::to_string_pretty(&prompts)
+            .map_err(|e| format!("序列化提示词失败: {}", e))?;
         atomic_write(&self.path, &content)
     }
 }

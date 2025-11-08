@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义样式 */
+@layer base {
+  body {
+    @apply bg-gray-100 text-gray-800 text-[15px] min-h-screen;
+    font-family: "SF Pro Display", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md font-semibold transition-all duration-200;
+    @apply px-4 py-2 cursor-pointer;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white border border-primary hover:bg-primary-dark hover:border-primary-dark;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-gray-800 border border-gray-300 hover:border-primary hover:text-primary;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-gray-800 border border-gray-300 hover:border-primary hover:text-primary;
+  }
+
+  .btn-danger {
+    @apply bg-error text-white border border-error hover:opacity-90;
+  }
+
+  .card {
+    @apply bg-white border border-gray-200 rounded-lg shadow-sm;
+  }
+
+  .panel {
+    @apply card p-5 min-h-[520px] flex flex-col gap-4;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+
+  .textarea {
+    @apply input resize-y min-h-[160px] font-mono text-sm;
+  }
+
+  .tag {
+    @apply inline-flex items-center px-2 py-1 text-xs font-medium rounded;
+  }
+
+  .tag-primary {
+    @apply bg-primary-50 text-primary;
+  }
+
+  .tag-secondary {
+    @apply bg-gray-100 text-gray-600;
+  }
+
+  .toast {
+    @apply fixed top-4 right-4 z-[1800] max-w-sm p-4 rounded-lg shadow-lg;
+  }
+
+  .toast-success {
+    @apply bg-success text-white;
+  }
+
+  .toast-error {
+    @apply bg-error text-white;
+  }
+
+  .toast-warning {
+    @apply bg-warning text-white;
+  }
+
+  .loading-overlay {
+    @apply fixed inset-0 z-[2000] flex items-center justify-center bg-black/50;
+  }
+
+  .modal {
+    @apply fixed inset-0 z-[1800] flex items-center justify-center bg-black/45;
+  }
+
+  .modal-content {
+    @apply bg-white rounded-lg p-5 w-full max-w-[520px] shadow-xl flex flex-col gap-4;
+  }
+
+  .table {
+    @apply w-full border-collapse;
+  }
+
+  .table th {
+    @apply px-3 py-2 text-left text-sm font-semibold text-gray-600 bg-gray-50 border-b border-gray-200;
+  }
+
+  .table td {
+    @apply px-3 py-2 text-sm border-b border-gray-200;
+  }
+
+  .table tr:hover {
+    @apply bg-gray-50/50;
+  }
+}

@@ -1,4 +1,4 @@
-# SysPromptSwitcher
+# SystemPromptVault
 
 基于 Tauri v2 的单文件 Prompt 管理与客户端切换工具，专注于在 `.claude/CLAUDE.md`、`.codex/AGENTS.md`、`.gemini/GEMINI.md` 等配置文件之间实现快速、可视化的配置管理。
 
@@ -42,7 +42,7 @@
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # 进入项目目录
-cd /Volumes/PC811/Users/user/apps/SysPromptSwitcher
+cd /Volumes/PC811/Users/user/apps/SystemPromptVault
 ```
 
 ### 开发模式
@@ -93,7 +93,7 @@ cd src-tauri && cargo tauri build
 ## 项目结构
 
 ```
-SysPromptSwitcher/
+SystemPromptVault/
 ├── dist/                          # 前端静态资源
 │   ├── index.html                 # 主界面（客户端切换、配置编辑）
 │   ├── settings.html              # 设置界面（提示词/客户端管理）
@@ -139,9 +139,9 @@ SysPromptSwitcher/
 
 ### 配置文件位置
 
-- **macOS**：`~/Library/Application Support/com.example.syspromptswitcher/`
-- **Windows**：`C:\Users\<User>\AppData\Roaming\com.example.syspromptswitcher\`
-- **Linux**：`~/.config/syspromptswitcher/`
+- **macOS**：`~/Library/Application Support/com.example.systemprompt-vault/`
+- **Windows**：`C:\Users\<User>\AppData\Roaming\com.example.systemprompt-vault\`
+- **Linux**：`~/.config/systemprompt-vault/`
 
 ### 存储结构
 

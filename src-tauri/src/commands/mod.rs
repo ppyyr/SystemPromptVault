@@ -22,7 +22,7 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
-const APP_DIR_NAME: &str = "SysPromptSwitcher";
+const APP_DIR_NAME: &str = "SystemPromptVault";
 const BACKUPS_DIR_NAME: &str = "backups";
 const HISTORY_DIR_NAME: &str = "history";
 

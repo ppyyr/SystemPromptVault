@@ -1,12 +1,12 @@
 ### Code Sections
 
-- `/Volumes/PC811/Users/user/apps/SysPromptSwitcher/dist/index.html:31` (promptList container): 提示词列表的根容器
+- `/Volumes/PC811/Users/user/apps/SystemPromptVault/dist/index.html:31` (promptList container): 提示词列表的根容器
 
   ```html
   <div class="prompt-list" id="promptList"></div>
   ```
 
-- `/Volumes/PC811/Users/user/apps/SysPromptSwitcher/dist/js/main.js:215-267` (renderPromptList function): 动态生成提示词卡片的核心函数
+- `/Volumes/PC811/Users/user/apps/SystemPromptVault/dist/js/main.js:215-267` (renderPromptList function): 动态生成提示词卡片的核心函数
 
   ```javascript
   const renderPromptList = () => {
@@ -64,7 +64,7 @@
   };
   ```
 
-- `/Volumes/PC811/Users/user/apps/SysPromptSwitcher/dist/css/components.css:1-3` (button 基础样式): 按钮的基础样式重置
+- `/Volumes/PC811/Users/user/apps/SystemPromptVault/dist/css/components.css:1-3` (button 基础样式): 按钮的基础样式重置
 
   ```css
   button {

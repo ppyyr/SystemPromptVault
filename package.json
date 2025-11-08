@@ -1,5 +1,5 @@
 {
-  "name": "syspromptswitcher",
+  "name": "systemprompt-vault",
   "version": "1.0.0",
   "description": "基于 Tauri v2 的单文件 Prompt 管理与客户端切换工具，专注于在 `.claude/CLAUDE.md`、`.codex/AGENTS.md`、`.gemini/GEMINI.md` 等配置文件之间实现快速、可视化的配置管理。",
   "main": "index.js",
@@ -7,14 +7,17 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:css": "tailwindcss -i ./dist/css/tailwind.css -o ./dist/css/output.css --minify",
+    "watch:css": "tailwindcss -i ./dist/css/tailwind.css -o ./dist/css/output.css --watch"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "tailwindcss": "^4.1.17",
-    "tailwindcss-cli": "^0.1.2"
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.17"
   }
 }

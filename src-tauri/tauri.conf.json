@@ -1,18 +1,18 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/v2.0.0/tooling/cli/schema.json",
-  "productName": "SysPromptSwitcher",
+  "productName": "SystemPromptVault",
   "version": "0.1.0",
-  "identifier": "com.example.syspromptswitcher",
+  "identifier": "com.example.systemprompt-vault",
   "build": {
-    "beforeBuildCommand": "",
-    "beforeDevCommand": "",
+    "beforeBuildCommand": "npm run build:css",
+    "beforeDevCommand": "npm run watch:css",
     "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
         "label": "main",
-        "title": "SysPromptSwitcher",
+        "title": "System Prompt Vault",
         "width": 1200,
         "height": 800,
         "resizable": true

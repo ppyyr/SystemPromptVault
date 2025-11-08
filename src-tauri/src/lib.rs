@@ -43,6 +43,8 @@ pub fn run() {
             commands::prompt::create_prompt,
             commands::prompt::update_prompt,
             commands::prompt::delete_prompt,
+            commands::prompt::export_prompts,
+            commands::prompt::import_prompts,
             commands::client::get_all_clients,
             commands::client::get_client_by_id,
             commands::client::add_custom_client,
@@ -54,5 +56,5 @@ pub fn run() {
             commands::app_state::set_current_client
         ])
         .run(tauri::generate_context!())
-        .expect("SysPromptSwitcher Tauri 运行失败");
+        .expect("SystemPromptVault Tauri 运行失败");
 }

@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const CONFIG_FILE_NAME: &str = "app_config.json";
-const APP_DIR_NAME: &str = "SysPromptSwitcher";
+const APP_DIR_NAME: &str = "SystemPromptVault";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {

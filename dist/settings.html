@@ -3,104 +3,143 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>设置中心 - SysPromptSwitcher</title>
-    <!-- Tailwind CSS Play CDN - 用于开发 -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>设置 - System Prompt Vault</title>
+    <!-- 防止主题闪烁 - 必须在页面渲染前执行 -->
     <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['"SF Pro Display"', '"Segoe UI"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-              mono: ['"SF Mono"', '"JetBrains Mono"', 'monospace'],
-            },
-            colors: {
-              primary: {
-                DEFAULT: '#0066cc',
-                dark: '#0053a3',
-                50: '#e6f0ff',
-                500: '#0066cc',
-                600: '#0053a3',
-              },
-              success: '#1d9b6c',
-              error: '#d64545',
-              warning: '#e08b2e',
-            },
-            boxShadow: {
-              'sm': '0 2px 8px rgba(0, 0, 0, 0.05)',
-              'md': '0 12px 32px rgba(0, 0, 0, 0.12)',
-            },
-            borderRadius: {
-              'sm': '6px',
-              'md': '10px',
-              'lg': '16px',
-              'xl': '20px',
-            },
-          },
-        },
-      }
+      (function() {
+        const theme = localStorage.getItem('app-theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      })();
     </script>
+    <link rel="stylesheet" href="css/output.css" />
     <!-- 保留原有样式以确保平滑过渡 -->
     <link rel="stylesheet" href="css/main.css" />
     <link rel="stylesheet" href="css/components.css" />
   </head>
-  <body class="bg-gray-100 min-h-screen">
-    <div class="min-h-screen max-w-7xl mx-auto p-5 flex flex-col gap-6">
+  <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-gray-100">
+    <div class="min-h-screen mx-auto p-5 flex flex-col gap-6">
       <header class="flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-gray-900">设置中心</h1>
-        <a class="bg-white text-gray-800 border border-gray-300 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary transition-all duration-200" href="index.html">返回主页</a>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">设置</h1>
+        <div class="flex items-center gap-2">
+          <div id="themeToggleContainer"></div>
+          <a class="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200" href="index.html">主页</a>
+        </div>
       </header>
 
-      <main class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm flex flex-col gap-6">
-        <div class="flex gap-3 flex-wrap" role="tablist">
-          <button
-            type="button"
-            class="settings-tab border border-primary bg-primary text-white rounded-full px-4 py-2 font-semibold shadow-sm transition-all duration-200"
-            data-target="tabPrompts"
-            id="tabPromptsBtn"
-            role="tab"
-            aria-controls="tabPrompts"
-            aria-selected="true"
-          >
-            提示词管理
-          </button>
-          <button
-            type="button"
-            class="settings-tab border border-gray-300 bg-white text-gray-700 rounded-full px-4 py-2 font-semibold hover:border-primary hover:text-primary transition-all duration-200"
-            data-target="tabClients"
-            id="tabClientsBtn"
-            role="tab"
-            aria-controls="tabClients"
-            aria-selected="false"
-          >
-            客户端管理
-          </button>
+      <main class="bg-white border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm flex flex-col gap-6" style="background: rgba(255, 255, 255, 0.95);">
+        <style>
+          .dark main {
+            background: rgba(15, 23, 42, 0.9) !important;
+            border-color: rgba(148, 163, 184, 0.2) !important;
+          }
+        </style>
+        <div class="flex items-center justify-between gap-3 flex-wrap" id="settingsHeader">
+          <div class="client-dropdown" id="settingsDropdown">
+            <button
+              type="button"
+              class="client-dropdown__toggle"
+              id="settingsDropdownToggle"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="settingsDropdownPanel"
+              aria-label="选择设置类型"
+            >
+              <span class="client-dropdown__label" id="settingsDropdownLabel">提示词管理</span>
+              <svg class="client-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path>
+              </svg>
+            </button>
+            <div
+              class="client-dropdown__panel"
+              id="settingsDropdownPanel"
+              role="listbox"
+              aria-label="设置类型列表"
+              aria-hidden="true"
+            >
+              <div class="client-dropdown__list" id="settingsDropdownList">
+                <button
+                  type="button"
+                  class="client-dropdown__option"
+                  role="option"
+                  aria-selected="true"
+                  data-target="tabPrompts"
+                >
+                  提示词管理
+                </button>
+                <button
+                  type="button"
+                  class="client-dropdown__option"
+                  role="option"
+                  aria-selected="false"
+                  data-target="tabClients"
+                >
+                  客户端管理
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 flex-wrap" id="promptActions">
+            <button
+              class="btn-icon btn-icon-primary"
+              id="btnExportPrompts"
+              type="button"
+              aria-label="导出提示词"
+              data-tooltip="导出提示词"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
+            </button>
+            <button
+              class="btn-icon btn-icon-primary"
+              id="btnImportPrompts"
+              type="button"
+              aria-label="导入提示词"
+              data-tooltip="导入提示词"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+            </button>
+            <input type="file" accept=".json" id="inputImportPrompts" class="hidden" />
+            <button
+              class="btn-icon btn-icon-primary"
+              id="btnNewPrompt"
+              type="button"
+              aria-label="新建提示词"
+              data-tooltip="新建提示词"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        <section class="flex flex-col gap-4" id="tabPrompts" role="tabpanel" aria-labelledby="tabPromptsBtn">
-          <div class="flex items-center justify-between gap-3">
-            <h2 class="text-lg font-semibold text-gray-900">提示词管理</h2>
-            <button class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors" id="btnNewPrompt" type="button">+ 新建提示词</button>
-          </div>
-          <div class="border border-gray-200 rounded-lg overflow-hidden">
+        <section class="flex flex-col gap-4" id="tabPrompts" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+          <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <table class="w-full border-collapse">
               <thead>
                 <tr>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 bg-gray-100 border-b border-gray-300">名称</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 bg-gray-100 border-b border-gray-300">标签</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 bg-gray-100 border-b border-gray-300">创建时间</th>
-                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 bg-gray-100 border-b border-gray-300 w-[180px]">操作</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">名称</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">标签</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">创建时间</th>
+                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]">操作</th>
                 </tr>
               </thead>
-              <tbody id="promptTable" class="bg-white">
-                <tr id="emptyState" class="bg-white">
-                  <td colspan="4" class="px-4 py-12 text-center text-gray-500 bg-white">
+              <tbody id="promptTable" class="bg-white dark:bg-gray-800 [&>tr]:border-b [&>tr]:border-gray-200 [&>tr]:dark:border-gray-700 [&>tr:hover]:bg-gray-50 dark:[&>tr:hover]:bg-gray-700">
+                <tr id="emptyState" class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                  <td colspan="4" class="px-4 py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
                     <div class="flex flex-col items-center gap-2">
-                      <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="w-12 h-12 text-gray-300 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                       </svg>
-                      <p class="text-base font-medium text-gray-600">暂无提示词</p>
-                      <p class="text-sm text-gray-500">点击"新建提示词"开始创建</p>
+                      <p class="text-base font-medium text-gray-600 dark:text-gray-300">暂无提示词</p>
+                      <p class="text-sm text-gray-500 dark:text-gray-400">点击"新建提示词"开始创建</p>
                     </div>
                   </td>
                 </tr>
@@ -109,32 +148,41 @@
           </div>
         </section>
 
-        <section class="hidden flex-col gap-4" id="tabClients" role="tabpanel" aria-labelledby="tabClientsBtn">
-          <div class="flex items-center justify-between gap-3">
-            <h2 class="text-lg font-semibold text-gray-900">客户端管理</h2>
-            <button class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors" id="btnNewClient" type="button">+ 新增客户端</button>
+        <section class="flex flex-col gap-4 hidden" id="tabClients" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+          <div class="flex items-center justify-end gap-3 flex-wrap">
+            <button
+              class="btn-icon btn-icon-primary"
+              id="btnNewClient"
+              type="button"
+              aria-label="新增客户端"
+              data-tooltip="新增客户端"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
           </div>
-          <div class="border border-gray-200 rounded-lg overflow-hidden">
+          <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <table class="w-full border-collapse">
               <thead>
                 <tr>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 bg-gray-100 border-b border-gray-300">ID</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 bg-gray-100 border-b border-gray-300">名称</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 bg-gray-100 border-b border-gray-300">配置路径</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 bg-gray-100 border-b border-gray-300">自动Tag</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 bg-gray-100 border-b border-gray-300">内置</th>
-                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 bg-gray-100 border-b border-gray-300 w-[180px]">操作</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">ID</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">名称</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">配置路径</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">自动Tag</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">内置</th>
+                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]">操作</th>
                 </tr>
               </thead>
-              <tbody id="clientTable" class="bg-white">
-                <tr id="emptyStateClient" class="bg-white">
-                  <td colspan="6" class="px-4 py-12 text-center text-gray-500 bg-white">
+              <tbody id="clientTable" class="bg-white dark:bg-gray-800 [&>tr]:border-b [&>tr]:border-gray-200 [&>tr]:dark:border-gray-700 [&>tr:hover]:bg-gray-50 dark:[&>tr:hover]:bg-gray-700">
+                <tr id="emptyStateClient" class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                  <td colspan="6" class="px-4 py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
                     <div class="flex flex-col items-center gap-2">
-                      <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="w-12 h-12 text-gray-300 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                       </svg>
-                      <p class="text-base font-medium text-gray-600">暂无客户端</p>
-                      <p class="text-sm text-gray-500">点击"新增客户端"开始配置</p>
+                      <p class="text-base font-medium text-gray-600 dark:text-gray-300">暂无客户端</p>
+                      <p class="text-sm text-gray-500 dark:text-gray-400">点击"新增客户端"开始配置</p>
                     </div>
                   </td>
                 </tr>
@@ -153,38 +201,38 @@
       aria-labelledby="modalPromptTitle"
       aria-hidden="true"
     >
-      <div class="bg-white rounded-lg p-5 w-full max-w-[520px] shadow-xl flex flex-col gap-4">
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-5 w-full max-w-[520px] shadow-xl flex flex-col gap-4">
         <div class="flex items-center justify-between gap-3">
-          <h3 id="modalPromptTitle" class="text-lg font-semibold">新建提示词</h3>
-          <button type="button" class="text-2xl leading-none text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer" data-close-modal="modalPrompt">&times;</button>
+          <h3 id="modalPromptTitle" class="text-lg font-semibold text-gray-900 dark:text-white">新建提示词</h3>
+          <button type="button" class="text-2xl leading-none text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer" data-close-modal="modalPrompt">&times;</button>
         </div>
         <form id="formPrompt" class="flex flex-col gap-4" novalidate>
-          <label class="flex flex-col gap-2 font-semibold">
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
             <span>名称</span>
-            <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputPromptName" placeholder="输入提示词名称" required />
+            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputPromptName" placeholder="输入提示词名称" required />
           </label>
-          <label class="flex flex-col gap-2 font-semibold">
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
             <span>标签（用逗号或空格分隔）</span>
             <input
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               id="inputPromptTags"
               placeholder="如：claude, system"
               list="tagSuggestions"
             />
           </label>
-          <label class="flex flex-col gap-2 font-semibold">
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
             <span>内容</span>
             <textarea
               id="inputPromptContent"
               rows="8"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y min-h-[160px] font-mono text-sm"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y min-h-[160px] font-mono text-sm"
               placeholder="输入提示词内容"
               required
             ></textarea>
           </label>
           <div class="flex justify-end gap-3">
-            <button type="button" class="bg-white text-gray-800 border border-gray-300 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary transition-all duration-200" data-close-modal="modalPrompt">取消</button>
+            <button type="button" class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200" data-close-modal="modalPrompt">取消</button>
             <button type="submit" class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors">保存</button>
           </div>
         </form>
@@ -199,30 +247,30 @@
       aria-labelledby="modalClientTitle"
       aria-hidden="true"
     >
-      <div class="bg-white rounded-lg p-5 w-full max-w-[520px] shadow-xl flex flex-col gap-4">
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-5 w-full max-w-[520px] shadow-xl flex flex-col gap-4">
         <div class="flex items-center justify-between gap-3">
-          <h3 id="modalClientTitle" class="text-lg font-semibold">新建客户端</h3>
-          <button type="button" class="text-2xl leading-none text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer" data-close-modal="modalClient">&times;</button>
+          <h3 id="modalClientTitle" class="text-lg font-semibold text-gray-900 dark:text-white">新建客户端</h3>
+          <button type="button" class="text-2xl leading-none text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer" data-close-modal="modalClient">&times;</button>
         </div>
         <form id="formClient" class="flex flex-col gap-4" novalidate>
-          <label class="flex flex-col gap-2 font-semibold">
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
             <span>ID</span>
-            <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputClientId" placeholder="如：claude" required />
+            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputClientId" placeholder="如：claude" required />
           </label>
-          <label class="flex flex-col gap-2 font-semibold">
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
             <span>名称</span>
-            <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputClientName" placeholder="客户端名称" required />
+            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputClientName" placeholder="客户端名称" required />
           </label>
-          <label class="flex flex-col gap-2 font-semibold">
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
             <span>配置文件路径</span>
-            <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputClientPath" placeholder="~/.client/CONFIG.md" required />
+            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputClientPath" placeholder="~/.client/CONFIG.md" required />
           </label>
-          <label class="flex items-center gap-2 font-semibold">
+          <label class="flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-200">
             <input type="checkbox" class="w-4 h-4" id="inputClientAutoTag" />
             <span>自动根据客户端ID过滤标签</span>
           </label>
           <div class="flex justify-end gap-3">
-            <button type="button" class="bg-white text-gray-800 border border-gray-300 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary transition-all duration-200" data-close-modal="modalClient">取消</button>
+            <button type="button" class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200" data-close-modal="modalClient">取消</button>
             <button type="submit" class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors">保存</button>
           </div>
         </form>
@@ -233,11 +281,13 @@
 
     <div id="toastContainer" class="fixed top-4 right-4 z-[1800] max-w-sm" role="status" aria-live="polite"></div>
     <div id="loadingOverlay" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 hidden" aria-hidden="true" role="alert" aria-label="正在处理">
-      <div class="bg-white rounded-lg p-6 flex items-center gap-3">
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-6 flex items-center gap-3">
         <div class="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
-        <span>处理中...</span>
+        <span class="text-gray-900 dark:text-white">处理中...</span>
       </div>
     </div>
+
+    <div id="buttonTooltip" class="button-tooltip hidden" role="tooltip"></div>
 
     <script type="module" src="js/settings.js"></script>
   </body>

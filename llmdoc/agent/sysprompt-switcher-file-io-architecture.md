@@ -1,4 +1,4 @@
-# SysPromptSwitcher 文件操作实现架构
+# SystemPromptVault 文件操作实现架构
 
 ## 1. 项目文件结构设计
 
@@ -30,12 +30,12 @@ use lazy_static::lazy_static;
 lazy_static! {
     // 应用基础目录
     static ref APP_DATA_DIR: Option<PathBuf> = dirs::data_dir().map(|mut path| {
-        path.push("SysPromptSwitcher");
+        path.push("SystemPromptVault");
         path
     });
 
     static ref APP_CONFIG_DIR: Option<PathBuf> = dirs::config_dir().map(|mut path| {
-        path.push("SysPromptSwitcher");
+        path.push("SystemPromptVault");
         path
     });
 
@@ -783,13 +783,13 @@ use crate::file_io::{ConfigStore, TemplateStore, SmartBackupManager};
 use crate::file_io::error::AppError;
 use crate::models::backup::BackupConfig;
 
-pub struct SysPromptSwitcherApp {
+pub struct SystemPromptVaultApp {
     config_store: ConfigStore,
     template_store: TemplateStore,
     backup_manager: SmartBackupManager,
 }
 
-impl SysPromptSwitcherApp {
+impl SystemPromptVaultApp {
     pub fn new() -> Result<Self, AppError> {
         let config_store = ConfigStore::new()?;
         let mut template_store = TemplateStore::new()?;
@@ -940,11 +940,11 @@ mod file_io;
 mod models;
 mod app;
 
-use app::SysPromptSwitcherApp;
+use app::SystemPromptVaultApp;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 创建应用实例
-    let mut app = SysPromptSwitcherApp::new()?;
+    let mut app = SystemPromptVaultApp::new()?;
 
     // 初始化应用
     app.initialize()?;

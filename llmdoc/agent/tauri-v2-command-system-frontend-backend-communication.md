@@ -94,7 +94,7 @@
   pub fn get_app_data_dir() -> Result<String, String> {
       match dirs::data_dir() {
           Some(mut path) => {
-              path.push("SysPromptSwitcher");
+              path.push("SystemPromptVault");
               Ok(path.to_string_lossy().to_string())
           }
           None => Err("无法获取应用数据目录".to_string()),
@@ -205,7 +205,7 @@
       // 初始化应用状态
       let app_data_dir = dirs::data_dir()
           .map(|mut path| {
-              path.push("SysPromptSwitcher");
+              path.push("SystemPromptVault");
               std::fs::create_dir_all(&path).ok();
               path.join("config.json")
           })

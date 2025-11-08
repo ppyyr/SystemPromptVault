@@ -1,6 +1,6 @@
 use crate::models::{default_clients, ClientConfig};
 use crate::utils::file_ops::atomic_write;
-use std::collections::HashMap;
+use indexmap::IndexMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -8,7 +8,7 @@ const CLIENTS_FILE_NAME: &str = "clients.json";
 
 pub struct ClientRepository {
     path: PathBuf,
-    clients: HashMap<String, ClientConfig>,
+    clients: IndexMap<String, ClientConfig>,
 }
 
 impl ClientRepository {
@@ -48,14 +48,14 @@ impl ClientRepository {
     }
 
     pub fn delete(&mut self, id: &str) -> Result<bool, String> {
-        let removed = self.clients.remove(id).is_some();
+        let removed = self.clients.shift_remove(id).is_some();
         if removed {
             self.persist()?;
         }
         Ok(removed)
     }
 
-    fn load_clients(path: &Path) -> Result<HashMap<String, ClientConfig>, String> {
+    fn load_clients(path: &Path) -> Result<IndexMap<String, ClientConfig>, String> {
         let raw = fs::read_to_string(path).map_err(|e| format!("读取客户端配置失败: {}", e))?;
         let clients: Vec<ClientConfig> =
             serde_json::from_str(&raw).map_err(|e| format!("解析客户端配置失败: {}", e))?;

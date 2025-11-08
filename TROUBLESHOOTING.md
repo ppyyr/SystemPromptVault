@@ -9,7 +9,7 @@
 ### 解决方案
 
 #### 1. 确认 Tauri API 版本
-SysPromptSwitcher 使用 Tauri v2,API 路径为 `window.__TAURI_INTERNALS__`。
+SystemPromptVault 使用 Tauri v2,API 路径为 `window.__TAURI_INTERNALS__`。
 
 **检查方法**:
 1. 打开应用的开发者工具 (macOS: `Cmd+Option+I`)
@@ -92,7 +92,7 @@ ClientAPI.getAll().then(clients => {
 如果列表为空,检查数据文件:
 ```bash
 # macOS
-ls -la ~/Library/Application\ Support/com.example.syspromptswitcher/
+ls -la ~/Library/Application\ Support/com.example.systemprompt-vault/
 
 # 应该看到:
 # - clients.json
@@ -102,7 +102,7 @@ ls -la ~/Library/Application\ Support/com.example.syspromptswitcher/
 
 如果 `clients.json` 不存在或为空,删除它让应用重新初始化:
 ```bash
-rm ~/Library/Application\ Support/com.example.syspromptswitcher/clients.json
+rm ~/Library/Application\ Support/com.example.systemprompt-vault/clients.json
 ```
 
 重启应用,`ClientRepository` 会自动创建默认客户端。
@@ -166,26 +166,26 @@ chmod 644 ~/.claude/CLAUDE.md
 
 ```bash
 # macOS
-ls -la ~/Library/Application\ Support/com.example.syspromptswitcher/
+ls -la ~/Library/Application\ Support/com.example.systemprompt-vault/
 
 # 确保有写入权限
-chmod -R 755 ~/Library/Application\ Support/com.example.syspromptswitcher/
+chmod -R 755 ~/Library/Application\ Support/com.example.systemprompt-vault/
 ```
 
 #### 2. 检查 JSON 文件是否损坏
 
 ```bash
 # 验证 prompts.json 格式
-cat ~/Library/Application\ Support/com.example.syspromptswitcher/prompts.json | python3 -m json.tool
+cat ~/Library/Application\ Support/com.example.systemprompt-vault/prompts.json | python3 -m json.tool
 ```
 
 如果 JSON 格式损坏,备份后删除:
 ```bash
 # 备份
-cp ~/Library/Application\ Support/com.example.syspromptswitcher/prompts.json ~/prompts.json.backup
+cp ~/Library/Application\ Support/com.example.systemprompt-vault/prompts.json ~/prompts.json.backup
 
 # 删除损坏的文件
-rm ~/Library/Application\ Support/com.example.syspromptswitcher/prompts.json
+rm ~/Library/Application\ Support/com.example.systemprompt-vault/prompts.json
 ```
 
 重启应用,会创建新的空文件。
@@ -287,6 +287,6 @@ console.log('Prompts:', state.prompts);
 3. **临时解决方案**:
    - 删除应用数据目录让应用重新初始化:
      ```bash
-     rm -rf ~/Library/Application\ Support/com.example.syspromptswitcher/
+     rm -rf ~/Library/Application\ Support/com.example.systemprompt-vault/
      ```
    - 重启应用

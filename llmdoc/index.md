@@ -1,0 +1,46 @@
+# SystemPromptVault 开发文档索引
+
+本目录包含 SystemPromptVault 项目的完整开发文档，仅面向项目开发者。
+
+## 架构文档
+
+- [SystemPromptVault 整体架构设计](architecture/systemprompt-vault-architecture.md): 系统整体架构设计，包含前端模块化、后端命令系统、数据流设计
+- [Tauri v2 项目架构初始化指南](agent/tauri-v2-project-architecture-initialization-guide.md): Tauri v2 项目结构、配置文件、构建流程详解
+- [前端后端通信架构](agent/tauri-v2-command-system-frontend-backend-communication.md): Tauri 命令系统、API 设计、前后端数据交互
+
+## 功能模块文档
+
+- [主题系统实现](features/theme-system-implementation.md): 暗色/亮色主题切换、主题状态管理、系统集成
+- [提示词管理模块](features/prompt-management-module.md): 提示词过滤算法、下拉菜单标签选择器、应用/追加操作
+- [UI 交互优化](features/ui-interaction-optimization.md): Tooltip 系统、下拉菜单标签选择器、防抖机制、无障碍支持
+- [导入导出功能](features/import-export-functionality.md): 提示词批量导入导出、文件处理、数据验证
+- [客户端配置管理](features/client-configuration-management.md): 多客户端支持、配置文件读写、自动标签
+
+## 核心模块文档
+
+- [主题管理模块](modules/theme-module.md): `theme.js` 模块详解，包含主题切换逻辑、状态持久化
+- [API 接口模块](modules/api-module.md): 前端 API 封装、错误处理、状态管理
+- [命令处理模块](modules/command-handling-module.md): Rust 端命令实现、参数验证、错误处理
+- [存储管理模块](modules/storage-module.md): JSON 数据存储、文件操作、数据持久化
+
+## 技术指南
+
+- [Tailwind CSS 集成指南](guides/tailwind-css-integration-guide.md): Tailwind CSS CLI 构建集成、自定义配置、构建流程和最佳实践
+- [无障碍开发指南](guides/accessibility-development-guide.md): ARIA 属性使用、键盘导航、屏幕阅读器支持
+- [性能优化指南](guides/performance-optimization-guide.md): 防抖节流、事件优化、内存管理
+
+## 项目规范
+
+- [项目命名规范与演进历史](conventions/project-naming-conventions.md): 项目重命名历史、命名规范、迁移指南
+- [代码风格规范](conventions/code-style-conventions.md): JavaScript/TypeScript 编码规范、Rust 代码规范
+- [文件组织规范](conventions/file-organization-conventions.md): 目录结构、命名约定、模块划分原则
+- [Git 提交规范](conventions/git-commit-conventions.md): 提交信息格式、分支管理、版本发布
+
+## Agent 生成文档
+
+此目录包含由自动化工具生成的技术分析文档：
+- [agent/](agent/): 自动生成的代码分析、架构研究、技术实现指南
+
+**更新日期**: 2025-11-09
+**项目版本**: 0.1.0
+**维护者**: SystemPromptVault 开发团队

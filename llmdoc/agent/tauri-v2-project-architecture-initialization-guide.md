@@ -8,9 +8,9 @@
 
   ```json
   {
-    "productName": "SysPromptSwitcher",
+    "productName": "SystemPromptVault",
     "version": "1.0.0",
-    "identifier": "com.syspromptswitcher.app",
+    "identifier": "com.systemprompt-vault.app",
     "build": {
       "beforeDevCommand": "",
       "beforeBuildCommand": "",
@@ -86,14 +86,14 @@
 
   ```toml
   [package]
-  name = "sysprompt-switcher"
+  name = "systemprompt-vault"
   version = "1.0.0"
   description = "A Tauri App"
   authors = ["you"]
   edition = "2021"
 
   [lib]
-  name = "sysprompt_switcher_lib"
+  name = "systemprompt_vault_lib"
   crate-type = ["cdylib", "staticlib", "lib"]
 
   [build-dependencies]

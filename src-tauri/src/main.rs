@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    sysprompt_switcher::run();
+    systemprompt_vault::run();
 }

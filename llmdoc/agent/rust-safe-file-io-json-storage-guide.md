@@ -209,7 +209,7 @@ pub fn get_home_dir() -> Option<PathBuf> {
 // 获取应用数据目录
 pub fn get_app_data_dir() -> Option<PathBuf> {
     dirs::data_dir().map(|mut path| {
-        path.push("SysPromptSwitcher");
+        path.push("SystemPromptVault");
         path
     })
 }
@@ -217,7 +217,7 @@ pub fn get_app_data_dir() -> Option<PathBuf> {
 // 获取配置目录
 pub fn get_config_dir() -> Option<PathBuf> {
     dirs::config_dir().map(|mut path| {
-        path.push("SysPromptSwitcher");
+        path.push("SystemPromptVault");
         path
     })
 }
