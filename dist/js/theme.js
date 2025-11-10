@@ -2,6 +2,17 @@
 const THEME_KEY = 'app-theme';
 const THEME_DARK = 'dark';
 const THEME_LIGHT = 'light';
+const themeSubscribers = new Set();
+
+const notifyThemeSubscribers = (theme) => {
+  themeSubscribers.forEach((callback) => {
+    try {
+      callback(theme);
+    } catch (error) {
+      console.error('主题订阅回调执行失败', error);
+    }
+  });
+};
 
 /**
  * 获取当前主题
@@ -25,6 +36,7 @@ export function applyTheme(theme) {
     document.documentElement.classList.remove('dark');
   }
   localStorage.setItem(THEME_KEY, theme);
+  notifyThemeSubscribers(theme);
 }
 
 /**
@@ -35,6 +47,16 @@ export function toggleTheme() {
   const next = current === THEME_DARK ? THEME_LIGHT : THEME_DARK;
   applyTheme(next);
   return next;
+}
+
+export function subscribeThemeChange(callback) {
+  if (typeof callback !== 'function') {
+    return () => {};
+  }
+  themeSubscribers.add(callback);
+  return () => {
+    themeSubscribers.delete(callback);
+  };
 }
 
 /**

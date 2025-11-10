@@ -12,7 +12,8 @@
 
 - [主题系统实现](features/theme-system-implementation.md): 暗色/亮色主题切换、主题状态管理、系统集成
 - [提示词管理模块](features/prompt-management-module.md): 提示词过滤算法、下拉菜单标签选择器、应用/追加操作
-- [UI 交互优化](features/ui-interaction-optimization.md): Tooltip 系统、下拉菜单标签选择器、防抖机制、无障碍支持
+- [UI 交互优化](features/ui-interaction-optimization.md): Tooltip 系统、下拉菜单标签选择器、防抖机制、无障碍支持、CSS Grid 布局
+- [编辑器模式状态管理](features/editor-mode-state-management.md): 编辑器模式切换、状态同步修复、滚动容器约束、按钮可见性控制
 - [导入导出功能](features/import-export-functionality.md): 提示词批量导入导出、文件处理、数据验证
 - [客户端配置管理](features/client-configuration-management.md): 多客户端支持、配置文件读写、自动标签
 
@@ -41,6 +42,6 @@
 此目录包含由自动化工具生成的技术分析文档：
 - [agent/](agent/): 自动生成的代码分析、架构研究、技术实现指南
 
-**更新日期**: 2025-11-09
+**更新日期**: 2025-11-10
 **项目版本**: 0.1.0
 **维护者**: SystemPromptVault 开发团队

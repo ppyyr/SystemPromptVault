@@ -254,8 +254,9 @@ const initButtonTooltips = () => {
 ```
 
 **应用场景**:
-- 主页保存按钮 (`dist/index.html:52-58`)
+- 主页保存按钮 (`dist/index.html:73-78`)
 - 主页筛选标签按钮 (`dist/index.html:67-72`)
+- 主页编辑器模式切换按钮 (`dist/index.html:79-88`)
 - 设置页导入/导出/新建按钮 (`dist/settings.html:47-75`)
 - 表格编辑/删除按钮 (`dist/js/settings.js:318-342`)
 
@@ -971,6 +972,245 @@ elements.settingsDropdownList?.addEventListener("click", (event) => {
   font-weight: 600;
 }
 ```
+
+### 2.11 CSS Grid 布局在编辑器头部中的应用
+
+配置编辑器头部采用 CSS Grid 三列布局，替代了传统的 Flexbox 设计，实现了更好的视觉平衡和组件定位。
+
+#### 2.11.1 布局结构设计
+
+```mermaid
+graph TB
+    subgraph "CSS Grid 容器 (grid-cols-3)"
+        Left[左侧列<br/>客户端下拉菜单]
+        Center[中间列<br/>配置文件名居中]
+        Right[右侧列<br/>操作按钮组]
+    end
+
+    subgraph "响应式行为"
+        Desktop[桌面端<br/>三列等宽]
+        Mobile[移动端<br/>自动调整]
+    end
+
+    subgraph "交互逻辑"
+        Dropdown[下拉菜单]
+        Filename[文件名显示]
+        Buttons[保存/切换按钮]
+    end
+
+    Left --> Dropdown
+    Center --> Filename
+    Right --> Buttons
+    Desktop --> Left
+    Desktop --> Center
+    Desktop --> Right
+    Mobile --> Left
+    Mobile --> Center
+    Mobile --> Right
+```
+
+**HTML 结构** (`dist/index.html:45-90`):
+
+```html
+<div class="grid grid-cols-3 items-center gap-3">
+  <!-- 左侧：客户端下拉菜单 -->
+  <div class="client-dropdown" id="clientDropdown">
+    <button class="client-dropdown__toggle" id="clientDropdownToggle">
+      <span class="client-dropdown__label">选择客户端</span>
+      <svg class="client-dropdown__icon">...</svg>
+    </button>
+    <!-- 下拉面板 -->
+  </div>
+
+  <!-- 中间：配置文件名（居中显示） -->
+  <span id="configFileName" class="text-sm text-gray-600 dark:text-gray-400 text-center">
+    CLAUDE.md
+  </span>
+
+  <!-- 右侧：操作按钮组 -->
+  <div class="flex items-center gap-2 justify-end">
+    <button class="btn-icon btn-icon-primary" id="btnSaveConfig">
+      <!-- 保存按钮图标 -->
+    </button>
+    <button class="btn-icon btn-icon-secondary" id="btnToggleEditorMode">
+      <!-- 模式切换图标 -->
+    </button>
+  </div>
+</div>
+```
+
+#### 2.11.2 CSS Grid 优势分析
+
+**对比 Flexbox 方案**:
+
+| 特性 | Flexbox 方案 | CSS Grid 方案 |
+|------|-------------|--------------|
+| **列宽控制** | 需要手动计算宽度 | `grid-cols-3` 自动等分 |
+| **居中对齐** | 需要额外的 flex 属性 | `text-center` 直接居中 |
+| **按钮定位** | 依赖 margin 控制位置 | `justify-end` 自动靠右 |
+| **响应式** | 需要媒体查询调整 | Tailwind 自动处理 |
+| **代码复杂度** | 较高 | 较低 |
+
+**布局特点**:
+1. **三列等分**: `grid-cols-3` 将容器均分为三个相等宽度的列
+2. **垂直居中**: `items-center` 确保所有元素在垂直方向居中对齐
+3. **水平居中**: 文件名使用 `text-center` 在其列内水平居中
+4. **右对齐**: 按钮组使用 `justify-end` 在右侧列内右对齐
+5. **间距控制**: `gap-3` 提供统一的列间距
+
+#### 2.11.3 响应式设计考虑
+
+CSS Grid 布局天然支持响应式设计，在不同屏幕尺寸下自动调整：
+
+```css
+/* 桌面端（默认）: 三列等宽布局 */
+.grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* 移动端自动适配 */
+@media (max-width: 640px) {
+  /* Tailwind 自动调整 Grid 行为 */
+  .grid-cols-3 {
+    /* 在极小屏幕上可能变为单列或调整列宽 */
+  }
+}
+```
+
+**移动端优化**:
+1. **自动换行**: 在极小屏幕上，Grid 项目会自动换行
+2. **最小宽度**: `minmax(0, 1fr)` 确保每列最小宽度为 0，允许收缩
+3. **按钮堆叠**: 右侧按钮组在移动端保持水平排列，通过 `gap-2` 控制间距
+
+#### 2.11.4 无障碍支持
+
+Grid 布局改善了内容的逻辑顺序和无障碍体验：
+
+```html
+<!-- 语义化结构保持逻辑顺序 -->
+<div class="grid grid-cols-3 items-center gap-3">
+  <!-- 1. 客户端选择（主要操作） -->
+  <div class="client-dropdown">
+    <button aria-label="选择客户端">...</button>
+  </div>
+
+  <!-- 2. 文件名显示（上下文信息） -->
+  <span class="text-center">CLAUDE.md</span>
+
+  <!-- 3. 操作按钮（次要操作） -->
+  <div class="flex justify-end">
+    <button aria-label="保存配置">...</button>
+    <button aria-label="切换编辑/预览模式">...</button>
+  </div>
+</div>
+```
+
+**无障碍优势**:
+1. **逻辑顺序**: DOM 顺序与视觉顺序一致，屏幕阅读器按逻辑读取
+2. **焦点管理**: Tab 键按照 DOM 顺序在元素间导航
+3. **语义标记**: 每个交互元素都有明确的 `aria-label`
+4. **视觉反馈**: 按钮状态变化时提供适当的视觉和屏幕阅读器反馈
+
+### 2.12 编辑器模式按钮的状态管理
+
+模式切换按钮集成了状态指示功能，通过图标和颜色变化提供即时反馈。
+
+#### 2.12.1 按钮状态系统
+
+```mermaid
+stateDiagram-v2
+    [*] --> EditMode: 初始状态
+    EditMode --> PreviewMode: 点击切换
+    PreviewMode --> EditMode: 点击切换
+
+    state EditMode {
+        [*] --> EditIcon
+        EditIcon --> EditIcon: 鼠标悬停
+    }
+
+    state PreviewMode {
+        [*] --> PreviewIcon
+        PreviewIcon --> PreviewIcon: 鼠标悬停
+    }
+```
+
+**状态切换逻辑** (`dist/js/main.js:580-614`):
+
+```javascript
+const setModeToggleState = () => {
+  const isPreview = state.editorMode === "preview";
+
+  // 切换图标显示
+  const editIcon = elements.iconEditMode;
+  const previewIcon = elements.iconPreviewMode;
+
+  if (editIcon && previewIcon) {
+    editIcon.classList.toggle("hidden", isPreview);
+    previewIcon.classList.toggle("hidden", !isPreview);
+  }
+
+  // 更新按钮视觉状态
+  if (elements.btnToggleEditorMode) {
+    elements.btnToggleEditorMode.classList.toggle("is-active", isPreview);
+    elements.btnToggleEditorMode.setAttribute("data-tooltip",
+      isPreview ? "编辑" : "预览");
+    elements.btnToggleEditorMode.setAttribute("aria-label",
+      isPreview ? "切换到编辑模式" : "切换到预览模式");
+  }
+};
+```
+
+#### 2.12.2 视觉状态设计
+
+**按钮样式层次** (`dist/css/components.css:247-283`):
+
+```css
+/* 基础样式 */
+.btn-icon-secondary {
+  background: transparent;
+  color: #6b7280;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+/* 暗色主题适配 */
+.dark .btn-icon-secondary {
+  color: #9ca3af;
+}
+
+/* 悬停状态 */
+.btn-icon-secondary:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+/* 激活状态（预览模式） */
+.btn-icon-secondary.is-active {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+/* 激活状态悬停 */
+.btn-icon-secondary.is-active:hover {
+  background: #2563eb;
+}
+
+/* 暗色主题激活状态 */
+.dark .btn-icon-secondary.is-active {
+  background: #2563eb;
+}
+
+.dark .btn-icon-secondary.is-active:hover {
+  background: #1d4ed8;
+}
+```
+
+**状态特征**:
+1. **编辑模式**: 透明背景，灰色图标，表示非激活状态
+2. **预览模式**: 蓝色背景，白色图标，表示激活状态
+3. **悬停反馈**: 两种模式下都有悬停效果
+4. **主题适配**: 暗色主题下使用不同的颜色变体
+5. **平滑过渡**: 所有状态变化使用 0.15s CSS 过渡动画
 
 ## 3. Relevant Code Modules
 

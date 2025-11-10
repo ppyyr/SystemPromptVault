@@ -154,3 +154,83 @@ button {
   justify-content: flex-end;
   gap: 12px;
 }
+
+/* 配置编辑器样式 */
+.config-editor-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.monaco-editor-container,
+.markdown-preview {
+  width: 100%;
+  flex: 1;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  color: inherit;
+}
+
+.dark .monaco-editor-container,
+.dark .markdown-preview {
+  border-color: #4b5563;
+  background: #1f2937;
+}
+
+.monaco-editor-container {
+  min-height: 420px;
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+}
+
+.markdown-preview {
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-preview__body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* 编辑器模式图标按钮样式 */
+.btn-icon-secondary {
+  background: transparent;
+  color: #6b7280;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.dark .btn-icon-secondary {
+  color: #9ca3af;
+}
+
+.btn-icon-secondary:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.btn-icon-secondary.is-active {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.dark .btn-icon-secondary.is-active {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.btn-icon-secondary.is-active:hover {
+  background: #2563eb;
+}
+
+.dark .btn-icon-secondary.is-active:hover {
+  background: #1d4ed8;
+}

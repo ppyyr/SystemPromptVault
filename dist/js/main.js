@@ -1,6 +1,12 @@
 import { PromptAPI, ClientAPI, ConfigFileAPI, AppStateAPI } from "./api.js";
 import { showToast, showLoading, hideLoading } from "./utils.js";
-import { initTheme, createThemeToggleButton, updateThemeIcon } from "./theme.js";
+import {
+  initTheme,
+  createThemeToggleButton,
+  updateThemeIcon,
+  getCurrentTheme,
+  subscribeThemeChange,
+} from "./theme.js";
 
 const state = {
   clients: [],
@@ -12,6 +18,8 @@ const state = {
   tagSearchQuery: "",
   configContent: "",
   splitRatio: 0.5,
+  editorMode: "edit",
+  monacoEditor: null,
 };
 
 const elements = {};
@@ -30,8 +38,54 @@ const tooltipState = {
   tooltipHovered: false,
 };
 const RECENT_TAGS_KEY = "tagFilterRecentTags";
+const EDITOR_MODE_KEY = "configEditorMode";
 const MAX_RECENT_TAGS = 5;
 const TAG_OPTION_SELECTOR = "[data-tag-option]";
+const MONACO_BASE_URL = "https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min";
+const MONACO_MODULE_ID = "vs/editor/editor.main";
+const MONACO_POLL_MAX_ATTEMPTS = 80;
+const MONACO_POLL_INTERVAL = 50;
+const MARKDOWN_RENDER_DEBOUNCE = 200;
+const MARKDOWN_SANITIZE_OPTIONS = {
+  ALLOWED_TAGS: [
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "p",
+    "br",
+    "strong",
+    "em",
+    "u",
+    "s",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "code",
+    "pre",
+    "a",
+    "img",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "hr",
+    "span",
+  ],
+  ALLOWED_ATTR: ["href", "title", "target", "rel", "src", "alt", "class"],
+  ALLOW_DATA_ATTR: false,
+};
+
+let monacoLoaderPromise = null;
+let monacoThemesDefined = false;
+let previewRenderTimer = null;
+let fallbackEditorListener = null;
+let markedConfigured = false;
 
 const createDebounced = (fn, delay) => {
   let timerId = null;
@@ -82,6 +136,14 @@ const cacheElements = () => {
   elements.clientDropdownList = document.getElementById("clientDropdownList");
   elements.configFileName = document.getElementById("configFileName");
   elements.configEditor = document.getElementById("configEditor");
+  elements.monacoEditorContainer = document.getElementById("monacoEditorContainer");
+  elements.markdownPreview = document.getElementById("markdownPreview");
+  elements.markdownPreviewBody = elements.markdownPreview?.querySelector(
+    ".markdown-preview__body"
+  );
+  elements.btnToggleEditorMode = document.getElementById("btnToggleEditorMode");
+  elements.iconEditMode = document.getElementById("iconEditMode");
+  elements.iconPreviewMode = document.getElementById("iconPreviewMode");
   elements.btnSaveConfig = document.getElementById("btnSaveConfig");
   elements.tagFilter = document.getElementById("tagFilter");
   elements.tagDropdownToggle = document.getElementById("tagDropdownToggle");
@@ -122,8 +184,9 @@ const bindEvents = () => {
   elements.btnSaveConfig?.addEventListener("click", () => {
     saveConfigFile();
   });
-  elements.configEditor?.addEventListener("input", (event) => {
-    state.configContent = event.target.value;
+  elements.btnToggleEditorMode?.addEventListener("click", () => {
+    const nextMode = state.editorMode === "edit" ? "preview" : "edit";
+    toggleEditorMode(nextMode);
   });
   document.addEventListener(
     "scroll",
@@ -138,6 +201,9 @@ const bindEvents = () => {
   );
   window.addEventListener("resize", () => {
     hidePromptTooltip();
+    if (state.monacoEditor) {
+      state.monacoEditor.layout();
+    }
   });
   elements.promptTooltip?.addEventListener("mouseenter", () => {
     tooltipState.tooltipHovered = true;
@@ -230,6 +296,352 @@ const initButtonTooltips = () => {
       hideTooltip();
     }
   });
+};
+
+const waitForMonacoLoader = () =>
+  new Promise((resolve, reject) => {
+    if (typeof window.require === "function" && typeof window.require.config === "function") {
+      resolve(window.require);
+      return;
+    }
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      if (typeof window.require === "function" && typeof window.require.config === "function") {
+        window.clearInterval(timer);
+        resolve(window.require);
+        return;
+      }
+      if (attempts >= MONACO_POLL_MAX_ATTEMPTS) {
+        window.clearInterval(timer);
+        reject(new Error("Monaco Editor 加载器不可用"));
+      }
+    }, MONACO_POLL_INTERVAL);
+  });
+
+const ensureMonacoLoaded = async () => {
+  if (window.monaco?.editor) {
+    return window.monaco;
+  }
+  if (monacoLoaderPromise) {
+    return monacoLoaderPromise;
+  }
+  monacoLoaderPromise = waitForMonacoLoader().then(
+    (loader) =>
+      new Promise((resolve, reject) => {
+        try {
+          loader.config({
+            paths: {
+              vs: `${MONACO_BASE_URL}/vs`,
+            },
+          });
+          if (!window.MonacoEnvironment) {
+            window.MonacoEnvironment = {
+              getWorkerUrl() {
+                const workerSource = `self.MonacoEnvironment = { baseUrl: '${MONACO_BASE_URL}/' };\nimportScripts('${MONACO_BASE_URL}/vs/base/worker/workerMain.js');`;
+                return `data:text/javascript;charset=utf-8,${encodeURIComponent(workerSource)}`;
+              },
+            };
+          }
+          loader(
+            [MONACO_MODULE_ID],
+            () => {
+              if (window.monaco?.editor) {
+                resolve(window.monaco);
+              } else {
+                reject(new Error("Monaco Editor 未能初始化"));
+              }
+            },
+            (error) => reject(error)
+          );
+        } catch (error) {
+          reject(error);
+        }
+      })
+  );
+  return monacoLoaderPromise;
+};
+
+const defineMonacoThemes = (monacoInstance) => {
+  if (monacoThemesDefined || !monacoInstance?.editor?.defineTheme) {
+    return;
+  }
+  monacoInstance.editor.defineTheme("systemprompt-dark", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "comment", foreground: "6a737d" },
+      { token: "keyword", foreground: "f97583" },
+      { token: "string", foreground: "9ecbff" },
+      { token: "number", foreground: "79b8ff" },
+    ],
+    colors: {
+      "editor.background": "#0f172a",
+      "editor.foreground": "#e2e8f0",
+      "editor.lineHighlightBackground": "#1e293b",
+      "editorCursor.foreground": "#60a5fa",
+      "editor.selectionBackground": "#334155",
+      "editor.inactiveSelectionBackground": "#475569",
+    },
+  });
+  monacoInstance.editor.defineTheme("systemprompt-light", {
+    base: "vs",
+    inherit: true,
+    rules: [
+      { token: "comment", foreground: "6a737d" },
+      { token: "keyword", foreground: "d73a49" },
+      { token: "string", foreground: "032f62" },
+      { token: "number", foreground: "005cc5" },
+    ],
+    colors: {
+      "editor.background": "#ffffff",
+      "editor.foreground": "#1f2933",
+      "editor.lineHighlightBackground": "#f1f5f9",
+      "editorCursor.foreground": "#0f172a",
+      "editor.selectionBackground": "#c7d2fe",
+      "editor.inactiveSelectionBackground": "#e0e7ff",
+    },
+  });
+  monacoThemesDefined = true;
+};
+
+const getCurrentMonacoTheme = () => (getCurrentTheme() === "dark" ? "systemprompt-dark" : "systemprompt-light");
+
+const updateMonacoTheme = () => {
+  if (!window.monaco?.editor || !monacoThemesDefined) return;
+  window.monaco.editor.setTheme(getCurrentMonacoTheme());
+};
+
+const disposeMonacoEditor = () => {
+  if (state.monacoEditor) {
+    state.monacoEditor.dispose();
+    state.monacoEditor = null;
+  }
+};
+
+const attachFallbackEditor = () => {
+  const container = elements.monacoEditorContainer;
+  if (!container) return;
+  disposeMonacoEditor();
+  container.innerHTML = "";
+  const textarea = document.createElement("textarea");
+  textarea.id = "configEditorFallback";
+  textarea.className =
+    "w-full h-full border-0 bg-transparent p-4 font-mono text-sm resize-none outline-none";
+  textarea.placeholder = "在此编辑选中客户端的配置文件";
+  textarea.value = state.configContent;
+  if (fallbackEditorListener && elements.configEditor) {
+    elements.configEditor.removeEventListener("input", fallbackEditorListener);
+  }
+  container.appendChild(textarea);
+  elements.configEditor = textarea;
+  fallbackEditorListener = (event) => {
+    state.configContent = event.target.value;
+    if (state.editorMode === "preview") {
+      renderMarkdownPreview();
+    }
+  };
+  textarea.addEventListener("input", fallbackEditorListener);
+  showToast("编辑器加载失败，已切换到基础模式", "warning");
+  updateEditorAvailability();
+};
+
+const initMonacoEditor = async () => {
+  if (state.monacoEditor || elements.configEditor) {
+    return;
+  }
+  if (!elements.monacoEditorContainer) {
+    return;
+  }
+  try {
+    const monacoInstance = await ensureMonacoLoaded();
+    defineMonacoThemes(monacoInstance);
+    state.monacoEditor = monacoInstance.editor.create(elements.monacoEditorContainer, {
+      value: state.configContent,
+      language: "markdown",
+      theme: getCurrentMonacoTheme(),
+      automaticLayout: true,
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+      wordWrap: "on",
+      fontSize: 14,
+      fontFamily: '"JetBrains Mono", "SF Mono", Consolas, "Courier New", monospace',
+      lineNumbers: "on",
+      renderWhitespace: "selection",
+      bracketPairColorization: { enabled: true },
+    });
+    state.monacoEditor.onDidChangeModelContent(() => {
+      state.configContent = state.monacoEditor.getValue();
+      if (state.editorMode === "preview") {
+        renderMarkdownPreview();
+      }
+    });
+    updateMonacoTheme();
+    updateEditorAvailability();
+  } catch (error) {
+    console.error("Monaco Editor 初始化失败", error);
+    attachFallbackEditor();
+  }
+};
+
+const getEditorContent = () => {
+  if (state.monacoEditor) {
+    return state.monacoEditor.getValue();
+  }
+  if (elements.configEditor) {
+    return elements.configEditor.value ?? "";
+  }
+  return state.configContent ?? "";
+};
+
+const setEditorContent = (value) => {
+  const nextValue = value ?? "";
+  state.configContent = nextValue;
+  if (state.monacoEditor && state.monacoEditor.getValue() !== nextValue) {
+    state.monacoEditor.setValue(nextValue);
+  } else if (elements.configEditor) {
+    elements.configEditor.value = nextValue;
+  }
+  if (state.editorMode === "preview") {
+    renderMarkdownPreview();
+  }
+};
+
+const waitForMarkdownLibraries = () => {
+  return new Promise((resolve) => {
+    if (window.marked && window.DOMPurify) {
+      resolve(true);
+      return;
+    }
+    let attempts = 0;
+    const maxAttempts = 50; // 5秒超时
+    const checkInterval = setInterval(() => {
+      attempts++;
+      if (window.marked && window.DOMPurify) {
+        clearInterval(checkInterval);
+        resolve(true);
+      } else if (attempts >= maxAttempts) {
+        clearInterval(checkInterval);
+        resolve(false);
+      }
+    }, 100);
+  });
+};
+
+const configureMarked = () => {
+  if (!window.marked || markedConfigured) return;
+  window.marked.setOptions({
+    breaks: true,
+    gfm: true,
+  });
+  markedConfigured = true;
+};
+
+const renderMarkdownPreview = async () => {
+  if (state.editorMode !== "preview" || !elements.markdownPreviewBody) {
+    return;
+  }
+  if (previewRenderTimer) {
+    window.clearTimeout(previewRenderTimer);
+  }
+
+  // 显示加载状态
+  elements.markdownPreviewBody.innerHTML = `
+    <div class="flex items-center justify-center p-8">
+      <div class="text-sm text-gray-500 dark:text-gray-400">正在加载预览...</div>
+    </div>
+  `;
+
+  previewRenderTimer = window.setTimeout(async () => {
+    previewRenderTimer = null;
+
+    // 等待库加载
+    const librariesLoaded = await waitForMarkdownLibraries();
+
+    if (!librariesLoaded) {
+      const markdownText = getEditorContent();
+      console.warn("Markdown 渲染库未加载", {
+        marked: !!window.marked,
+        DOMPurify: !!window.DOMPurify
+      });
+      elements.markdownPreviewBody.innerHTML = `
+        <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+          <p class="text-sm text-yellow-800 dark:text-yellow-200 font-semibold mb-2">⚠️ Markdown 预览功能未就绪</p>
+          <p class="text-xs text-yellow-700 dark:text-yellow-300">marked.js 或 DOMPurify 库加载失败。请检查网络连接或浏览器控制台。</p>
+          <details class="mt-2">
+            <summary class="text-xs cursor-pointer text-yellow-600 dark:text-yellow-400">显示原始内容</summary>
+            <pre class="mt-2 text-xs bg-white dark:bg-gray-800 p-2 rounded overflow-auto max-h-96">${markdownText || "(空)"}</pre>
+          </details>
+        </div>
+      `;
+      return;
+    }
+
+    configureMarked();
+    const markdownText = getEditorContent();
+
+    try {
+      const rawHtml = window.marked.parse(markdownText ?? "");
+      const cleanHtml = window.DOMPurify.sanitize(rawHtml, MARKDOWN_SANITIZE_OPTIONS);
+      elements.markdownPreviewBody.innerHTML = cleanHtml;
+    } catch (error) {
+      console.error("Markdown 渲染失败", error);
+      elements.markdownPreviewBody.innerHTML =
+        '<p class="text-sm text-red-500">Markdown 渲染失败: ' + error.message + '</p>';
+    }
+  }, MARKDOWN_RENDER_DEBOUNCE);
+};
+
+const setModeToggleState = () => {
+  const isPreview = state.editorMode === "preview";
+
+  // 切换图标显示：编辑模式显示预览图标，预览模式显示编辑图标
+  if (elements.iconEditMode && elements.iconPreviewMode) {
+    if (isPreview) {
+      elements.iconEditMode.classList.add("hidden");
+      elements.iconPreviewMode.classList.remove("hidden");
+    } else {
+      elements.iconEditMode.classList.remove("hidden");
+      elements.iconPreviewMode.classList.add("hidden");
+    }
+  }
+
+  // 更新 tooltip 提示
+  if (elements.btnToggleEditorMode) {
+    elements.btnToggleEditorMode.setAttribute("data-tooltip", isPreview ? "编辑" : "预览");
+    elements.btnToggleEditorMode.setAttribute("aria-label", isPreview ? "切换到编辑模式" : "切换到预览模式");
+  }
+};
+
+const toggleEditorMode = (mode) => {
+  if (!mode || (mode !== "edit" && mode !== "preview")) {
+    return;
+  }
+
+  // 更新状态（如果需要）
+  const stateChanged = state.editorMode !== mode;
+  if (stateChanged) {
+    state.editorMode = mode;
+    persistEditorMode(); // 保存模式状态到 localStorage
+  }
+
+  // 执行视图切换（即使状态相同也要执行，用于重启后恢复视图）
+  if (mode === "preview") {
+    elements.monacoEditorContainer?.classList.add("hidden");
+    elements.markdownPreview?.classList.remove("hidden");
+    elements.btnSaveConfig?.classList.add("hidden");  // 预览模式隐藏保存按钮
+    renderMarkdownPreview();
+  } else {
+    elements.markdownPreview?.classList.add("hidden");
+    elements.monacoEditorContainer?.classList.remove("hidden");
+    elements.btnSaveConfig?.classList.remove("hidden");  // 编辑模式显示保存按钮
+    if (state.monacoEditor) {
+      state.monacoEditor.layout();
+    }
+  }
+
+  // 更新按钮状态
+  setModeToggleState();
 };
 
 const bindTagDropdownEvents = () => {
@@ -421,6 +833,9 @@ const initResizer = () => {
     }
     leftPanel.style.width = `${state.splitRatio * 100}%`;
     rightPanel.style.width = `${(1 - state.splitRatio) * 100}%`;
+    if (state.monacoEditor) {
+      state.monacoEditor.layout();
+    }
   };
 
   const persistSplitRatio = () => {
@@ -505,6 +920,12 @@ const initResizer = () => {
 const initApp = async () => {
   // 初始化主题
   initTheme();
+  subscribeThemeChange(() => {
+    updateMonacoTheme();
+    if (state.editorMode === "preview") {
+      renderMarkdownPreview();
+    }
+  });
 
   // 添加主题切换按钮
   const themeContainer = document.getElementById("themeToggleContainer");
@@ -516,10 +937,13 @@ const initApp = async () => {
   cacheElements();
   initButtonTooltips();
   hydrateRecentTags();
+  hydrateEditorMode(); // 恢复上次的编辑/预览模式
   bindEvents();
+  toggleEditorMode(state.editorMode);
   initResizer();
   try {
     await withLoading(async () => {
+      await initMonacoEditor();
       await loadClients();
       await hydrateAppState();
       await loadPrompts();
@@ -578,6 +1002,7 @@ const loadConfigFile = async (clientId) => {
 
 const saveConfigFile = async ({ silent = false } = {}) => {
   if (!state.currentClientId) return false;
+  state.configContent = getEditorContent();
   try {
     await withLoading(async () => {
       await ConfigFileAPI.write(state.currentClientId, state.configContent);
@@ -618,11 +1043,7 @@ const applyPrompt = async (promptId) => {
     showToast("未找到提示词", "error");
     return;
   }
-  const editor = elements.configEditor;
-  if (!editor) return;
-  // 直接替换内容，而不是追加
-  editor.value = prompt.content;
-  state.configContent = prompt.content;
+  setEditorContent(prompt.content ?? "");
   const saved = await saveConfigFile({ silent: true });
   if (saved) {
     showToast(`已应用提示词「${prompt.name}」`, "success");
@@ -635,13 +1056,10 @@ const appendPrompt = async (promptId) => {
     showToast("未找到提示词", "error");
     return;
   }
-  const editor = elements.configEditor;
-  if (!editor) return;
-  // 追加内容到现有内容后面
-  const needsSpacer = editor.value.trim().length > 0;
-  const nextValue = `${editor.value}${needsSpacer ? "\n\n" : ""}${prompt.content}`;
-  editor.value = nextValue;
-  state.configContent = nextValue;
+  const currentValue = getEditorContent();
+  const needsSpacer = currentValue.trim().length > 0;
+  const nextValue = `${currentValue}${needsSpacer ? "\n\n" : ""}${prompt.content ?? ""}`;
+  setEditorContent(nextValue);
   const saved = await saveConfigFile({ silent: true });
   if (saved) {
     showToast(`已追加提示词「${prompt.name}」`, "success");
@@ -674,6 +1092,25 @@ const hydrateRecentTags = () => {
 const persistRecentTags = () => {
   try {
     localStorage.setItem(RECENT_TAGS_KEY, JSON.stringify(state.recentTags));
+  } catch {
+    // 忽略写入异常
+  }
+};
+
+const hydrateEditorMode = () => {
+  try {
+    const stored = localStorage.getItem(EDITOR_MODE_KEY);
+    if (stored === "edit" || stored === "preview") {
+      state.editorMode = stored;
+    }
+  } catch {
+    // 忽略读取异常，保持默认值
+  }
+};
+
+const persistEditorMode = () => {
+  try {
+    localStorage.setItem(EDITOR_MODE_KEY, state.editorMode);
   } catch {
     // 忽略写入异常
   }
@@ -1116,11 +1553,16 @@ const getActiveTags = () => {
 const getCurrentClient = () => state.clients.find((client) => client.id === state.currentClientId);
 
 const syncEditor = () => {
-  if (elements.configEditor) {
-    elements.configEditor.value = state.configContent;
+  if (state.monacoEditor && state.configContent !== state.monacoEditor.getValue()) {
+    state.monacoEditor.setValue(state.configContent ?? "");
+  } else if (elements.configEditor) {
+    elements.configEditor.value = state.configContent ?? "";
   }
   updateEditorAvailability();
   updateConfigFileName();
+  if (state.editorMode === "preview") {
+    renderMarkdownPreview();
+  }
 };
 
 const updateConfigFileName = () => {
@@ -1137,6 +1579,9 @@ const updateConfigFileName = () => {
 
 const updateEditorAvailability = () => {
   const hasClient = Boolean(getCurrentClient());
+  if (state.monacoEditor) {
+    state.monacoEditor.updateOptions({ readOnly: !hasClient });
+  }
   if (elements.configEditor) {
     elements.configEditor.disabled = !hasClient;
   }
