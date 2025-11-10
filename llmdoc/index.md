@@ -27,6 +27,7 @@
 ## 技术指南
 
 - [Tailwind CSS 集成指南](guides/tailwind-css-integration-guide.md): Tailwind CSS CLI 构建集成、自定义配置、构建流程和最佳实践
+- [Bun 包管理器迁移指南](guides/bun-migration-guide.md): 从 npm 迁移到 Bun 的完整指南，包含新工作流和性能优势
 - [无障碍开发指南](guides/accessibility-development-guide.md): ARIA 属性使用、键盘导航、屏幕阅读器支持
 - [性能优化指南](guides/performance-optimization-guide.md): 防抖节流、事件优化、内存管理
 

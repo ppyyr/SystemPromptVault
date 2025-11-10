@@ -85,8 +85,8 @@ graph LR
 ```
 
 **构建命令**:
-- `npm run build:css`: 生产构建（压缩、Tree Shaking）
-- `npm run watch:css`: 开发模式（实时监听文件变化）
+- `bun run build:css`: 生产构建（压缩、Tree Shaking）
+- `bun run watch:css`: 开发模式（实时监听文件变化）
 
 **Tauri 集成自动化构建**:
 
@@ -95,8 +95,8 @@ Tailwind CSS 构建已集成到 Tauri 的开发和生产构建流程中（`src-t
 ```json
 {
   "build": {
-    "beforeDevCommand": "npm run watch:css",
-    "beforeBuildCommand": "npm run build:css"
+    "beforeDevCommand": "bun run watch:css",
+    "beforeBuildCommand": "bun run build:css"
   }
 }
 ```

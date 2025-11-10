@@ -345,7 +345,7 @@ module.exports = {
 1. **darkMode 配置**: `tailwind.config.js` 必须设置 `darkMode: 'class'`
 2. **类名前缀**: 所有暗色样式必须使用 `dark:` 前缀（如 `dark:bg-gray-800`）
 3. **双系统并存**: CSS 变量系统（`main.css`）和 Tailwind darkMode 同时生效
-4. **构建要求**: 修改 Tailwind 样式后需重新构建 CSS（`npm run build:css`）
+4. **构建要求**: 修改 Tailwind 样式后需重新构建 CSS（`bun run build:css`）
 5. **优先级冲突**: Tailwind utility 类优先级高,需使用 `!important` 覆盖
 
 ### CSS 变量系统注意事项

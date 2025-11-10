@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.example.systemprompt-vault",
   "build": {
-    "beforeBuildCommand": "npm run build:css",
-    "beforeDevCommand": "npm run watch:css",
+    "beforeBuildCommand": "bun run build:css",
+    "beforeDevCommand": "bun run watch:css",
     "frontendDist": "../dist"
   },
   "app": {

@@ -101,7 +101,7 @@ module.exports = {
 }
 ```
 
-#### NPM 构建脚本
+#### Bun 构建脚本
 
 **文件路径**: `package.json`
 
@@ -109,9 +109,13 @@ module.exports = {
 {
   "scripts": {
     "build:css": "tailwindcss -i ./dist/css/tailwind.css -o ./dist/css/output.css --minify",
-    "watch:css": "tailwindcss -i ./dist/css/tailwind.css -o ./dist/css/output.css --watch"
+    "watch:css": "tailwindcss -i ./dist/css/tailwind.css -o ./dist/css/output.css --watch",
+    "tauri:dev": "cargo tauri dev",
+    "tauri:build": "cargo tauri build"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.19",
+    "@tauri-apps/cli": "^2.9.4",
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.17"
@@ -170,7 +174,7 @@ sequenceDiagram
     participant PostCSS as PostCSS
     participant Output as output.css
 
-    Dev->>CLI: npm run build:css
+    Dev->>CLI: bun run build:css
     CLI->>Parser: 扫描 dist/**/*.{html,js}
     Parser->>Parser: 提取所有使用的类名
     Parser->>Generator: 传递类名列表
@@ -223,7 +227,7 @@ sequenceDiagram
 #### 开发模式（实时监听）
 
 ```bash
-npm run watch:css
+bun run watch:css
 ```
 
 **行为**: Tailwind CLI 监听 `dist/` 目录下的所有 HTML 和 JS 文件变化，自动重新编译 CSS。
@@ -231,7 +235,7 @@ npm run watch:css
 #### 生产构建（压缩输出）
 
 ```bash
-npm run build:css
+bun run build:css
 ```
 
 **行为**:
@@ -249,15 +253,15 @@ Tailwind CSS 构建流程已集成到 Tauri 开发和生产构建流程中：
 ```json
 {
   "build": {
-    "beforeDevCommand": "npm run watch:css",
-    "beforeBuildCommand": "npm run build:css"
+    "beforeDevCommand": "bun run watch:css",
+    "beforeBuildCommand": "bun run build:css"
   }
 }
 ```
 
 **行为说明**:
-- 执行 `cargo tauri dev` 时，自动启动 `npm run watch:css`，实时监听 CSS 变化
-- 执行 `cargo tauri build` 时，自动运行 `npm run build:css`，生成优化的生产版本 CSS
+- 执行 `bun run tauri:dev` 时，自动启动 `bun run watch:css`，实时监听 CSS 变化
+- 执行 `bun run tauri:build` 时，自动运行 `bun run build:css`，生成优化的生产版本 CSS
 - 开发者无需手动运行 CSS 构建命令，Tauri 会自动管理
 
 ### 2.7 自定义配置详解
@@ -401,7 +405,7 @@ theme: {
 ### 配置文件
 - `tailwind.config.js`: Tailwind CSS 主配置文件，定义主题扩展和内容扫描路径
 - `postcss.config.js`: PostCSS 配置，集成 Tailwind 和 Autoprefixer 插件
-- `package.json`: NPM 构建脚本定义（`build:css`, `watch:css`）
+- `package.json`: Bun 构建脚本定义（`build:css`, `watch:css`, `tauri:dev`, `tauri:build`）
 - `src-tauri/tauri.conf.json`: Tauri 应用配置，包含 CSS 构建钩子（`beforeDevCommand`, `beforeBuildCommand`）
 
 ### 样式源文件
@@ -426,7 +430,7 @@ theme: {
 1. **源文件管理**: `dist/css/tailwind.css` 是源文件，`dist/css/output.css` 是产物，不应手动编辑产物文件
 2. **内容扫描**: 确保所有使用 Tailwind 类的文件都在 `tailwind.config.js` 的 `content` 配置中
 3. **动态类名**: 避免使用动态拼接的类名（如 `bg-${color}-500`），Tailwind 无法静态提取
-4. **构建流程**: 开发时运行 `npm run watch:css`，生产构建时运行 `npm run build:css`
+4. **构建流程**: 开发时运行 `bun run watch:css`，生产构建时运行 `bun run build:css`
 
 ### 性能优化
 
@@ -447,7 +451,7 @@ theme: {
 1. **CDN 移除**: 已移除 Tailwind Play CDN，使用 CLI 构建
 2. **配置一致性**: `tailwind.config.js` 配置与原 CDN 内联配置保持一致
 3. **兼容性**: 保留 `main.css` 和 `components.css` 确保平滑过渡
-4. **依赖安装**: 确保安装 `tailwindcss`, `postcss`, `autoprefixer` 依赖
+4. **依赖安装**: 确保安装 `tailwindcss`, `postcss`, `autoprefixer` 依赖（使用 `bun add` 安装）
 
 ### 最佳实践
 
@@ -460,7 +464,7 @@ theme: {
 ### 常见问题
 
 1. **Q: 新增的类不生效？**
-   A: 确保运行了 `npm run watch:css` 或 `npm run build:css` 重新编译
+   A: 确保运行了 `bun run watch:css` 或 `bun run build:css` 重新编译
 
 2. **Q: 样式文件过大？**
    A: 检查 `content` 配置是否正确，确保只扫描实际使用 Tailwind 的文件
