@@ -25,6 +25,20 @@ Thumbs.db
 *.tmp
 .env
 
+# Backup files
+*.backup
+*.bak
+*~.nib
+*.orig
+*.rej
+
+# Editor temporary files
+flycheck*/
+*_flymake.*
+.#*
+*.swn
+*.swm
+
 # Application data (development)
 dist/.DS_Store
 
@@ -36,3 +50,19 @@ src-tauri/target/release/bundle/
 
 # Vite build outputs
 build/
+.vite/
+*.local
+
+# Tailwind CSS compiled output
+dist/css/output.css
+
+# Debug and profiling
+*.cpuprofile
+*.heapsnapshot
+
+# Certificates and keys (preventive)
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
