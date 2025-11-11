@@ -16,7 +16,6 @@ export const PromptAPI = {
   create: (name, content, tags) => call("create_prompt", { name, content, tags }),
   update: (id, name, content, tags) => call("update_prompt", { id, name, content, tags }),
   delete: (id) => call("delete_prompt", { id }),
-  duplicate: (id) => call("duplicate_prompt", { id }),
   exportPrompts: () => call("export_prompts"),
   importPrompts: (jsonData) => call("import_prompts", { jsonData }),
 };

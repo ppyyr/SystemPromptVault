@@ -3,7 +3,6 @@ use crate::storage::prompt_repository::PromptRepository;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use tauri::State;
 
@@ -116,30 +115,6 @@ pub fn delete_prompt(
     repo.delete(&id)
 }
 
-#[tauri::command]
-pub fn duplicate_prompt(
-    repository: State<'_, Arc<Mutex<PromptRepository>>>,
-    id: String,
-) -> Result<Prompt, String> {
-    let mut repo = lock_repo(&repository)?;
-    let original = repo
-        .get_by_id(&id)?
-        .ok_or_else(|| "未找到指定提示词".to_string())?;
-    let existing_names: HashSet<String> = repo
-        .get_all()?
-        .into_iter()
-        .map(|prompt| prompt.name)
-        .collect();
-    let duplicated_name = generate_duplicate_name(&original.name, &existing_names);
-    let duplicated_prompt = Prompt::new(
-        duplicated_name,
-        original.content.clone(),
-        original.tags.clone(),
-    );
-    let created = duplicated_prompt.clone();
-    repo.save(duplicated_prompt)?;
-    Ok(created)
-}
 
 #[tauri::command]
 pub fn export_prompts(
@@ -276,36 +251,4 @@ fn field_label(field: &str) -> &str {
     }
 }
 
-fn generate_duplicate_name(
-    original_name: &str,
-    existing_names: &HashSet<String>,
-) -> String {
-    let trimmed = original_name.trim();
-    let base = if trimmed.is_empty() {
-        "未命名提示词"
-    } else {
-        trimmed
-    };
-    let normalized_base = strip_duplicate_suffix(base);
-    let mut candidate = format!("{} (副本)", normalized_base);
-    let mut counter = 2;
-    while existing_names.contains(&candidate) {
-        candidate = format!("{} (副本 {})", normalized_base, counter);
-        counter += 1;
-    }
-    candidate
-}
 
-fn strip_duplicate_suffix(name: &str) -> String {
-    let trimmed = name.trim();
-    if let Some(without_paren) = trimmed.strip_suffix(')') {
-        if let Some(idx) = without_paren.rfind(" (副本") {
-            let suffix = &without_paren[idx + " (副本".len()..];
-            let trimmed_suffix = suffix.trim();
-            if trimmed_suffix.is_empty() || trimmed_suffix.parse::<u32>().is_ok() {
-                return without_paren[..idx].trim_end().to_string();
-            }
-        }
-    }
-    trimmed.to_string()
-}

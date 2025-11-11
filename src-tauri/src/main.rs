@@ -61,7 +61,6 @@ fn main() {
             commands::prompt::create_prompt,
             commands::prompt::update_prompt,
             commands::prompt::delete_prompt,
-            commands::prompt::duplicate_prompt,
             commands::prompt::export_prompts,
             commands::prompt::import_prompts,
             commands::client::get_all_clients,

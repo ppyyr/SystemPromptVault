@@ -17,6 +17,7 @@ const state = {
   prompts: [],
   clients: [],
   editingPromptId: null,
+  sourcePromptId: null,
   editingClientId: null,
   currentClientId: null,
   snapshotClientId: null,
@@ -417,7 +418,15 @@ const renderPromptTable = () => {
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h8a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2z" />
       </svg>
     `;
-    duplicateBtn.addEventListener("click", () => duplicatePrompt(prompt.id));
+    duplicateBtn.addEventListener("click", () => {
+      const prefillData = {
+        name: `${prompt.name} (副本)`,
+        content: prompt.content,
+        tags: prompt.tags,
+        sourcePromptId: prompt.id,
+      };
+      showPromptModal(null, "create", prefillData);
+    });
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
@@ -605,7 +614,7 @@ const syncClientSelectors = () => {
   });
 };
 
-const showPromptModal = (promptId = null, mode = null) => {
+const showPromptModal = (promptId = null, mode = null, prefillData = null) => {
   if (!elements.modalPrompt) return;
   const resolvedMode = mode ?? (promptId ? "edit" : "create");
   if (resolvedMode === "edit" && !promptId) {
@@ -613,6 +622,7 @@ const showPromptModal = (promptId = null, mode = null) => {
     return;
   }
   state.editingPromptId = resolvedMode === "edit" ? promptId : null;
+  state.sourcePromptId = prefillData?.sourcePromptId ?? null;
   elements.modalPromptTitle.textContent = resolvedMode === "edit" ? "编辑提示词" : "新建提示词";
   elements.formPrompt?.reset();
   if (resolvedMode === "edit") {
@@ -624,6 +634,19 @@ const showPromptModal = (promptId = null, mode = null) => {
     elements.inputPromptName.value = prompt.name;
     elements.inputPromptTags.value = prompt.tags?.join(", ") ?? "";
     elements.inputPromptContent.value = prompt.content;
+  } else if (resolvedMode === "create" && prefillData) {
+    if (typeof prefillData.name === "string") {
+      elements.inputPromptName.value = prefillData.name;
+    }
+    if (prefillData.tags) {
+      const tagsValue = Array.isArray(prefillData.tags)
+        ? prefillData.tags.join(", ")
+        : prefillData.tags;
+      elements.inputPromptTags.value = tagsValue ?? "";
+    }
+    if (typeof prefillData.content === "string") {
+      elements.inputPromptContent.value = prefillData.content;
+    }
   }
   toggleModal(elements.modalPrompt, true);
 };
@@ -631,6 +654,7 @@ const showPromptModal = (promptId = null, mode = null) => {
 const closePromptModal = () => {
   if (!elements.modalPrompt || elements.modalPrompt.classList.contains("hidden")) return;
   state.editingPromptId = null;
+  state.sourcePromptId = null;
   elements.formPrompt?.reset();
   toggleModal(elements.modalPrompt, false);
 };
@@ -677,10 +701,30 @@ const handlePromptSubmit = async (event) => {
       if (state.editingPromptId) {
         await PromptAPI.update(state.editingPromptId, name, content, tags);
       } else {
+        if (state.sourcePromptId) {
+          const sourcePrompt = state.prompts.find((item) => item.id === state.sourcePromptId);
+          if (sourcePrompt) {
+            const normalizeTags = (list) =>
+              [...(Array.isArray(list) ? list : [])]
+                .map((tag) => tag.trim())
+                .filter((tag) => tag)
+                .sort();
+            const sourceTags = normalizeTags(sourcePrompt.tags);
+            const newTags = normalizeTags(tags);
+            const tagsEqual =
+              sourceTags.length === newTags.length &&
+              sourceTags.every((tag, index) => tag === newTags[index]);
+            const contentEqual = (sourcePrompt.content ?? "").trim() === content;
+            if (contentEqual && tagsEqual) {
+              showToast("提示：内容与原提示词完全相同，请按需调整后再保存", "warning");
+            }
+          }
+        }
         await PromptAPI.create(name, content, tags);
       }
       await loadPrompts();
     });
+    state.sourcePromptId = null;
     showToast(state.editingPromptId ? "提示词已更新" : "提示词已创建", "success");
     closePromptModal();
   } catch (error) {
@@ -715,25 +759,6 @@ const handleClientSubmit = async (event) => {
     closeClientModal();
   } catch (error) {
     showToast(getErrorMessage(error) || "保存客户端失败", "error");
-  }
-};
-
-const duplicatePrompt = async (promptId) => {
-  if (!promptId) return;
-  try {
-    const duplicated = await withLoading(async () => {
-      const result = await PromptAPI.duplicate(promptId);
-      await loadPrompts();
-      return result;
-    });
-    if (!duplicated?.id) {
-      showToast("提示词已复制但未能进入编辑模式", "warning");
-      return;
-    }
-    showPromptModal(duplicated.id, "edit");
-    showToast("提示词已复制，已进入编辑模式", "success");
-  } catch (error) {
-    showToast(getErrorMessage(error) || "复制提示词失败", "error");
   }
 };
 
