@@ -17,7 +17,7 @@
 - [导入导出功能](features/import-export-functionality.md): 提示词批量导入导出、文件处理、数据验证
 - [客户端配置管理](features/client-configuration-management.md): 多客户端支持、配置文件读写、自动标签
 - [快照版本管理系统](features/snapshot-version-management.md): 配置文件快照、自动备份、System Tray集成、FIFO清理策略
-- [配置文件变化检测与重新加载](../docs/FILE_CHANGE_DETECTION.md): 文件监听、Toast提示、编辑器脏状态保护、自动重新加载
+- [配置文件变化检测与重新加载](features/config-file-change-detection.md): 实时文件监听、外部修改检测、Toast提示、冲突保护、双重保障机制
 
 ## 核心模块文档
 
@@ -25,9 +25,11 @@
 - [API 接口模块](modules/api-module.md): 前端 API 封装、错误处理、状态管理
 - [命令处理模块](modules/command-handling-module.md): Rust 端命令实现、参数验证、错误处理
 - [存储管理模块](modules/storage-module.md): JSON 数据存储、文件操作、数据持久化
+- [System Tray 模块](modules/system-tray-module.md): 系统托盘实现、菜单构建、快照恢复、事件处理、通知系统
 
 ## 技术指南
 
+- [Vite 构建配置指南](guides/vite-build-configuration.md): Vite构建系统、开发服务器、生产构建、legacy浏览器支持、Tauri集成
 - [Tailwind CSS 集成指南](guides/tailwind-css-integration-guide.md): Tailwind CSS CLI 构建集成、自定义配置、构建流程和最佳实践
 - [Bun 包管理器迁移指南](guides/bun-migration-guide.md): 从 npm 迁移到 Bun 的完整指南，包含新工作流和性能优势
 - [无障碍开发指南](guides/accessibility-development-guide.md): ARIA 属性使用、键盘导航、屏幕阅读器支持
@@ -45,6 +47,6 @@
 此目录包含由自动化工具生成的技术分析文档：
 - [agent/](agent/): 自动生成的代码分析、架构研究、技术实现指南
 
-**更新日期**: 2025-11-10
+**更新日期**: 2025-11-11
 **项目版本**: 0.1.0
 **维护者**: SystemPromptVault 开发团队

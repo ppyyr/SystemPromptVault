@@ -18,9 +18,7 @@
     <!-- 保留原有样式以确保平滑过渡 -->
     <link rel="stylesheet" href="css/main.css" />
     <link rel="stylesheet" href="css/components.css" />
-    <!-- 第三方库：marked.js (本地)、DOMPurify (本地) - 必须在 Monaco loader 之前加载 -->
-    <script src="js/vendor/marked.min.js"></script>
-    <script src="js/vendor/purify.min.js"></script>
+    <!-- 第三方库：marked.js、DOMPurify 通过 ES Modules 在 main.js 中导入 -->
     <!-- Monaco Editor (CDN) - 必须最后加载以避免 AMD define 冲突 -->
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js"></script>
   </head>

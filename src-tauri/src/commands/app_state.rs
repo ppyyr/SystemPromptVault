@@ -1,4 +1,4 @@
-use crate::models::AppState;
+use crate::models::{AppState, WindowState};
 use crate::utils::file_ops::atomic_write;
 use chrono::Utc;
 use std::fs;
@@ -27,6 +27,27 @@ pub fn set_current_client(client_id: String) -> Result<AppState, String> {
     state.last_updated_at = Utc::now();
     save_state(&state)?;
     Ok(state)
+}
+
+#[tauri::command]
+pub fn save_window_state(x: i32, y: i32, width: u32, height: u32) -> Result<(), String> {
+    if width == 0 || height == 0 {
+        return Err("窗口尺寸无效".to_string());
+    }
+    let mut state = load_state()?.unwrap_or_default();
+    state.window_state = Some(WindowState {
+        x,
+        y,
+        width,
+        height,
+    });
+    state.last_updated_at = Utc::now();
+    save_state(&state)
+}
+
+#[tauri::command]
+pub fn get_window_state() -> Result<Option<WindowState>, String> {
+    Ok(load_state()?.and_then(|state| state.window_state))
 }
 
 fn load_state() -> Result<Option<AppState>, String> {

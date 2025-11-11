@@ -406,6 +406,19 @@ const renderPromptTable = () => {
     `;
     editBtn.addEventListener("click", () => showPromptModal(prompt.id));
 
+    const duplicateBtn = document.createElement("button");
+    duplicateBtn.type = "button";
+    duplicateBtn.className = "btn-icon btn-icon-primary";
+    duplicateBtn.setAttribute("aria-label", "复制提示词");
+    duplicateBtn.setAttribute("data-tooltip", "复制");
+    duplicateBtn.innerHTML = `
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V5a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2h-4" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h8a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2z" />
+      </svg>
+    `;
+    duplicateBtn.addEventListener("click", () => duplicatePrompt(prompt.id));
+
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
     deleteBtn.className = "btn-icon btn-icon-primary";
@@ -419,6 +432,7 @@ const renderPromptTable = () => {
     deleteBtn.addEventListener("click", () => deletePrompt(prompt.id));
 
     actionsDiv.appendChild(editBtn);
+    actionsDiv.appendChild(duplicateBtn);
     actionsDiv.appendChild(deleteBtn);
     actionCell.appendChild(actionsDiv);
 
@@ -591,12 +605,17 @@ const syncClientSelectors = () => {
   });
 };
 
-const showPromptModal = (promptId = null) => {
+const showPromptModal = (promptId = null, mode = null) => {
   if (!elements.modalPrompt) return;
-  state.editingPromptId = promptId;
-  elements.modalPromptTitle.textContent = promptId ? "编辑提示词" : "新建提示词";
+  const resolvedMode = mode ?? (promptId ? "edit" : "create");
+  if (resolvedMode === "edit" && !promptId) {
+    showToast("未找到提示词", "error");
+    return;
+  }
+  state.editingPromptId = resolvedMode === "edit" ? promptId : null;
+  elements.modalPromptTitle.textContent = resolvedMode === "edit" ? "编辑提示词" : "新建提示词";
   elements.formPrompt?.reset();
-  if (promptId) {
+  if (resolvedMode === "edit") {
     const prompt = state.prompts.find((item) => item.id === promptId);
     if (!prompt) {
       showToast("未找到提示词", "error");
@@ -696,6 +715,25 @@ const handleClientSubmit = async (event) => {
     closeClientModal();
   } catch (error) {
     showToast(getErrorMessage(error) || "保存客户端失败", "error");
+  }
+};
+
+const duplicatePrompt = async (promptId) => {
+  if (!promptId) return;
+  try {
+    const duplicated = await withLoading(async () => {
+      const result = await PromptAPI.duplicate(promptId);
+      await loadPrompts();
+      return result;
+    });
+    if (!duplicated?.id) {
+      showToast("提示词已复制但未能进入编辑模式", "warning");
+      return;
+    }
+    showPromptModal(duplicated.id, "edit");
+    showToast("提示词已复制，已进入编辑模式", "success");
+  } catch (error) {
+    showToast(getErrorMessage(error) || "复制提示词失败", "error");
   }
 };
 

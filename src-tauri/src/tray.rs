@@ -18,6 +18,7 @@ const SNAPSHOT_MENU_PREFIX: &str = "restore_snapshot_";
 const SHOW_MAIN_WINDOW_MENU_ID: &str = "show_main_window";
 const QUIT_MENU_ID: &str = "quit";
 const SNAPSHOT_EVENT_NAME: &str = "tray://snapshot-restored";
+const CONFIG_RELOAD_SILENT_EVENT: &str = "config-reload-silent";
 
 pub type TrayResult<T> = Result<T, TrayError>;
 
@@ -154,7 +155,7 @@ fn restore_snapshot_from_menu<R: Runtime>(
     commands::config_file::write_config_file(client_state.clone(), client_id.to_string(), content)
         .map_err(TrayError::from)?;
 
-    // 主动通知监听器，避免托盘恢复后主窗口不同步
+    // 主动通知监听器，避免托盘恢复后主窗口不同步（静默刷新，不触发外部更改提示）
     let changed_path = {
         let repo = client_state
             .inner()
@@ -170,10 +171,10 @@ fn restore_snapshot_from_menu<R: Runtime>(
         let path_str = expanded_path.to_string_lossy().to_string();
 
         eprintln!(
-            "[Tray] Emitting config-file-changed event for path: {} (expanded from: {})",
+            "[Tray] Emitting config-reload-silent event for path: {} (expanded from: {})",
             path_str, path
         );
-        match app_handle.emit("config-file-changed", path_str) {
+        match app_handle.emit(CONFIG_RELOAD_SILENT_EVENT, path_str) {
             Ok(_) => eprintln!("[Tray] Event emitted successfully"),
             Err(e) => eprintln!("[Tray] Failed to emit event: {}", e),
         }

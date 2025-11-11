@@ -513,21 +513,25 @@ sequenceDiagram
 ## 3. Relevant Code Modules
 
 ### 后端核心模块
-- `src-tauri/src/models/snapshot.rs`: 快照数据模型定义 (第 1-45 行)
-- `src-tauri/src/storage/snapshot_repository.rs`: 快照仓库实现 (第 1-200 行)
-- `src-tauri/src/commands/snapshot.rs`: 快照命令处理 (第 1-90 行)
-- `src-tauri/src/tray.rs`: System Tray 菜单构建和事件处理 (第 1-300 行)
-- `src-tauri/src/main.rs`: 应用启动和托盘初始化 (第 23-70 行)
+- `src-tauri/src/models/snapshot.rs`: 快照数据模型定义
+- `src-tauri/src/storage/snapshot_repository.rs`: 快照仓库实现，包含FIFO清理策略和JSON持久化
+- `src-tauri/src/commands/snapshot.rs`: 快照Tauri命令接口，包含创建、获取、恢复、删除、重命名等操作
+- `src-tauri/src/tray.rs`: System Tray完整实现，包含菜单构建、事件处理、快照恢复、通知系统
+- `src-tauri/src/file_watcher.rs`: 文件监听器，用于检测配置文件外部变化
+- `src-tauri/src/commands/file_watcher.rs`: 文件监听Tauri命令接口
+- `src-tauri/src/main.rs`: 应用启动、状态管理、托盘初始化、命令注册
 
 ### 前端核心模块
-- `dist/js/api.js`: SnapshotAPI 封装 (第 64-74 行)
-- `dist/js/main.js`: 自动快照触发逻辑 (第 131-150, 986-1010, 1042-1070, 1075-1095 行)
-- `dist/js/settings.js`: 快照管理Tab和常规设置Tab (第 533-1100 行)
-- `dist/settings.html`: 设置页面HTML结构 (第 62-90, 212-244, 245-290 行)
+- `dist/js/api.js`: SnapshotAPI和ConfigFileAPI封装
+- `dist/js/main.js`: 自动快照触发逻辑、文件监听管理、编辑器脏状态跟踪
+- `dist/js/settings.js`: 快照管理界面、常规设置界面
+- `dist/settings.html`: 设置页面HTML结构
+- `dist/css/components.css`: UI组件样式，包含Toast、按钮等
 
 ### 配置文件
-- `src-tauri/Cargo.toml`: 依赖项配置 (第 25-26 行添加 `uuid`, `chrono`)
-- `src-tauri/tauri.conf.json`: Tauri 应用配置（已启用 tray-icon feature）
+- `src-tauri/Cargo.toml`: 依赖项配置（uuid, chrono, notify等）
+- `src-tauri/tauri.conf.json`: Tauri应用配置，包含完整的安全权限设置
+- `vite.config.js`: Vite构建配置，支持legacy浏览器和现代构建流程
 
 ## 4. Attention
 

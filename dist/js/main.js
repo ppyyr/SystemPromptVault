@@ -8,6 +8,11 @@ import {
   subscribeThemeChange,
 } from "./theme.js";
 import { listen } from "@tauri-apps/api/event";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+import { getCurrentWindow } from '@tauri-apps/api/window';
+
+const appWindow = getCurrentWindow();
 
 const state = {
   clients: [],
@@ -25,6 +30,8 @@ const state = {
   fileChangeToast: null,
   suppressEditorChange: false,
   fileChangeUnlisten: null,
+  silentReloadUnlisten: null,
+  isSavingInternally: false,
 };
 
 const elements = {};
@@ -566,37 +573,16 @@ const setEditorContent = (value) => {
   }
 };
 
-const waitForMarkdownLibraries = () => {
-  return new Promise((resolve) => {
-    if (window.marked && window.DOMPurify) {
-      resolve(true);
-      return;
-    }
-    let attempts = 0;
-    const maxAttempts = 50; // 5秒超时
-    const checkInterval = setInterval(() => {
-      attempts++;
-      if (window.marked && window.DOMPurify) {
-        clearInterval(checkInterval);
-        resolve(true);
-      } else if (attempts >= maxAttempts) {
-        clearInterval(checkInterval);
-        resolve(false);
-      }
-    }, 100);
-  });
-};
-
 const configureMarked = () => {
-  if (!window.marked || markedConfigured) return;
-  window.marked.setOptions({
+  if (markedConfigured) return;
+  marked.setOptions({
     breaks: true,
     gfm: true,
   });
   markedConfigured = true;
 };
 
-const renderMarkdownPreview = async () => {
+const renderMarkdownPreview = () => {
   if (state.editorMode !== "preview" || !elements.markdownPreviewBody) {
     return;
   }
@@ -611,37 +597,15 @@ const renderMarkdownPreview = async () => {
     </div>
   `;
 
-  previewRenderTimer = window.setTimeout(async () => {
+  previewRenderTimer = window.setTimeout(() => {
     previewRenderTimer = null;
-
-    // 等待库加载
-    const librariesLoaded = await waitForMarkdownLibraries();
-
-    if (!librariesLoaded) {
-      const markdownText = getEditorContent();
-      console.warn("Markdown 渲染库未加载", {
-        marked: !!window.marked,
-        DOMPurify: !!window.DOMPurify
-      });
-      elements.markdownPreviewBody.innerHTML = `
-        <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
-          <p class="text-sm text-yellow-800 dark:text-yellow-200 font-semibold mb-2">⚠️ Markdown 预览功能未就绪</p>
-          <p class="text-xs text-yellow-700 dark:text-yellow-300">marked.js 或 DOMPurify 库加载失败。请检查网络连接或浏览器控制台。</p>
-          <details class="mt-2">
-            <summary class="text-xs cursor-pointer text-yellow-600 dark:text-yellow-400">显示原始内容</summary>
-            <pre class="mt-2 text-xs bg-white dark:bg-gray-800 p-2 rounded overflow-auto max-h-96">${markdownText || "(空)"}</pre>
-          </details>
-        </div>
-      `;
-      return;
-    }
 
     configureMarked();
     const markdownText = getEditorContent();
 
     try {
-      const rawHtml = window.marked.parse(markdownText ?? "");
-      const cleanHtml = window.DOMPurify.sanitize(rawHtml, MARKDOWN_SANITIZE_OPTIONS);
+      const rawHtml = marked.parse(markdownText ?? "");
+      const cleanHtml = DOMPurify.sanitize(rawHtml, MARKDOWN_SANITIZE_OPTIONS);
       elements.markdownPreviewBody.innerHTML = cleanHtml;
     } catch (error) {
       console.error("Markdown 渲染失败", error);
@@ -1000,6 +964,7 @@ const initApp = async () => {
   bindEvents();
   toggleEditorMode(state.editorMode);
   initResizer();
+  await registerWindowStatePersistence();
   try {
     await withLoading(async () => {
       await initMonacoEditor();
@@ -1045,6 +1010,55 @@ const hydrateAppState = async () => {
   }
   if (!state.clients.some((client) => client.id === state.currentClientId)) {
     state.currentClientId = state.clients[0].id;
+  }
+};
+
+const persistWindowState = async () => {
+  if (!appWindow) return;
+  try {
+    const [position, size] = await Promise.all([
+      appWindow.outerPosition(),
+      appWindow.outerSize(),
+    ]);
+    if (!position || !size) {
+      return;
+    }
+    const x = Number.isFinite(position.x) ? Math.round(position.x) : 0;
+    const y = Number.isFinite(position.y) ? Math.round(position.y) : 0;
+    const width = Number.isFinite(size.width) ? Math.max(1, Math.round(size.width)) : 0;
+    const height = Number.isFinite(size.height) ? Math.max(1, Math.round(size.height)) : 0;
+    if (!width || !height) {
+      return;
+    }
+    await AppStateAPI.saveWindowState(x, y, width, height);
+  } catch (error) {
+    console.warn("[WindowState] 保存窗口状态失败:", error);
+  }
+};
+
+const registerWindowStatePersistence = async () => {
+  if (!appWindow?.onCloseRequested) return;
+  try {
+    await appWindow.onCloseRequested(async (event) => {
+      console.log("[WindowState] 关闭请求触发");
+      event.preventDefault();
+      console.log("[WindowState] 已阻止默认关闭行为");
+
+      console.log("[WindowState] 开始保存窗口状态...");
+      await persistWindowState();
+      console.log("[WindowState] 窗口状态保存完成");
+
+      console.log("[WindowState] 开始销毁窗口...");
+      try {
+        await appWindow.destroy();
+        console.log("[WindowState] 窗口销毁成功");
+      } catch (error) {
+        console.error("[WindowState] 关闭窗口失败:", error);
+      }
+    });
+    console.log("[WindowState] 窗口关闭事件监听器注册成功");
+  } catch (error) {
+    console.error("[WindowState] 注册窗口关闭事件失败:", error);
   }
 };
 
@@ -1132,7 +1146,26 @@ const reloadConfigFile = async () => {
   }
 };
 
+const reloadConfigSilently = async () => {
+  console.log("[ReloadSilent] Starting silent config reload...");
+  if (!state.currentClientId) {
+    console.warn("[ReloadSilent] No current client ID");
+    return;
+  }
+  const success = await loadConfigFile(state.currentClientId);
+  if (success) {
+    dismissFileChangeToast();
+    console.log("[ReloadSilent] Config reloaded silently");
+  } else {
+    console.warn("[ReloadSilent] Silent reload failed");
+  }
+};
+
 const handleConfigFileChanged = async () => {
+  if (state.isSavingInternally) {
+    console.log("[FileChange] Ignoring file change during internal save");
+    return;
+  }
   console.log(`[FileChange] Config file changed, editorDirty: ${state.editorDirty}`);
   dismissFileChangeToast();
   if (state.editorDirty) {
@@ -1162,24 +1195,45 @@ const handleConfigFileChanged = async () => {
 
 const listenToFileChanges = async () => {
   console.log("[FileWatcher] listenToFileChanges() called");
-  if (state.fileChangeUnlisten) {
+  const hasExternalListener = typeof state.fileChangeUnlisten === "function";
+  const hasSilentListener = typeof state.silentReloadUnlisten === "function";
+  if (hasExternalListener && hasSilentListener) {
     console.log("[FileWatcher] Already listening, skipping...");
     return;
   }
 
-  console.log("[FileWatcher] Registering config-file-changed listener...");
-  try {
-    state.fileChangeUnlisten = await listen("config-file-changed", async (event) => {
-      console.log("[FileWatcher] Config file changed:", event.payload);
-      try {
-        await handleConfigFileChanged();
-      } catch (error) {
-        console.warn("[FileWatcher] Failed to process config change:", error);
-      }
-    });
-    console.log("[FileWatcher] Listener registered successfully!");
-  } catch (error) {
-    console.error("[FileWatcher] Failed to register listener:", error);
+  if (!hasExternalListener) {
+    console.log("[FileWatcher] Registering config-file-changed listener...");
+    try {
+      state.fileChangeUnlisten = await listen("config-file-changed", async (event) => {
+        console.log("[FileWatcher] Config file changed:", event.payload);
+        try {
+          await handleConfigFileChanged();
+        } catch (error) {
+          console.warn("[FileWatcher] Failed to process config change:", error);
+        }
+      });
+      console.log("[FileWatcher] config-file-changed listener registered successfully!");
+    } catch (error) {
+      console.error("[FileWatcher] Failed to register config-file-changed listener:", error);
+    }
+  }
+
+  if (!hasSilentListener) {
+    console.log("[FileWatcher] Registering config-reload-silent listener...");
+    try {
+      state.silentReloadUnlisten = await listen("config-reload-silent", async (event) => {
+        console.log("[FileWatcher] Silent reload event received:", event.payload);
+        try {
+          await reloadConfigSilently();
+        } catch (error) {
+          console.warn("[FileWatcher] Failed to process silent reload:", error);
+        }
+      });
+      console.log("[FileWatcher] config-reload-silent listener registered successfully!");
+    } catch (error) {
+      console.error("[FileWatcher] Failed to register config-reload-silent listener:", error);
+    }
   }
 };
 
@@ -1188,6 +1242,10 @@ const cleanupFileChangeListener = () => {
     state.fileChangeUnlisten();
     state.fileChangeUnlisten = null;
   }
+  if (typeof state.silentReloadUnlisten === "function") {
+    state.silentReloadUnlisten();
+    state.silentReloadUnlisten = null;
+  }
 };
 
 const saveConfigFile = async ({ silent = false, createSnapshot = false } = {}) => {
@@ -1195,9 +1253,13 @@ const saveConfigFile = async ({ silent = false, createSnapshot = false } = {}) =
   const content = getEditorContent();
   state.configContent = content;
   try {
+    state.isSavingInternally = true;
     await withLoading(async () => {
       await ConfigFileAPI.write(state.currentClientId, state.configContent);
     });
+    setTimeout(() => {
+      state.isSavingInternally = false;
+    }, 300);
     state.editorDirty = false;
     if (!silent) {
       showToast("配置已保存", "success");
@@ -1219,6 +1281,7 @@ const saveConfigFile = async ({ silent = false, createSnapshot = false } = {}) =
     }
     return true;
   } catch (error) {
+    state.isSavingInternally = false;
     showToast(getErrorMessage(error) || "保存配置失败", "error");
     return false;
   }
@@ -1824,6 +1887,7 @@ const updateEditorAvailability = () => {
 const getErrorMessage = (error) => (typeof error === "string" ? error : error?.message);
 
 window.addEventListener("beforeunload", () => {
+  persistWindowState();
   stopFileWatcher();
   cleanupFileChangeListener();
 });

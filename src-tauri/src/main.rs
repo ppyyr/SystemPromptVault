@@ -8,6 +8,10 @@ use systemprompt_vault::storage::{
     snapshot_repository::SnapshotRepository,
 };
 use systemprompt_vault::{commands, tray};
+use tauri::{Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
+
+const DEFAULT_WINDOW_WIDTH: u32 = 1200;
+const DEFAULT_WINDOW_HEIGHT: u32 = 1200;
 
 fn main() {
     let data_dir = commands::ensure_app_dir().expect("初始化应用目录失败");
@@ -30,6 +34,11 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             tray::init_tray(app).map_err(|err| Box::<dyn std::error::Error>::from(err))?;
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(err) = restore_window_state(&window) {
+                    eprintln!("恢复窗口状态失败: {}", err);
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -52,6 +61,7 @@ fn main() {
             commands::prompt::create_prompt,
             commands::prompt::update_prompt,
             commands::prompt::delete_prompt,
+            commands::prompt::duplicate_prompt,
             commands::prompt::export_prompts,
             commands::prompt::import_prompts,
             commands::client::get_all_clients,
@@ -65,6 +75,8 @@ fn main() {
             commands::file_watcher::stop_watching_config,
             commands::app_state::get_app_state,
             commands::app_state::set_current_client,
+            commands::app_state::save_window_state,
+            commands::app_state::get_window_state,
             commands::snapshot::create_snapshot,
             commands::snapshot::get_snapshots,
             commands::snapshot::restore_snapshot,
@@ -75,4 +87,62 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("SystemPromptVault Tauri 运行失败");
+}
+
+fn restore_window_state(window: &WebviewWindow) -> Result<(), String> {
+    let saved = match commands::app_state::get_window_state()? {
+        Some(state) => state,
+        None => return Ok(()),
+    };
+
+    let desired_width = saved.width.max(1);
+    let desired_height = saved.height.max(1);
+    let monitors = window
+        .available_monitors()
+        .map_err(|err| format!("获取显示器信息失败: {}", err))?;
+
+    if is_rect_visible(saved.x, saved.y, desired_width, desired_height, &monitors) {
+        window
+            .set_size(PhysicalSize::new(desired_width, desired_height))
+            .map_err(|err| format!("设置窗口尺寸失败: {}", err))?;
+        window
+            .set_position(PhysicalPosition::new(saved.x, saved.y))
+            .map_err(|err| format!("设置窗口位置失败: {}", err))?;
+    } else {
+        window
+            .set_size(PhysicalSize::new(
+                DEFAULT_WINDOW_WIDTH,
+                DEFAULT_WINDOW_HEIGHT,
+            ))
+            .map_err(|err| format!("恢复默认窗口尺寸失败: {}", err))?;
+        window
+            .set_position(PhysicalPosition::new(0, 0))
+            .map_err(|err| format!("恢复默认窗口位置失败: {}", err))?;
+    }
+
+    Ok(())
+}
+
+fn is_rect_visible(x: i32, y: i32, width: u32, height: u32, monitors: &[tauri::Monitor]) -> bool {
+    if width == 0 || height == 0 {
+        return false;
+    }
+    let rect_left = x;
+    let rect_top = y;
+    let rect_right = x.saturating_add(width as i32);
+    let rect_bottom = y.saturating_add(height as i32);
+
+    monitors.iter().any(|monitor| {
+        let position = monitor.position();
+        let size = monitor.size();
+        let mon_left = position.x;
+        let mon_top = position.y;
+        let mon_right = mon_left.saturating_add(size.width as i32);
+        let mon_bottom = mon_top.saturating_add(size.height as i32);
+
+        rect_right > mon_left
+            && rect_left < mon_right
+            && rect_bottom > mon_top
+            && rect_top < mon_bottom
+    })
 }

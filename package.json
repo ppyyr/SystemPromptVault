@@ -31,6 +31,8 @@
     "vite": "^7.2.2"
   },
   "dependencies": {
-    "caniuse-lite": "^1.0.30001754"
+    "caniuse-lite": "^1.0.30001754",
+    "dompurify": "^3.3.0",
+    "marked": "^17.0.0"
   }
 }
