@@ -47,7 +47,7 @@ pub fn write_config_file(
     fs::write(&path, content).map_err(|e| format!("写入配置文件失败: {}", e))
 }
 
-fn expand_tilde(path: &str) -> PathBuf {
+pub(crate) fn expand_tilde(path: &str) -> PathBuf {
     if path.starts_with("~/") {
         if let Some(home) = dirs::home_dir() {
             if let Some(stripped) = path.strip_prefix("~/") {

@@ -16,6 +16,8 @@
 - [编辑器模式状态管理](features/editor-mode-state-management.md): 编辑器模式切换、状态同步修复、滚动容器约束、按钮可见性控制
 - [导入导出功能](features/import-export-functionality.md): 提示词批量导入导出、文件处理、数据验证
 - [客户端配置管理](features/client-configuration-management.md): 多客户端支持、配置文件读写、自动标签
+- [快照版本管理系统](features/snapshot-version-management.md): 配置文件快照、自动备份、System Tray集成、FIFO清理策略
+- [配置文件变化检测与重新加载](../docs/FILE_CHANGE_DETECTION.md): 文件监听、Toast提示、编辑器脏状态保护、自动重新加载
 
 ## 核心模块文档
 

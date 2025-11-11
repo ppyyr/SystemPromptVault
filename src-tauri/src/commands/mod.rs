@@ -2,8 +2,10 @@ pub mod app_state;
 pub mod backup;
 pub mod client;
 pub mod config_file;
+pub mod file_watcher;
 pub mod project;
 pub mod prompt;
+pub mod snapshot;
 pub mod template;
 
 pub use backup::{clean_old_backups, create_backup, list_backups, restore_backup, BackupManager};
@@ -39,7 +41,7 @@ pub(crate) fn normalize_project_path_str(path: &str) -> Result<PathBuf, String> 
     Ok(normalize_path(path))
 }
 
-pub(crate) fn ensure_app_dir() -> Result<PathBuf, String> {
+pub fn ensure_app_dir() -> Result<PathBuf, String> {
     let mut dir = dirs::data_dir().ok_or_else(|| "无法定位应用数据目录".to_string())?;
     dir.push(APP_DIR_NAME);
     fs::create_dir_all(&dir).map_err(|e| format!("创建应用目录失败: {}", e))?;

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>设置 - System Prompt Vault</title>
+    <title>Settings - System Prompt Vault</title>
     <!-- 防止主题闪烁 - 必须在页面渲染前执行 -->
     <script>
       (function() {
@@ -22,10 +22,10 @@
   <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-gray-100">
     <div class="min-h-screen mx-auto p-5 flex flex-col gap-6">
       <header class="flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">设置</h1>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
         <div class="flex items-center gap-2">
           <div id="themeToggleContainer"></div>
-          <a class="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200" href="index.html">主页</a>
+          <a class="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200" href="index.html">Back</a>
         </div>
       </header>
 
@@ -77,6 +77,24 @@
                   data-target="tabClients"
                 >
                   客户端管理
+                </button>
+                <button
+                  type="button"
+                  class="client-dropdown__option"
+                  role="option"
+                  aria-selected="false"
+                  data-target="tabGeneral"
+                >
+                  常规设置
+                </button>
+                <button
+                  type="button"
+                  class="client-dropdown__option"
+                  role="option"
+                  aria-selected="false"
+                  data-target="tabSnapshots"
+                >
+                  快照管理
                 </button>
               </div>
             </div>
@@ -183,6 +201,98 @@
                       </svg>
                       <p class="text-base font-medium text-gray-600 dark:text-gray-300">暂无客户端</p>
                       <p class="text-sm text-gray-500 dark:text-gray-400">点击"新增客户端"开始配置</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="flex flex-col gap-4 hidden" id="tabGeneral" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">常规设置</h2>
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            该设置会应用于所选客户端，可在下拉框中快速切换。
+          </p>
+          <form id="formGeneralSettings" class="flex flex-col gap-4">
+            <div class="form-group flex flex-col gap-2">
+              <label for="generalClientSelector" class="text-sm font-medium text-gray-700 dark:text-gray-300">选择客户端</label>
+              <select
+                id="generalClientSelector"
+                class="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">暂无客户端</option>
+              </select>
+            </div>
+            <div class="form-group flex flex-col gap-2">
+              <label for="inputMaxSnapshots" class="text-sm font-medium text-gray-700 dark:text-gray-300">最大快照保存数量</label>
+              <input
+                type="number"
+                id="inputMaxSnapshots"
+                min="1"
+                max="20"
+                value="5"
+                class="form-control w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <p class="form-help-text text-sm text-gray-500 dark:text-gray-400">
+                超过此数量时将自动删除最旧的快照（默认5个）
+              </p>
+            </div>
+            <button type="submit" class="btn-primary self-start px-4 py-2 rounded-md text-white">保存设置</button>
+          </form>
+        </section>
+
+        <section class="flex flex-col gap-4 hidden" id="tabSnapshots" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+          <div class="flex items-center justify-between flex-wrap gap-4">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">快照管理</h2>
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-gray-700 dark:text-gray-300" for="snapshotClientSelector">选择客户端：</label>
+              <select
+                id="snapshotClientSelector"
+                class="form-select w-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="选择客户端"
+              >
+                <option value="">暂无客户端</option>
+              </select>
+              <button
+                id="btnRefreshSnapshots"
+                class="btn-icon btn-icon-primary"
+                type="button"
+                aria-label="刷新快照列表"
+                data-tooltip="刷新快照列表"
+              >
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6M5 19A9 9 0 0019 5" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <table class="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">
+                    快照名称
+                  </th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">
+                    创建时间
+                  </th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">
+                    类型
+                  </th>
+                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody
+                id="snapshotTable"
+                class="bg-white dark:bg-gray-800 [&>tr]:border-b [&>tr]:border-gray-200 [&>tr]:dark:border-gray-700 [&>tr:hover]:bg-gray-50 dark:[&>tr:hover]:bg-gray-700"
+              >
+                <tr id="emptyStateSnapshot">
+                  <td colspan="4" class="px-4 py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+                    <div class="flex flex-col items-center gap-2" id="snapshotEmptyMessage">
+                      暂无快照
                     </div>
                   </td>
                 </tr>

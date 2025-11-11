@@ -1,5 +1,5 @@
-import { PromptAPI, ClientAPI, ConfigFileAPI, AppStateAPI } from "./api.js";
-import { showToast, showLoading, hideLoading } from "./utils.js";
+import { PromptAPI, ClientAPI, ConfigFileAPI, AppStateAPI, SnapshotAPI } from "./api.js";
+import { showToast, showLoading, hideLoading, showActionToast, showConfirm } from "./utils.js";
 import {
   initTheme,
   createThemeToggleButton,
@@ -7,6 +7,7 @@ import {
   getCurrentTheme,
   subscribeThemeChange,
 } from "./theme.js";
+import { listen } from "@tauri-apps/api/event";
 
 const state = {
   clients: [],
@@ -20,6 +21,10 @@ const state = {
   splitRatio: 0.5,
   editorMode: "edit",
   monacoEditor: null,
+  editorDirty: false,
+  fileChangeToast: null,
+  suppressEditorChange: false,
+  fileChangeUnlisten: null,
 };
 
 const elements = {};
@@ -128,6 +133,35 @@ const withLoading = async (task) => {
   }
 };
 
+const formatSnapshotName = (prefix = "自动快照") => {
+  const label = prefix?.trim() || "自动快照";
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  const formatted = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(
+    now.getHours()
+  )}:${pad(now.getMinutes())}`;
+  return `${label} ${formatted}`;
+};
+
+const createAutoSnapshot = async (clientId, content = "", prefix = "自动快照") => {
+  if (!clientId) {
+    throw new Error("缺少客户端 ID，无法创建自动快照");
+  }
+  const snapshotContent = typeof content === "string" ? content : content ?? "";
+  const name = formatSnapshotName(prefix);
+  await SnapshotAPI.create(clientId, name, snapshotContent, true);
+  await SnapshotAPI.refreshTrayMenu();
+  console.info(`[Snapshot] 自动快照已创建：${name} (client: ${clientId})`);
+  return name;
+};
+
+const handleEditorChange = () => {
+  if (state.suppressEditorChange) {
+    return;
+  }
+  state.editorDirty = true;
+};
+
 const cacheElements = () => {
   elements.clientDropdown = document.getElementById("clientDropdown");
   elements.clientDropdownToggle = document.getElementById("clientDropdownToggle");
@@ -162,6 +196,9 @@ const cacheElements = () => {
   elements.configSection = document.getElementById("configSection");
   elements.promptSection = document.getElementById("promptSection");
   elements.splitResizer = document.getElementById("splitResizer");
+  if (elements.configEditor) {
+    elements.configEditor.addEventListener("input", handleEditorChange);
+  }
 };
 
 const bindEvents = () => {
@@ -179,10 +216,19 @@ const bindEvents = () => {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeClientDropdown();
+      return;
+    }
+    const loweredKey = typeof event.key === "string" ? event.key.toLowerCase() : "";
+    const hasSaveModifier = event.metaKey || event.ctrlKey;
+    if (hasSaveModifier && loweredKey === "s") {
+      event.preventDefault();
+      const createSnapshot = Boolean(event.shiftKey);
+      saveConfigFile({ createSnapshot });
     }
   });
-  elements.btnSaveConfig?.addEventListener("click", () => {
-    saveConfigFile();
+  elements.btnSaveConfig?.addEventListener("click", (event) => {
+    const createSnapshot = Boolean(event.shiftKey);
+    saveConfigFile({ createSnapshot });
   });
   elements.btnToggleEditorMode?.addEventListener("click", () => {
     const nextMode = state.editorMode === "edit" ? "preview" : "edit";
@@ -440,6 +486,7 @@ const attachFallbackEditor = () => {
     if (state.editorMode === "preview") {
       renderMarkdownPreview();
     }
+    handleEditorChange();
   };
   textarea.addEventListener("input", fallbackEditorListener);
   showToast("编辑器加载失败，已切换到基础模式", "warning");
@@ -475,6 +522,7 @@ const initMonacoEditor = async () => {
       if (state.editorMode === "preview") {
         renderMarkdownPreview();
       }
+      handleEditorChange();
     });
     updateMonacoTheme();
     updateEditorAvailability();
@@ -494,11 +542,22 @@ const getEditorContent = () => {
   return state.configContent ?? "";
 };
 
+const runWithEditorSyncSuppressed = (task) => {
+  state.suppressEditorChange = true;
+  try {
+    task();
+  } finally {
+    state.suppressEditorChange = false;
+  }
+};
+
 const setEditorContent = (value) => {
   const nextValue = value ?? "";
   state.configContent = nextValue;
   if (state.monacoEditor && state.monacoEditor.getValue() !== nextValue) {
-    state.monacoEditor.setValue(nextValue);
+    runWithEditorSyncSuppressed(() => {
+      state.monacoEditor.setValue(nextValue);
+    });
   } else if (elements.configEditor) {
     elements.configEditor.value = nextValue;
   }
@@ -952,6 +1011,16 @@ const initApp = async () => {
     renderClientDropdown();
     renderTagFilter();
     renderPromptList();
+    if (state.currentClientId) {
+      try {
+        const content = await ConfigFileAPI.read(state.currentClientId);
+        await createAutoSnapshot(state.currentClientId, content ?? "", "启动时自动快照");
+      } catch (error) {
+        console.warn("创建启动快照失败:", error);
+      }
+    }
+    await listenToFileChanges();
+    await startFileWatcher(state.currentClientId);
   } catch (error) {
     showToast(getErrorMessage(error) || "初始化失败", "error");
   }
@@ -989,26 +1058,164 @@ const loadPrompts = async () => {
 };
 
 const loadConfigFile = async (clientId) => {
-  if (!clientId) return;
+  if (!clientId) return false;
+  let success = true;
   try {
+    console.log(`[LoadConfig] Reading config for client: ${clientId}`);
     const content = await ConfigFileAPI.read(clientId);
     state.configContent = content ?? "";
+    console.log(`[LoadConfig] Content loaded, length: ${state.configContent.length}`);
   } catch (error) {
+    success = false;
     state.configContent = "";
     showToast(getErrorMessage(error) || "读取配置文件失败", "error");
   }
+  console.log("[LoadConfig] Syncing editor...");
   syncEditor();
+  state.editorDirty = false;
+  console.log("[LoadConfig] Editor synced, dirty flag cleared");
+  return success;
 };
 
-const saveConfigFile = async ({ silent = false } = {}) => {
+const startFileWatcher = async (clientId) => {
+  if (!clientId) return;
+  const invoke = window.__TAURI_INTERNALS__?.invoke;
+  if (typeof invoke !== "function") {
+    return;
+  }
+  const client = state.clients.find((item) => item.id === clientId);
+  if (!client?.config_file_path) {
+    return;
+  }
+  try {
+    await invoke("start_watching_config", { filePath: client.config_file_path });
+    console.log(`[FileWatcher] Started watching: ${client.config_file_path}`);
+  } catch (error) {
+    console.warn("[FileWatcher] Failed to start watching:", error);
+  }
+};
+
+const stopFileWatcher = async () => {
+  const invoke = window.__TAURI_INTERNALS__?.invoke;
+  if (typeof invoke !== "function") {
+    return;
+  }
+  try {
+    await invoke("stop_watching_config");
+    console.log("[FileWatcher] Stopped watching");
+  } catch (error) {
+    console.warn("[FileWatcher] Failed to stop watching:", error);
+  }
+};
+
+const dismissFileChangeToast = () => {
+  if (state.fileChangeToast) {
+    state.fileChangeToast.remove();
+    state.fileChangeToast = null;
+  }
+};
+
+const reloadConfigFile = async () => {
+  console.log("[Reload] Starting config file reload...");
+  if (!state.currentClientId) {
+    console.warn("[Reload] No current client ID");
+    return;
+  }
+  const success = await loadConfigFile(state.currentClientId);
+  if (success) {
+    dismissFileChangeToast();
+    console.log("[Reload] Config reloaded successfully");
+    showToast("配置已重新加载", "success");
+  } else {
+    console.error("[Reload] Config reload failed");
+    showToast("重新加载失败", "error");
+  }
+};
+
+const handleConfigFileChanged = async () => {
+  console.log(`[FileChange] Config file changed, editorDirty: ${state.editorDirty}`);
+  dismissFileChangeToast();
+  if (state.editorDirty) {
+    console.log("[FileChange] Showing toast with confirmation (has unsaved changes)");
+    state.fileChangeToast = showActionToast(
+      "配置文件已在外部修改",
+      "重新加载",
+      async () => {
+        console.log("[FileChange] User clicked reload button (with unsaved changes)");
+        const confirmed = await showConfirm(
+          "配置文件已在外部修改，是否重新加载？（将丢失未保存的修改）"
+        );
+        console.log(`[FileChange] User confirmed: ${confirmed}`);
+        if (confirmed) {
+          await reloadConfigFile();
+        }
+      }
+    );
+  } else {
+    console.log("[FileChange] Showing toast (no unsaved changes)");
+    state.fileChangeToast = showActionToast("配置文件已更新", "重新加载", async () => {
+      console.log("[FileChange] User clicked reload button");
+      await reloadConfigFile();
+    });
+  }
+};
+
+const listenToFileChanges = async () => {
+  console.log("[FileWatcher] listenToFileChanges() called");
+  if (state.fileChangeUnlisten) {
+    console.log("[FileWatcher] Already listening, skipping...");
+    return;
+  }
+
+  console.log("[FileWatcher] Registering config-file-changed listener...");
+  try {
+    state.fileChangeUnlisten = await listen("config-file-changed", async (event) => {
+      console.log("[FileWatcher] Config file changed:", event.payload);
+      try {
+        await handleConfigFileChanged();
+      } catch (error) {
+        console.warn("[FileWatcher] Failed to process config change:", error);
+      }
+    });
+    console.log("[FileWatcher] Listener registered successfully!");
+  } catch (error) {
+    console.error("[FileWatcher] Failed to register listener:", error);
+  }
+};
+
+const cleanupFileChangeListener = () => {
+  if (typeof state.fileChangeUnlisten === "function") {
+    state.fileChangeUnlisten();
+    state.fileChangeUnlisten = null;
+  }
+};
+
+const saveConfigFile = async ({ silent = false, createSnapshot = false } = {}) => {
   if (!state.currentClientId) return false;
-  state.configContent = getEditorContent();
+  const content = getEditorContent();
+  state.configContent = content;
   try {
     await withLoading(async () => {
       await ConfigFileAPI.write(state.currentClientId, state.configContent);
     });
+    state.editorDirty = false;
     if (!silent) {
       showToast("配置已保存", "success");
+    }
+    if (createSnapshot) {
+      const name = prompt("请输入快照名称（留空取消）：");
+      const trimmedName = name?.trim();
+      if (trimmedName) {
+        try {
+          await SnapshotAPI.create(state.currentClientId, trimmedName, content ?? "", false);
+          await SnapshotAPI.refreshTrayMenu();
+          console.info(`[Snapshot] 手动快照已创建：${trimmedName} (client: ${state.currentClientId})`);
+          showToast(`快照「${trimmedName}」已创建`, "success");
+        } catch (error) {
+          console.warn("手动创建快照失败:", error);
+          showToast("创建快照失败", "error");
+        }
+      }
     }
     return true;
   } catch (error) {
@@ -1019,19 +1226,31 @@ const saveConfigFile = async ({ silent = false } = {}) => {
 
 const switchClient = async (clientId) => {
   if (clientId === state.currentClientId) return;
+  const previousClientId = state.currentClientId;
+  if (previousClientId) {
+    try {
+      const currentContent = getEditorContent();
+      await createAutoSnapshot(previousClientId, currentContent, "自动保存");
+    } catch (error) {
+      console.warn("切换客户端时保存快照失败:", error);
+    }
+  }
   state.currentClientId = clientId;
   state.selectedTags = [];
   state.tagSearchQuery = "";
+  dismissFileChangeToast();
   closeTagDropdown();
   closeClientDropdown();
   renderClientDropdown();
   renderTagFilter();
   renderPromptList();
   try {
+    await stopFileWatcher();
     await withLoading(async () => {
       await AppStateAPI.setCurrentClient(clientId);
       await loadConfigFile(clientId);
     });
+    await startFileWatcher(clientId);
   } catch (error) {
     showToast(getErrorMessage(error) || "切换客户端失败", "error");
   }
@@ -1553,14 +1772,26 @@ const getActiveTags = () => {
 const getCurrentClient = () => state.clients.find((client) => client.id === state.currentClientId);
 
 const syncEditor = () => {
-  if (state.monacoEditor && state.configContent !== state.monacoEditor.getValue()) {
-    state.monacoEditor.setValue(state.configContent ?? "");
+  if (state.monacoEditor) {
+    const currentValue = state.monacoEditor.getValue();
+    console.log(`[SyncEditor] Monaco editor current length: ${currentValue.length}, new length: ${state.configContent.length}`);
+    if (state.configContent !== currentValue) {
+      console.log("[SyncEditor] Updating Monaco editor value");
+      runWithEditorSyncSuppressed(() => {
+        state.monacoEditor.setValue(state.configContent ?? "");
+      });
+      console.log("[SyncEditor] Monaco editor updated");
+    } else {
+      console.log("[SyncEditor] Monaco editor content unchanged, skipping update");
+    }
   } else if (elements.configEditor) {
+    console.log(`[SyncEditor] Using fallback editor, length: ${state.configContent.length}`);
     elements.configEditor.value = state.configContent ?? "";
   }
   updateEditorAvailability();
   updateConfigFileName();
   if (state.editorMode === "preview") {
+    console.log("[SyncEditor] Rendering preview");
     renderMarkdownPreview();
   }
 };
@@ -1591,5 +1822,10 @@ const updateEditorAvailability = () => {
 };
 
 const getErrorMessage = (error) => (typeof error === "string" ? error : error?.message);
+
+window.addEventListener("beforeunload", () => {
+  stopFileWatcher();
+  cleanupFileChangeListener();
+});
 
 document.addEventListener("DOMContentLoaded", initApp);

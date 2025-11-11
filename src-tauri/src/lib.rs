@@ -1,11 +1,14 @@
 pub mod commands;
+pub mod file_watcher;
 pub mod models;
 pub mod storage;
+pub mod tray;
 pub mod utils;
 
 use std::sync::{Arc, Mutex};
 
 use commands::ensure_app_dir;
+use file_watcher::ConfigFileWatcher;
 use storage::client_repository::ClientRepository;
 use storage::prompt_repository::PromptRepository;
 
@@ -18,10 +21,12 @@ pub fn run() {
     let client_repository = Arc::new(Mutex::new(
         ClientRepository::new(data_dir).expect("初始化客户端存储失败"),
     ));
+    let file_watcher = Arc::new(Mutex::new(ConfigFileWatcher::new()));
 
     tauri::Builder::default()
         .manage(prompt_repository)
         .manage(client_repository)
+        .manage(file_watcher)
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::template::get_templates,
@@ -52,6 +57,8 @@ pub fn run() {
             commands::client::delete_client,
             commands::config_file::read_config_file,
             commands::config_file::write_config_file,
+            commands::file_watcher::start_watching_config,
+            commands::file_watcher::stop_watching_config,
             commands::app_state::get_app_state,
             commands::app_state::set_current_client
         ])

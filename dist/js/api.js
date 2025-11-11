@@ -1,29 +1,7 @@
-// 获取 Tauri invoke 函数
-const getInvoke = async () => {
-  // Tauri v2 使用 __TAURI_INTERNALS__
-  if (window.__TAURI_INTERNALS__) {
-    const { invoke } = window.__TAURI_INTERNALS__;
-    return invoke;
-  }
-
-  // 等待 Tauri 加载 (最多等待5秒)
-  const timeout = 5000;
-  const startTime = Date.now();
-
-  while (Date.now() - startTime < timeout) {
-    if (window.__TAURI_INTERNALS__) {
-      const { invoke } = window.__TAURI_INTERNALS__;
-      return invoke;
-    }
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-
-  throw new Error("Tauri API 加载超时");
-};
+import { invoke } from "@tauri-apps/api/core";
 
 const call = async (command, params = {}) => {
   try {
-    const invoke = await getInvoke();
     return await invoke(command, params);
   } catch (error) {
     console.error(`调用命令 ${command} 失败:`, error);
@@ -59,4 +37,16 @@ export const ConfigFileAPI = {
 export const AppStateAPI = {
   get: () => call("get_app_state"),
   setCurrentClient: (clientId) => call("set_current_client", { clientId }),
+};
+
+export const SnapshotAPI = {
+  create: (clientId, name, content, isAuto) =>
+    call("create_snapshot", { clientId, name, content, isAuto }),
+  getAll: (clientId) => call("get_snapshots", { clientId }),
+  restore: (clientId, snapshotId) => call("restore_snapshot", { clientId, snapshotId }),
+  delete: (clientId, snapshotId) => call("delete_snapshot", { clientId, snapshotId }),
+  rename: (clientId, snapshotId, newName) =>
+    call("rename_snapshot", { clientId, snapshotId, newName }),
+  setMaxSnapshots: (clientId, max) => call("set_max_snapshots", { clientId, max }),
+  refreshTrayMenu: () => call("refresh_tray_menu"),
 };

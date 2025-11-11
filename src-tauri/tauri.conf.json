@@ -4,9 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.example.systemprompt-vault",
   "build": {
-    "beforeBuildCommand": "bun run build:css",
-    "beforeDevCommand": "bun run watch:css",
-    "frontendDist": "../dist"
+    "beforeBuildCommand": "bun run build",
+    "beforeDevCommand": "bun run dev",
+    "frontendDist": "../build",
+    "devUrl": "http://localhost:1420"
   },
   "app": {
     "windows": [
@@ -14,10 +15,33 @@
         "label": "main",
         "title": "System Prompt Vault",
         "width": 1200,
-        "height": 800,
+        "height": 1200,
         "resizable": true
       }
-    ]
+    ],
+    "security": {
+      "capabilities": [
+        {
+          "identifier": "main-capability",
+          "description": "Main application capabilities",
+          "windows": ["main"],
+          "permissions": [
+            "core:default",
+            "core:event:default",
+            "core:event:allow-listen",
+            "core:event:allow-emit",
+            "core:window:default",
+            "core:window:allow-set-title",
+            "core:window:allow-close",
+            "core:webview:default",
+            "core:webview:allow-webview-position",
+            "core:webview:allow-webview-size",
+            "core:app:default",
+            "core:tray:default"
+          ]
+        }
+      ]
+    }
   },
   "bundle": {
     "active": true,
