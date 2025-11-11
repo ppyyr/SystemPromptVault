@@ -1259,7 +1259,7 @@ const saveConfigFile = async ({ silent = false, createSnapshot = false } = {}) =
     });
     setTimeout(() => {
       state.isSavingInternally = false;
-    }, 300);
+    }, 1000);
     state.editorDirty = false;
     if (!silent) {
       showToast("配置已保存", "success");
