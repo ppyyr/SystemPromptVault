@@ -35,7 +35,7 @@ const state = {
 };
 
 const elements = {};
-const TOOLTIP_DELAY = 500;
+const TOOLTIP_DELAY = 100;
 const TOOLTIP_HIDE_DELAY = 150;
 const SPLIT_RATIO_KEY = "splitRatio";
 const SPLIT_MIN_RATIO = 0.2;
@@ -44,10 +44,34 @@ const DESKTOP_BREAKPOINT = 1024;
 const RESIZER_HOVER_CLASSES = ["hover:bg-gray-400", "dark:hover:bg-gray-500"];
 const RESIZER_INACTIVE_CLASSES = ["bg-gray-300", "dark:bg-gray-600"];
 const RESIZER_ACTIVE_CLASSES = ["bg-primary"];
+const PROMPT_TOOLTIP_MIN_WIDTH = 300;
+const PROMPT_TOOLTIP_MIN_HEIGHT = 200;
+const TOOLTIP_VIEWPORT_PADDING = 12;
 const tooltipState = {
   activePromptId: null,
   anchorHovered: false,
   tooltipHovered: false,
+  isPinned: false,
+  manualPosition: null,
+  manualSize: null,
+  pendingPosition: null,
+  pendingSize: null,
+  dragFrameId: null,
+  resizeFrameId: null,
+  drag: {
+    active: false,
+    startX: 0,
+    startY: 0,
+    initialLeft: 0,
+    initialTop: 0,
+  },
+  resize: {
+    active: false,
+    startX: 0,
+    startY: 0,
+    initialWidth: 0,
+    initialHeight: 0,
+  },
 };
 const RECENT_TAGS_KEY = "tagFilterRecentTags";
 const EDITOR_MODE_KEY = "configEditorMode";
@@ -124,7 +148,11 @@ const scheduleTooltipShow = createDebounced(({ prompt, x, y }) => {
 }, TOOLTIP_DELAY);
 
 const scheduleTooltipHide = createDebounced(() => {
-  if (!tooltipState.anchorHovered && !tooltipState.tooltipHovered) {
+  if (
+    !tooltipState.isPinned &&
+    !tooltipState.anchorHovered &&
+    !tooltipState.tooltipHovered
+  ) {
     hidePromptTooltip();
   }
 }, TOOLTIP_HIDE_DELAY);
@@ -199,6 +227,9 @@ const cacheElements = () => {
   elements.promptTooltipTitle = elements.promptTooltip?.querySelector(".prompt-tooltip-title");
   elements.promptTooltipTags = elements.promptTooltip?.querySelector(".prompt-tooltip-tags");
   elements.promptTooltipContent = elements.promptTooltip?.querySelector(".prompt-tooltip-content");
+  elements.promptTooltipHeader = elements.promptTooltip?.querySelector(".prompt-tooltip-header");
+  elements.promptTooltipPinButton = elements.promptTooltip?.querySelector("[data-action=\"pin-tooltip\"]");
+  elements.promptTooltipResizeHandle = elements.promptTooltip?.querySelector(".prompt-tooltip-resize-handle");
   elements.splitContainer = document.getElementById("splitContainer");
   elements.configSection = document.getElementById("configSection");
   elements.promptSection = document.getElementById("promptSection");
@@ -222,6 +253,11 @@ const bindEvents = () => {
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      if (tooltipState.isPinned) {
+        togglePinTooltip(false);
+        hidePromptTooltip();
+        return;
+      }
       closeClientDropdown();
       return;
     }
@@ -244,6 +280,9 @@ const bindEvents = () => {
   document.addEventListener(
     "scroll",
     (event) => {
+      if (tooltipState.isPinned) {
+        return;
+      }
       const tooltip = elements.promptTooltip;
       if (tooltip && tooltip.contains(event.target)) {
         return;
@@ -253,7 +292,11 @@ const bindEvents = () => {
     true
   );
   window.addEventListener("resize", () => {
-    hidePromptTooltip();
+    if (tooltipState.isPinned) {
+      ensurePinnedTooltipInViewport();
+    } else {
+      hidePromptTooltip();
+    }
     if (state.monacoEditor) {
       state.monacoEditor.layout();
     }
@@ -264,7 +307,9 @@ const bindEvents = () => {
   });
   elements.promptTooltip?.addEventListener("mouseleave", () => {
     tooltipState.tooltipHovered = false;
-    scheduleTooltipHide();
+    if (!tooltipState.isPinned) {
+      scheduleTooltipHide();
+    }
   });
   bindTagDropdownEvents();
 };
@@ -958,6 +1003,7 @@ const initApp = async () => {
   }
 
   cacheElements();
+  bindPromptTooltipInteractions();
   initButtonTooltips();
   hydrateRecentTags();
   hydrateEditorMode(); // 恢复上次的编辑/预览模式
@@ -1728,28 +1774,330 @@ const createPromptActionButton = (type, label, handler) => {
 const attachPromptHoverHandlers = (element, prompt) => {
   element.addEventListener("mouseenter", (event) => {
     tooltipState.anchorHovered = true;
+    // 即使有固定的 tooltip,也允许显示新的悬停 tooltip
     scheduleTooltipHide.cancel();
     scheduleTooltipShow({ prompt, x: event.clientX, y: event.clientY });
   });
   element.addEventListener("mousemove", (event) => {
     tooltipState.anchorHovered = true;
+    // 只有当前显示的就是这个 prompt 且已固定时才阻止更新
+    const isCurrentPromptPinned = tooltipState.isPinned && tooltipState.activePromptId === prompt.id;
+    if (isCurrentPromptPinned) {
+      return;
+    }
+    // 只在 tooltip 还未显示时触发显示，显示后不再跟随鼠标
     if (!isPromptTooltipVisible(prompt.id)) {
       scheduleTooltipShow({ prompt, x: event.clientX, y: event.clientY });
     }
   });
   element.addEventListener("mouseleave", () => {
     tooltipState.anchorHovered = false;
-    scheduleTooltipShow.cancel();
-    scheduleTooltipHide();
+    // 固定状态下不隐藏 tooltip,因为用户可能在浏览其他提示词
+    if (!tooltipState.isPinned) {
+      scheduleTooltipShow.cancel();
+      scheduleTooltipHide();
+    }
   });
   element.addEventListener(
     "touchstart",
     () => {
+      tooltipState.anchorHovered = true;
+      // 触摸事件允许切换 tooltip
       scheduleTooltipShow.cancel();
-      hidePromptTooltip();
+      if (!tooltipState.isPinned) {
+        hidePromptTooltip();
+      }
     },
     { passive: true }
   );
+};
+
+const clampPinnedPosition = (left, top, width, height) => {
+  const padding = TOOLTIP_VIEWPORT_PADDING;
+  const maxLeft = Math.max(padding, window.innerWidth - width - padding);
+  const maxTop = Math.max(padding, window.innerHeight - height - padding);
+  return {
+    left: Math.min(Math.max(padding, left), maxLeft),
+    top: Math.min(Math.max(padding, top), maxTop),
+  };
+};
+
+const clampPinnedSize = (width, height, left, top) => {
+  const padding = TOOLTIP_VIEWPORT_PADDING;
+  const maxWidth = Math.max(PROMPT_TOOLTIP_MIN_WIDTH, window.innerWidth - left - padding);
+  const maxHeight = Math.max(PROMPT_TOOLTIP_MIN_HEIGHT, window.innerHeight - top - padding);
+  return {
+    width: Math.min(Math.max(PROMPT_TOOLTIP_MIN_WIDTH, width), maxWidth),
+    height: Math.min(Math.max(PROMPT_TOOLTIP_MIN_HEIGHT, height), maxHeight),
+  };
+};
+
+const schedulePinnedPositionUpdate = (left, top) => {
+  tooltipState.pendingPosition = { left, top };
+  if (tooltipState.dragFrameId) {
+    return;
+  }
+  tooltipState.dragFrameId = window.requestAnimationFrame(() => {
+    tooltipState.dragFrameId = null;
+    if (!tooltipState.pendingPosition) {
+      return;
+    }
+    const tooltip = elements.promptTooltip;
+    if (!tooltip) {
+      return;
+    }
+    const width = tooltipState.manualSize?.width || tooltip.offsetWidth;
+    const height = tooltipState.manualSize?.height || tooltip.offsetHeight;
+    const clamped = clampPinnedPosition(
+      tooltipState.pendingPosition.left,
+      tooltipState.pendingPosition.top,
+      width,
+      height
+    );
+    tooltipState.manualPosition = clamped;
+    tooltip.style.left = `${clamped.left}px`;
+    tooltip.style.top = `${clamped.top}px`;
+    tooltipState.pendingPosition = null;
+  });
+};
+
+const schedulePinnedSizeUpdate = (width, height) => {
+  tooltipState.pendingSize = { width, height };
+  if (tooltipState.resizeFrameId) {
+    return;
+  }
+  tooltipState.resizeFrameId = window.requestAnimationFrame(() => {
+    tooltipState.resizeFrameId = null;
+    if (!tooltipState.pendingSize) {
+      return;
+    }
+    const tooltip = elements.promptTooltip;
+    if (!tooltip) {
+      return;
+    }
+    const currentPosition =
+      tooltipState.manualPosition ?? (() => {
+        const rect = tooltip.getBoundingClientRect();
+        return { left: rect.left, top: rect.top };
+      })();
+    const clampedSize = clampPinnedSize(
+      tooltipState.pendingSize.width,
+      tooltipState.pendingSize.height,
+      currentPosition.left,
+      currentPosition.top
+    );
+    tooltipState.manualSize = clampedSize;
+    tooltip.style.width = `${clampedSize.width}px`;
+    tooltip.style.height = `${clampedSize.height}px`;
+    tooltipState.pendingSize = null;
+    const clampedPosition = clampPinnedPosition(
+      currentPosition.left,
+      currentPosition.top,
+      clampedSize.width,
+      clampedSize.height
+    );
+    tooltipState.manualPosition = clampedPosition;
+    tooltip.style.left = `${clampedPosition.left}px`;
+    tooltip.style.top = `${clampedPosition.top}px`;
+  });
+};
+
+const applyPinnedGeometry = () => {
+  if (!tooltipState.isPinned) {
+    return;
+  }
+  const tooltip = elements.promptTooltip;
+  if (!tooltip) {
+    return;
+  }
+  if (tooltipState.manualSize) {
+    tooltip.style.width = `${tooltipState.manualSize.width}px`;
+    tooltip.style.height = `${tooltipState.manualSize.height}px`;
+  }
+  if (tooltipState.manualPosition) {
+    const clampedPosition = clampPinnedPosition(
+      tooltipState.manualPosition.left,
+      tooltipState.manualPosition.top,
+      tooltipState.manualSize?.width || tooltip.offsetWidth,
+      tooltipState.manualSize?.height || tooltip.offsetHeight
+    );
+    tooltipState.manualPosition = clampedPosition;
+    tooltip.style.left = `${clampedPosition.left}px`;
+    tooltip.style.top = `${clampedPosition.top}px`;
+  }
+};
+
+const ensurePinnedTooltipInViewport = () => {
+  if (!tooltipState.isPinned) {
+    return;
+  }
+  const tooltip = elements.promptTooltip;
+  if (!tooltip) {
+    return;
+  }
+  const rect = tooltip.getBoundingClientRect();
+  const size = tooltipState.manualSize ?? { width: rect.width, height: rect.height };
+  const position = tooltipState.manualPosition ?? { left: rect.left, top: rect.top };
+  const clampedSize = clampPinnedSize(size.width, size.height, position.left, position.top);
+  tooltipState.manualSize = clampedSize;
+  const clampedPosition = clampPinnedPosition(
+    position.left,
+    position.top,
+    clampedSize.width,
+    clampedSize.height
+  );
+  tooltipState.manualPosition = clampedPosition;
+  tooltip.style.width = `${clampedSize.width}px`;
+  tooltip.style.height = `${clampedSize.height}px`;
+  tooltip.style.left = `${clampedPosition.left}px`;
+  tooltip.style.top = `${clampedPosition.top}px`;
+};
+
+const handleTooltipDragStart = (event) => {
+  if (event.button !== 0) {
+    return;
+  }
+  if (!tooltipState.isPinned || tooltipState.resize.active) {
+    return;
+  }
+  const isPinButton =
+    event.target instanceof Element && event.target.closest(".prompt-tooltip-pin-button");
+  if (isPinButton) {
+    return;
+  }
+  const tooltip = elements.promptTooltip;
+  if (!tooltip) {
+    return;
+  }
+  event.preventDefault();
+  tooltipState.drag.active = true;
+  tooltipState.drag.startX = event.clientX;
+  tooltipState.drag.startY = event.clientY;
+  const rect = tooltip.getBoundingClientRect();
+  tooltipState.drag.initialLeft = rect.left;
+  tooltipState.drag.initialTop = rect.top;
+  elements.promptTooltipHeader?.classList.add("is-dragging");
+};
+
+const handleTooltipResizeStart = (event) => {
+  if (event.button !== 0) {
+    return;
+  }
+  if (!tooltipState.isPinned || tooltipState.drag.active) {
+    return;
+  }
+  const tooltip = elements.promptTooltip;
+  if (!tooltip) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  tooltipState.resize.active = true;
+  tooltipState.resize.startX = event.clientX;
+  tooltipState.resize.startY = event.clientY;
+  const rect = tooltip.getBoundingClientRect();
+  tooltipState.resize.initialWidth = rect.width;
+  tooltipState.resize.initialHeight = rect.height;
+  tooltip.classList.add("is-resizing");
+};
+
+const handleTooltipPointerMove = (event) => {
+  if (tooltipState.drag.active) {
+    event.preventDefault();
+    const left = tooltipState.drag.initialLeft + (event.clientX - tooltipState.drag.startX);
+    const top = tooltipState.drag.initialTop + (event.clientY - tooltipState.drag.startY);
+    schedulePinnedPositionUpdate(left, top);
+    return;
+  }
+  if (tooltipState.resize.active) {
+    event.preventDefault();
+    const width = tooltipState.resize.initialWidth + (event.clientX - tooltipState.resize.startX);
+    const height = tooltipState.resize.initialHeight + (event.clientY - tooltipState.resize.startY);
+    schedulePinnedSizeUpdate(width, height);
+  }
+};
+
+const handleTooltipPointerUp = () => {
+  if (tooltipState.drag.active) {
+    tooltipState.drag.active = false;
+    elements.promptTooltipHeader?.classList.remove("is-dragging");
+  }
+  if (tooltipState.resize.active) {
+    tooltipState.resize.active = false;
+    elements.promptTooltip?.classList.remove("is-resizing");
+  }
+};
+
+document.addEventListener("mousemove", handleTooltipPointerMove);
+document.addEventListener("mouseup", handleTooltipPointerUp);
+
+const togglePinTooltip = (nextState) => {
+  const tooltip = elements.promptTooltip;
+  if (!tooltip) {
+    return;
+  }
+  const shouldPin =
+    typeof nextState === "boolean" ? nextState : !tooltipState.isPinned;
+  if (shouldPin === tooltipState.isPinned) {
+    return;
+  }
+  if (shouldPin && tooltip.classList.contains("hidden")) {
+    return;
+  }
+  tooltipState.isPinned = shouldPin;
+  tooltip.classList.toggle("is-pinned", shouldPin);
+  elements.promptTooltipHeader?.classList.toggle("is-draggable", shouldPin);
+  const pinButton = elements.promptTooltipPinButton;
+  if (pinButton) {
+    pinButton.setAttribute("aria-pressed", shouldPin ? "true" : "false");
+    pinButton.setAttribute(
+      "aria-label",
+      shouldPin ? "取消固定提示词" : "固定提示词"
+    );
+  }
+  if (shouldPin) {
+    const rect = tooltip.getBoundingClientRect();
+    // 锁定当前尺寸,避免CSS重新计算导致大小变化
+    tooltipState.manualSize = { width: rect.width, height: rect.height };
+    tooltipState.manualPosition = clampPinnedPosition(rect.left, rect.top, rect.width, rect.height);
+    tooltip.style.width = `${rect.width}px`;
+    tooltip.style.height = `${rect.height}px`;
+    tooltip.style.left = `${tooltipState.manualPosition.left}px`;
+    tooltip.style.top = `${tooltipState.manualPosition.top}px`;
+    tooltipState.pendingPosition = null;
+    tooltipState.pendingSize = null;
+    scheduleTooltipShow.cancel();
+    scheduleTooltipHide.cancel();
+  } else {
+    tooltipState.drag.active = false;
+    tooltipState.resize.active = false;
+    tooltipState.manualPosition = null;
+    tooltipState.manualSize = null;
+    tooltipState.pendingPosition = null;
+    tooltipState.pendingSize = null;
+    if (tooltipState.dragFrameId) {
+      cancelAnimationFrame(tooltipState.dragFrameId);
+      tooltipState.dragFrameId = null;
+    }
+    if (tooltipState.resizeFrameId) {
+      cancelAnimationFrame(tooltipState.resizeFrameId);
+      tooltipState.resizeFrameId = null;
+    }
+    tooltip.classList.remove("is-resizing");
+    elements.promptTooltipHeader?.classList.remove("is-dragging");
+    tooltip.style.width = "";
+    tooltip.style.height = "";
+  }
+  return tooltipState.isPinned;
+};
+
+const bindPromptTooltipInteractions = () => {
+  elements.promptTooltipPinButton?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    togglePinTooltip();
+  });
+  elements.promptTooltipHeader?.addEventListener("mousedown", handleTooltipDragStart);
+  elements.promptTooltipResizeHandle?.addEventListener("mousedown", handleTooltipResizeStart);
 };
 
 const isPromptTooltipVisible = (promptId) => {
@@ -1767,6 +2115,13 @@ const isPromptTooltipVisible = (promptId) => {
 const showPromptTooltip = (prompt, clientX, clientY) => {
   const tooltip = elements.promptTooltip;
   if (!tooltip) return;
+
+  // 如果当前 tooltip 已固定且是同一个 prompt,则不做任何操作
+  if (tooltipState.isPinned && tooltipState.activePromptId === prompt.id) {
+    return;
+  }
+
+  // 更新 tooltip 内容(包括固定状态下也可以更新)
   tooltipState.activePromptId = prompt.id;
   tooltip.dataset.promptId = String(prompt.id ?? "");
   if (elements.promptTooltipTitle) {
@@ -1794,12 +2149,17 @@ const showPromptTooltip = (prompt, clientX, clientY) => {
   }
   tooltip.classList.remove("hidden");
   tooltip.setAttribute("aria-hidden", "false");
-  positionPromptTooltip(clientX, clientY);
+
+  // 只有在未固定状态下才更新位置
+  if (!tooltipState.isPinned) {
+    positionPromptTooltip(clientX, clientY);
+  }
 };
 
 const hidePromptTooltip = () => {
   scheduleTooltipShow.cancel();
   scheduleTooltipHide.cancel();
+  togglePinTooltip(false);
   const tooltip = elements.promptTooltip;
   if (!tooltip) return;
   tooltip.classList.add("hidden");
@@ -1813,17 +2173,31 @@ const hidePromptTooltip = () => {
 const positionPromptTooltip = (clientX = 0, clientY = 0) => {
   const tooltip = elements.promptTooltip;
   if (!tooltip) return;
-  const offsetX = 18;
-  const offsetY = 10;
-  const padding = 12;
+  if (tooltipState.isPinned) {
+    applyPinnedGeometry();
+    return;
+  }
+  const offsetX = 24;
+  const offsetY = -8;
+  const padding = TOOLTIP_VIEWPORT_PADDING;
   const tooltipWidth = tooltip.offsetWidth;
   const tooltipHeight = tooltip.offsetHeight;
+
+  // 尝试在右侧显示
   let left = clientX + offsetX;
   let top = clientY + offsetY;
+
+  // 如果右侧空间不足，则显示在左侧
+  if (left + tooltipWidth + padding > window.innerWidth) {
+    left = clientX - tooltipWidth - offsetX;
+  }
+
+  // 确保在视口范围内
   const maxLeft = window.innerWidth - tooltipWidth - padding;
   const maxTop = window.innerHeight - tooltipHeight - padding;
   left = Math.min(Math.max(padding, left), Math.max(padding, maxLeft));
   top = Math.min(Math.max(padding, top), Math.max(padding, maxTop));
+
   tooltip.style.left = `${left}px`;
   tooltip.style.top = `${top}px`;
 };

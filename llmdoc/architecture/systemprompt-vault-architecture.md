@@ -46,7 +46,7 @@ graph TB
 ### 2.2 前端模块化架构
 
 - **`dist/js/main.js`**: 主应用模块，包含应用初始化、状态管理、UI 渲染
-- **`dist/js/settings.js`**: 设置页面模块，管理提示词和客户端的 CRUD 操作
+- **`dist/js/settings.js`**: 设置页面模块，管理提示词和客户端的 CRUD 操作、窗口生命周期管理、UI交互优化
 - **`dist/js/api.js`**: API 封装模块，统一处理 Tauri 命令调用
 - **`dist/js/theme.js`**: 主题管理模块，处理暗色/亮色主题切换
 - **`dist/js/utils.js`**: 工具函数模块，提供通用工具方法
@@ -253,7 +253,7 @@ const SPLIT_RATIO_KEY = "splitRatio";            // 分割比例持久化键
 
 ### 前端核心模块
 - `dist/js/main.js`: 主应用逻辑、状态管理、UI渲染、快照触发、文件监听管理
-- `dist/js/settings.js`: 设置页面管理、快照管理界面、模态框处理、表格渲染
+- `dist/js/settings.js`: 设置页面管理、窗口生命周期管理、UI交互优化、快照管理界面、模态框处理、表格渲染
 - `dist/js/theme.js`: 主题切换逻辑、状态持久化
 - `dist/js/api.js`: Tauri命令封装、错误处理、SnapshotAPI、ConfigFileAPI
 - `dist/js/utils.js`: 工具函数、Toast系统、ActionToast带按钮Toast

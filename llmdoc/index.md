@@ -18,6 +18,7 @@
 - [客户端配置管理](features/client-configuration-management.md): 多客户端支持、配置文件读写、自动标签
 - [快照版本管理系统](features/snapshot-version-management.md): 配置文件快照、自动备份、System Tray集成、FIFO清理策略
 - [配置文件变化检测与重新加载](features/config-file-change-detection.md): 实时文件监听、外部修改检测、Toast提示、冲突保护、托盘恢复优化机制
+- [设置页面窗口生命周期管理](features/settings-window-lifecycle-management.md): 设置页面窗口关闭事件处理、Tauri API集成、与主窗口行为一致性保证
 
 ## 核心模块文档
 
@@ -47,6 +48,6 @@
 此目录包含由自动化工具生成的技术分析文档：
 - [agent/](agent/): 自动生成的代码分析、架构研究、技术实现指南
 
-**更新日期**: 2025-11-11
+**更新日期**: 2025-11-12
 **项目版本**: 0.1.0
 **维护者**: SystemPromptVault 开发团队

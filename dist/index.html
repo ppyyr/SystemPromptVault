@@ -189,15 +189,30 @@
               </div>
             </div>
           </div>
-          <div class="flex-1 flex flex-col gap-3 overflow-y-auto pr-1" id="promptList"></div>
+          <div class="flex-1 flex flex-col gap-0 overflow-y-auto pr-1" id="promptList"></div>
         </section>
       </div>
     </div>
 
     <div id="promptTooltip" class="prompt-tooltip hidden" role="dialog" aria-live="polite" aria-hidden="true">
-      <h4 class="prompt-tooltip-title"></h4>
+      <div class="prompt-tooltip-header" aria-live="off">
+        <h4 class="prompt-tooltip-title"></h4>
+        <button
+          type="button"
+          class="prompt-tooltip-pin-button"
+          aria-label="固定提示词"
+          aria-pressed="false"
+          data-action="pin-tooltip"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 17v5" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+          </svg>
+        </button>
+      </div>
       <div class="prompt-tooltip-tags"></div>
       <pre class="prompt-tooltip-content"></pre>
+      <div class="prompt-tooltip-resize-handle" aria-hidden="true"></div>
     </div>
 
     <div id="toastContainer" class="fixed top-4 right-4 z-[1800] max-w-sm" role="status" aria-live="polite"></div>
