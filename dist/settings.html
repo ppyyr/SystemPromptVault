@@ -29,7 +29,7 @@
         </div>
       </header>
 
-      <main class="bg-white border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm flex flex-col gap-6" style="background: rgba(255, 255, 255, 0.95);">
+      <main class="bg-white border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm flex flex-col gap-6 flex-1" style="background: rgba(255, 255, 255, 0.95); min-height: 0;">
         <style>
           .dark main {
             background: rgba(15, 23, 42, 0.9) !important;
@@ -138,8 +138,8 @@
           </div>
         </div>
 
-        <section class="flex flex-col gap-4" id="tabPrompts" role="tabpanel" aria-labelledby="settingsDropdownToggle">
-          <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <section class="flex flex-col gap-4 flex-1" style="min-height: 0;" id="tabPrompts" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+          <div class="settings-table-container">
             <table class="w-full border-collapse">
               <thead>
                 <tr>
@@ -166,7 +166,7 @@
           </div>
         </section>
 
-        <section class="flex flex-col gap-4 hidden" id="tabClients" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+        <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabClients" role="tabpanel" aria-labelledby="settingsDropdownToggle">
           <div class="flex items-center justify-end gap-3 flex-wrap">
             <button
               class="btn-icon btn-icon-primary"
@@ -180,7 +180,7 @@
               </svg>
             </button>
           </div>
-          <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <div class="settings-table-container">
             <table class="w-full border-collapse">
               <thead>
                 <tr>
@@ -209,7 +209,7 @@
           </div>
         </section>
 
-        <section class="flex flex-col gap-4 hidden" id="tabGeneral" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+        <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabGeneral" role="tabpanel" aria-labelledby="settingsDropdownToggle">
           <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">常规设置</h2>
           <p class="text-sm text-gray-600 dark:text-gray-400">
             该设置会应用于所选客户端，可在下拉框中快速切换。
@@ -242,7 +242,7 @@
           </form>
         </section>
 
-        <section class="flex flex-col gap-4 hidden" id="tabSnapshots" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+        <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabSnapshots" role="tabpanel" aria-labelledby="settingsDropdownToggle">
           <div class="flex items-center justify-between flex-wrap gap-4">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">快照管理</h2>
             <div class="flex items-center gap-2">
@@ -267,7 +267,7 @@
               </button>
             </div>
           </div>
-          <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <div class="settings-table-container">
             <table class="w-full border-collapse">
               <thead>
                 <tr>

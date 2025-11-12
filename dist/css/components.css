@@ -264,3 +264,78 @@ button {
 .dark .btn-icon-secondary.is-active:hover {
   background: #1d4ed8;
 }
+
+/* ========================================
+   设置页面表格滚动容器样式
+   ======================================== */
+
+/* 表格外层容器 - 限制高度并添加滚动 */
+.settings-table-container {
+  flex: 1 1 0; /* 允许容器伸缩并占满剩余空间 */
+  min-height: 0; /* 允许收缩到小于内容高度 */
+  overflow-y: auto; /* 仅垂直方向滚动 */
+  overflow-x: hidden; /* 水平方向隐藏 */
+  border: 1px solid #e5e7eb; /* 边框颜色 */
+  border-radius: 0.5rem; /* 圆角 */
+}
+
+.dark .settings-table-container {
+  border-color: #374151; /* 暗色模式边框 */
+}
+
+/* 表格滚动时保持header固定 */
+.settings-table-container table {
+  width: 100%;
+  border-collapse: collapse;
+  position: relative;
+}
+
+/* 固定表头 */
+.settings-table-container thead {
+  position: sticky;
+  top: 0;
+  z-index: 10; /* 确保header在tbody之上 */
+  background: #f3f4f6; /* 亮色模式背景 */
+}
+
+.dark .settings-table-container thead {
+  background: #374151; /* 暗色模式背景 */
+}
+
+/* 表头单元格样式 */
+.settings-table-container thead th {
+  position: sticky;
+  top: 0;
+  background: inherit; /* 继承父元素背景 */
+}
+
+/* 滚动条样式优化 */
+.settings-table-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-table-container::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 0.5rem;
+}
+
+.dark .settings-table-container::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.settings-table-container::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 0.5rem;
+}
+
+.dark .settings-table-container::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
+.settings-table-container::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.dark .settings-table-container::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}

@@ -1,6 +1,7 @@
 import { PromptAPI, ClientAPI, SnapshotAPI, AppStateAPI } from "./api.js";
 import { showToast, showConfirm, showLoading, hideLoading, showPrompt } from "./utils.js";
 import { initTheme, createThemeToggleButton, updateThemeIcon } from "./theme.js";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const SNAPSHOT_LOAD_DEBOUNCE = 300;
 const DEFAULT_MAX_SNAPSHOTS = 5;
@@ -11,6 +12,7 @@ const TAB_LABEL_MAP = {
   tabSnapshots: "快照管理",
 };
 
+const appWindow = getCurrentWindow();
 const clampNumber = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const state = {
@@ -74,6 +76,31 @@ const withLoading = async (task) => {
     return await task();
   } finally {
     hideLoading();
+  }
+};
+
+// 监听窗口关闭事件，阻止默认行为并手动销毁窗口，确保设置页可通过标题栏按钮关闭
+const setupWindowCloseHandler = async () => {
+  if (!appWindow?.onCloseRequested) {
+    return;
+  }
+
+  try {
+    await appWindow.onCloseRequested(async (event) => {
+      console.log("[SettingsWindow] 关闭请求触发");
+      event.preventDefault();
+      console.log("[SettingsWindow] 已阻止默认关闭行为，开始销毁窗口");
+
+      try {
+        await appWindow.destroy();
+        console.log("[SettingsWindow] 窗口销毁成功");
+      } catch (error) {
+        console.error("[SettingsWindow] 关闭窗口失败:", error);
+      }
+    });
+    console.log("[SettingsWindow] 窗口关闭事件监听器注册成功");
+  } catch (error) {
+    console.error("[SettingsWindow] 注册窗口关闭事件失败:", error);
   }
 };
 
@@ -279,6 +306,7 @@ const initSettings = async () => {
     updateThemeIcon();
   }
 
+  await setupWindowCloseHandler();
   cacheElements();
   bindEvents();
   switchTab("tabPrompts");
