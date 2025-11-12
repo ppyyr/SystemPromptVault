@@ -241,11 +241,11 @@ fn validate_prompt_models(prompts: &[Prompt]) -> Result<(), String> {
 fn field_label(field: &str) -> &str {
     match field {
         "id" => "ID",
-        "name" => "名称",
-        "content" => "内容",
-        "tags" => "标签",
-        "created_at" => "创建时间",
-        "updated_at" => "更新时间",
+        "name" => "Name",
+        "content" => "Content",
+        "tags" => "Tags",
+        "created_at" => "Created Time",
+        "updated_at" => "Updated Time",
         _ => field,
     }
 }

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Settings - System Prompt Vault</title>
+    <title data-i18n="settings.title">Settings - System Prompt Vault</title>
     <!-- 防止主题闪烁 - 必须在页面渲染前执行 -->
     <script>
       (function() {
@@ -22,10 +22,16 @@
   <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-gray-100">
     <div class="min-h-screen mx-auto p-5 flex flex-col gap-6">
       <header class="flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white" data-i18n="settings.header">Settings</h1>
         <div class="flex items-center gap-2">
           <div id="themeToggleContainer"></div>
-          <a class="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200" href="index.html">Back</a>
+          <a
+            class="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+            href="index.html"
+            data-i18n="common.back"
+          >
+            Back
+          </a>
         </div>
       </header>
 
@@ -45,9 +51,10 @@
               aria-haspopup="listbox"
               aria-expanded="false"
               aria-controls="settingsDropdownPanel"
-              aria-label="选择设置类型"
+              aria-label="Select settings type"
+              data-i18n-aria="settings.dropdownAria"
             >
-              <span class="client-dropdown__label" id="settingsDropdownLabel">提示词管理</span>
+              <span class="client-dropdown__label" id="settingsDropdownLabel" data-i18n="settings.promptTab">Prompt Management</span>
               <svg class="client-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path>
               </svg>
@@ -56,7 +63,8 @@
               class="client-dropdown__panel"
               id="settingsDropdownPanel"
               role="listbox"
-              aria-label="设置类型列表"
+              aria-label="Settings type list"
+              data-i18n-aria="settings.dropdownListAria"
               aria-hidden="true"
             >
               <div class="client-dropdown__list" id="settingsDropdownList">
@@ -66,8 +74,9 @@
                   role="option"
                   aria-selected="true"
                   data-target="tabPrompts"
+                  data-i18n="settings.promptTab"
                 >
-                  提示词管理
+                  Prompt Management
                 </button>
                 <button
                   type="button"
@@ -75,8 +84,9 @@
                   role="option"
                   aria-selected="false"
                   data-target="tabClients"
+                  data-i18n="settings.clientTab"
                 >
-                  客户端管理
+                  Client Management
                 </button>
                 <button
                   type="button"
@@ -84,8 +94,19 @@
                   role="option"
                   aria-selected="false"
                   data-target="tabGeneral"
+                  data-i18n="settings.generalTab"
                 >
-                  常规设置
+                  General Settings
+                </button>
+                <button
+                  type="button"
+                  class="client-dropdown__option"
+                  role="option"
+                  aria-selected="false"
+                  data-target="tabLanguage"
+                  data-i18n="settings.languageTab"
+                >
+                  Language Settings
                 </button>
                 <button
                   type="button"
@@ -93,8 +114,9 @@
                   role="option"
                   aria-selected="false"
                   data-target="tabSnapshots"
+                  data-i18n="settings.snapshotTab"
                 >
-                  快照管理
+                  Snapshot Management
                 </button>
               </div>
             </div>
@@ -105,8 +127,10 @@
               class="btn-icon btn-icon-primary"
               id="btnExportPrompts"
               type="button"
-              aria-label="导出提示词"
-              data-tooltip="导出提示词"
+              aria-label="Export Prompts"
+              data-tooltip="Export Prompts"
+              data-i18n-aria="settings.exportPrompts"
+              data-i18n-tooltip="settings.exportPrompts"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
@@ -116,8 +140,10 @@
               class="btn-icon btn-icon-primary"
               id="btnImportPrompts"
               type="button"
-              aria-label="导入提示词"
-              data-tooltip="导入提示词"
+              aria-label="Import Prompts"
+              data-tooltip="Import Prompts"
+              data-i18n-aria="settings.importPrompts"
+              data-i18n-tooltip="settings.importPrompts"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -128,8 +154,10 @@
               class="btn-icon btn-icon-primary"
               id="btnNewPrompt"
               type="button"
-              aria-label="新建提示词"
-              data-tooltip="新建提示词"
+              aria-label="New Prompt"
+              data-tooltip="New Prompt"
+              data-i18n-aria="settings.newPrompt"
+              data-i18n-tooltip="settings.newPrompt"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
@@ -138,20 +166,23 @@
           </div>
 
           <div class="flex items-center gap-2 flex-wrap hidden" id="snapshotActions">
-            <label class="text-sm text-gray-700 dark:text-gray-300" for="snapshotClientSelector">选择客户端：</label>
+            <label class="text-sm text-gray-700 dark:text-gray-300" for="snapshotClientSelector" data-i18n="settings.selectClientLabel">Select Client:</label>
             <select
               id="snapshotClientSelector"
               class="form-select w-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
-              aria-label="选择客户端"
+              aria-label="Select Client"
+              data-i18n-aria="settings.selectClient"
             >
-              <option value="">暂无客户端</option>
+              <option value="" data-i18n="settings.noClientsOption">No clients available</option>
             </select>
             <button
               id="btnRefreshSnapshots"
               class="btn-icon btn-icon-primary"
               type="button"
-              aria-label="刷新快照列表"
-              data-tooltip="刷新快照列表"
+              aria-label="Refresh Snapshots"
+              data-tooltip="Refresh Snapshots"
+              data-i18n-aria="settings.refreshSnapshots"
+              data-i18n-tooltip="settings.refreshSnapshots"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
@@ -165,10 +196,10 @@
             <table class="w-full border-collapse">
               <thead>
                 <tr>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">名称</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">标签</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">创建时间</th>
-                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]">操作</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.promptName">Name</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.promptTags">Tags</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.promptCreated">Created Time</th>
+                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]" data-i18n="settings.actions">Actions</th>
                 </tr>
               </thead>
               <tbody id="promptTable" class="bg-white dark:bg-gray-800 [&>tr]:border-b [&>tr]:border-gray-200 [&>tr]:dark:border-gray-700 [&>tr:hover]:bg-gray-50 dark:[&>tr:hover]:bg-gray-700">
@@ -178,8 +209,8 @@
                       <svg class="w-12 h-12 text-gray-300 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                       </svg>
-                      <p class="text-base font-medium text-gray-600 dark:text-gray-300">暂无提示词</p>
-                      <p class="text-sm text-gray-500 dark:text-gray-400">点击"新建提示词"开始创建</p>
+                      <p class="text-base font-medium text-gray-600 dark:text-gray-300" data-i18n="settings.promptEmptyTitle">No prompts yet</p>
+                      <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="settings.promptEmptyDesc">Click "New Prompt" to get started</p>
                     </div>
                   </td>
                 </tr>
@@ -193,12 +224,12 @@
             <table class="w-full border-collapse">
               <thead>
                 <tr>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">ID</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">名称</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">配置路径</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">自动Tag</th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">内置</th>
-                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]">操作</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.clientId">ID</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.clientName">Name</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.clientConfigPath">Config Path</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.clientAutoTag">Auto Tag</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.clientBuiltin">Built-in</th>
+                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]" data-i18n="settings.actions">Actions</th>
                 </tr>
               </thead>
               <tbody id="clientTable" class="bg-white dark:bg-gray-800 [&>tr]:border-b [&>tr]:border-gray-200 [&>tr]:dark:border-gray-700 [&>tr:hover]:bg-gray-50 dark:[&>tr:hover]:bg-gray-700">
@@ -208,8 +239,8 @@
                       <svg class="w-12 h-12 text-gray-300 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                       </svg>
-                      <p class="text-base font-medium text-gray-600 dark:text-gray-300">暂无客户端</p>
-                      <p class="text-sm text-gray-500 dark:text-gray-400">点击"新增客户端"开始配置</p>
+                      <p class="text-base font-medium text-gray-600 dark:text-gray-300" data-i18n="settings.clientEmptyTitle">No clients available</p>
+                      <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="settings.clientEmptyDesc">Click "Add Client" to start configuration</p>
                     </div>
                   </td>
                 </tr>
@@ -221,16 +252,16 @@
         <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabGeneral" role="tabpanel" aria-labelledby="settingsDropdownToggle">
           <form id="formGeneralSettings" class="flex flex-col gap-4">
             <div class="form-group flex flex-col gap-2">
-              <label for="generalClientSelector" class="text-sm font-medium text-gray-700 dark:text-gray-300">选择客户端</label>
+              <label for="generalClientSelector" class="text-sm font-medium text-gray-700 dark:text-gray-300" data-i18n="settings.selectClientLabel">Select Client</label>
               <select
                 id="generalClientSelector"
                 class="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">暂无客户端</option>
+                <option value="" data-i18n="settings.noClientsOption">No clients available</option>
               </select>
             </div>
             <div class="form-group flex flex-col gap-2">
-              <label for="inputMaxAutoSnapshots" class="text-sm font-medium text-gray-700 dark:text-gray-300">最大自动快照保存数量</label>
+              <label for="inputMaxAutoSnapshots" class="text-sm font-medium text-gray-700 dark:text-gray-300" data-i18n="settings.maxAutoSnapshots">Max Auto Snapshots</label>
               <input
                 type="number"
                 id="inputMaxAutoSnapshots"
@@ -239,12 +270,12 @@
                 value="3"
                 class="form-control w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
               />
-              <p class="form-help-text text-sm text-gray-500 dark:text-gray-400">
-                自动快照超过此数量时将自动删除最旧的（默认3个，包括启动时快照和切换客户端前快照）
+              <p class="form-help-text text-sm text-gray-500 dark:text-gray-400" data-i18n="settings.maxAutoSnapshotsHelp">
+                Auto snapshots exceeding this limit will be automatically deleted (default: 3, includes startup and client switch snapshots)
               </p>
             </div>
             <div class="form-group flex flex-col gap-2">
-              <label for="inputMaxManualSnapshots" class="text-sm font-medium text-gray-700 dark:text-gray-300">最大手动快照保存数量</label>
+              <label for="inputMaxManualSnapshots" class="text-sm font-medium text-gray-700 dark:text-gray-300" data-i18n="settings.maxManualSnapshots">Max Manual Snapshots</label>
               <input
                 type="number"
                 id="inputMaxManualSnapshots"
@@ -253,12 +284,59 @@
                 value="10"
                 class="form-control w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
               />
-              <p class="form-help-text text-sm text-gray-500 dark:text-gray-400">
-                手动快照（Shift+保存）超过此数量时将自动删除最旧的（默认10个）
+              <p class="form-help-text text-sm text-gray-500 dark:text-gray-400" data-i18n="settings.maxManualSnapshotsHelp">
+                Manual snapshots (Shift+Save) exceeding this limit will be automatically deleted (default: 10)
               </p>
             </div>
-            <button type="submit" class="btn-primary self-start px-4 py-2 rounded-md text-white">保存设置</button>
+            <button type="submit" class="btn-primary self-start px-4 py-2 rounded-md text-white" data-i18n="settings.saveGeneral">Save Settings</button>
           </form>
+        </section>
+
+        <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabLanguage" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+          <div class="flex flex-col gap-4">
+            <p class="text-sm text-gray-600 dark:text-gray-300" data-i18n="settings.languageDescription">
+              Choose your preferred interface language. Changes apply immediately and sync across windows.
+            </p>
+            <div class="grid gap-4 md:grid-cols-2" id="languageOptions">
+              <label
+                class="language-card flex items-start gap-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 cursor-pointer hover:border-primary transition-colors"
+                data-language="en"
+              >
+                <input
+                  type="radio"
+                  name="languageSetting"
+                  value="en"
+                  class="language-radio mt-1 text-primary focus:ring-primary"
+                />
+                <div class="language-card-body flex flex-col gap-1">
+                  <span class="language-name font-semibold" data-i18n="settings.languageEnglish">English</span>
+                  <p class="language-desc text-sm text-gray-600 dark:text-gray-300" data-i18n="settings.languageEnglishDesc">
+                    Use English for the entire interface.
+                  </p>
+                </div>
+              </label>
+              <label
+                class="language-card flex items-start gap-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 cursor-pointer hover:border-primary transition-colors"
+                data-language="zh"
+              >
+                <input
+                  type="radio"
+                  name="languageSetting"
+                  value="zh"
+                  class="language-radio mt-1 text-primary focus:ring-primary"
+                />
+                <div class="language-card-body flex flex-col gap-1">
+                  <span class="language-name font-semibold" data-i18n="settings.languageChinese">中文</span>
+                  <p class="language-desc text-sm text-gray-600 dark:text-gray-300" data-i18n="settings.languageChineseDesc">
+                    使用中文界面体验所有功能。
+                  </p>
+                </div>
+              </label>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400" data-i18n="settings.languageNote">
+              The application remembers your selection and keeps it in sync across windows.
+            </p>
+          </div>
         </section>
 
         <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabSnapshots" role="tabpanel" aria-labelledby="settingsDropdownToggle">
@@ -266,17 +344,17 @@
             <table class="w-full border-collapse">
               <thead>
                 <tr>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">
-                    快照名称
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.snapshotName">
+                    Snapshot Name
                   </th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">
-                    创建时间
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.snapshotCreated">
+                    Created Time
                   </th>
-                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">
-                    类型
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.snapshotType">
+                    Type
                   </th>
-                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]">
-                    操作
+                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]" data-i18n="settings.actions">
+                    Actions
                   </th>
                 </tr>
               </thead>
@@ -287,7 +365,7 @@
                 <tr id="emptyStateSnapshot">
                   <td colspan="4" class="px-4 py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
                     <div class="flex flex-col items-center gap-2" id="snapshotEmptyMessage">
-                      暂无快照
+                      <span data-i18n="settings.snapshotEmpty">No snapshots</span>
                     </div>
                   </td>
                 </tr>
@@ -308,37 +386,55 @@
     >
       <div class="bg-white dark:bg-gray-800 rounded-lg p-5 w-full max-w-[520px] shadow-xl flex flex-col gap-4">
         <div class="flex items-center justify-between gap-3">
-          <h3 id="modalPromptTitle" class="text-lg font-semibold text-gray-900 dark:text-white">新建提示词</h3>
+          <h3 id="modalPromptTitle" class="text-lg font-semibold text-gray-900 dark:text-white" data-i18n="settings.promptModalTitle">New Prompt</h3>
           <button type="button" class="text-2xl leading-none text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer" data-close-modal="modalPrompt">&times;</button>
         </div>
         <form id="formPrompt" class="flex flex-col gap-4" novalidate>
           <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
-            <span>名称</span>
-            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputPromptName" placeholder="输入提示词名称" required />
+            <span data-i18n="settings.promptName">Name</span>
+            <input
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              id="inputPromptName"
+              placeholder="Enter prompt name"
+              data-i18n-placeholder="settings.promptNamePlaceholder"
+              required
+            />
           </label>
           <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
-            <span>标签（用逗号或空格分隔）</span>
+            <span data-i18n="settings.promptTagsLabel">Tags (comma or space separated)</span>
             <input
               type="text"
               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               id="inputPromptTags"
-              placeholder="如：claude, system"
+              placeholder="claude, system"
+              data-i18n-placeholder="settings.promptTagsPlaceholder"
               list="tagSuggestions"
             />
           </label>
           <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
-            <span>内容</span>
+            <span data-i18n="settings.promptContent">Content</span>
             <textarea
               id="inputPromptContent"
               rows="8"
               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y min-h-[160px] font-mono text-sm"
-              placeholder="输入提示词内容"
+              placeholder="Enter prompt content"
+              data-i18n-placeholder="settings.promptContentPlaceholder"
               required
             ></textarea>
           </label>
           <div class="flex justify-end gap-3">
-            <button type="button" class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200" data-close-modal="modalPrompt">取消</button>
-            <button type="submit" class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors">保存</button>
+            <button
+              type="button"
+              class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200"
+              data-close-modal="modalPrompt"
+              data-i18n="common.cancel"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors" data-i18n="common.save">
+              Save
+            </button>
           </div>
         </form>
       </div>
@@ -354,29 +450,59 @@
     >
       <div class="bg-white dark:bg-gray-800 rounded-lg p-5 w-full max-w-[520px] shadow-xl flex flex-col gap-4">
         <div class="flex items-center justify-between gap-3">
-          <h3 id="modalClientTitle" class="text-lg font-semibold text-gray-900 dark:text-white">新建客户端</h3>
+          <h3 id="modalClientTitle" class="text-lg font-semibold text-gray-900 dark:text-white" data-i18n="settings.clientModalTitle">New Client</h3>
           <button type="button" class="text-2xl leading-none text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer" data-close-modal="modalClient">&times;</button>
         </div>
         <form id="formClient" class="flex flex-col gap-4" novalidate>
           <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
-            <span>ID</span>
-            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputClientId" placeholder="如：claude" required />
+            <span data-i18n="settings.clientId">ID</span>
+            <input
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              id="inputClientId"
+              placeholder="claude"
+              data-i18n-placeholder="settings.clientIdPlaceholder"
+              required
+            />
           </label>
           <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
-            <span>名称</span>
-            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputClientName" placeholder="客户端名称" required />
+            <span data-i18n="settings.clientName">Name</span>
+            <input
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              id="inputClientName"
+              placeholder="Client name"
+              data-i18n-placeholder="settings.clientNamePlaceholder"
+              required
+            />
           </label>
           <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
-            <span>配置文件路径</span>
-            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" id="inputClientPath" placeholder="~/.client/CONFIG.md" required />
+            <span data-i18n="settings.clientPath">Config Path</span>
+            <input
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              id="inputClientPath"
+              placeholder="~/.client/CONFIG.md"
+              data-i18n-placeholder="settings.clientPathPlaceholder"
+              required
+            />
           </label>
           <label class="flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-200">
             <input type="checkbox" class="w-4 h-4" id="inputClientAutoTag" />
-            <span>自动根据客户端ID过滤标签</span>
+            <span data-i18n="settings.clientAutoTagHint">Auto-filter tags by client ID</span>
           </label>
           <div class="flex justify-end gap-3">
-            <button type="button" class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200" data-close-modal="modalClient">取消</button>
-            <button type="submit" class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors">保存</button>
+            <button
+              type="button"
+              class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200"
+              data-close-modal="modalClient"
+              data-i18n="common.cancel"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors" data-i18n="common.save">
+              Save
+            </button>
           </div>
         </form>
       </div>
@@ -385,10 +511,17 @@
     <datalist id="tagSuggestions"></datalist>
 
     <div id="toastContainer" class="fixed top-4 right-4 z-[1800] max-w-sm" role="status" aria-live="polite"></div>
-    <div id="loadingOverlay" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 hidden" aria-hidden="true" role="alert" aria-label="正在处理">
+    <div
+      id="loadingOverlay"
+      class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 hidden"
+      aria-hidden="true"
+      role="alert"
+      aria-label="Processing"
+      data-i18n-aria="common.processing"
+    >
       <div class="bg-white dark:bg-gray-800 rounded-lg p-6 flex items-center gap-3">
         <div class="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
-        <span class="text-gray-900 dark:text-white">处理中...</span>
+        <span class="text-gray-900 dark:text-white" data-i18n="common.processingText">Processing...</span>
       </div>
     </div>
 

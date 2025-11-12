@@ -2,15 +2,17 @@ import { PromptAPI, ClientAPI, SnapshotAPI, AppStateAPI } from "./api.js";
 import { showToast, showConfirm, showLoading, hideLoading, showPrompt } from "./utils.js";
 import { initTheme, createThemeToggleButton, updateThemeIcon } from "./theme.js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { initI18n, t, setLanguage, getCurrentLanguage, applyTranslations, onLanguageChange } from "./i18n.js";
 
 const SNAPSHOT_LOAD_DEBOUNCE = 300;
 const DEFAULT_MAX_AUTO_SNAPSHOTS = 3;
 const DEFAULT_MAX_MANUAL_SNAPSHOTS = 10;
 const TAB_LABEL_MAP = {
-  tabPrompts: "提示词管理",
-  tabClients: "客户端管理",
-  tabGeneral: "常规设置",
-  tabSnapshots: "快照管理",
+  tabPrompts: () => t("settings.promptTab", "Prompt Management"),
+  tabClients: () => t("settings.clientTab", "Client Management"),
+  tabGeneral: () => t("settings.generalTab", "General Settings"),
+  tabLanguage: () => t("settings.languageTab", "Language Settings"),
+  tabSnapshots: () => t("settings.snapshotTab", "Snapshot Management"),
 };
 
 const appWindow = getCurrentWindow();
@@ -29,6 +31,7 @@ const state = {
   snapshotLoadTimer: null,
   generalMaxAutoSnapshots: DEFAULT_MAX_AUTO_SNAPSHOTS,
   generalMaxManualSnapshots: DEFAULT_MAX_MANUAL_SNAPSHOTS,
+  activeTabId: "tabPrompts",
 };
 
 const elements = {
@@ -72,6 +75,8 @@ const elements = {
   emptyStateSnapshot: null,
   snapshotEmptyMessage: null,
   btnRefreshSnapshots: null,
+  languageOptions: null,
+  languageRadios: [],
 };
 
 const withLoading = async (task) => {
@@ -150,6 +155,8 @@ const cacheElements = () => {
   elements.emptyStateSnapshot = document.getElementById("emptyStateSnapshot");
   elements.snapshotEmptyMessage = document.getElementById("snapshotEmptyMessage");
   elements.btnRefreshSnapshots = document.getElementById("btnRefreshSnapshots");
+  elements.languageOptions = document.getElementById("languageOptions");
+  elements.languageRadios = Array.from(document.querySelectorAll(".language-radio"));
 };
 
 const bindEvents = () => {
@@ -186,12 +193,13 @@ const bindEvents = () => {
   });
   elements.btnRefreshSnapshots?.addEventListener("click", () => {
     if (!state.snapshotClientId) {
-      showToast("暂无可用客户端", "warning");
+      showToast(t("toast.noClientsAvailable", "No clients available"), "warning");
       return;
     }
     loadSnapshotsTable(state.snapshotClientId, { silent: false });
   });
   elements.snapshotTable?.addEventListener("click", handleSnapshotActionClick);
+  elements.languageOptions?.addEventListener("change", handleLanguageSelectionChange);
   document.addEventListener("click", (event) => {
     if (elements.settingsDropdown && !elements.settingsDropdown.contains(event.target)) {
       closeSettingsDropdown();
@@ -217,6 +225,47 @@ const bindEvents = () => {
       closeSettingsDropdown();
     }
   });
+};
+
+const updateLanguageRadios = (selected = getCurrentLanguage()) => {
+  if (Array.isArray(elements.languageRadios)) {
+    elements.languageRadios.forEach((radio) => {
+      if (radio instanceof HTMLInputElement) {
+        radio.checked = radio.value === selected;
+      }
+    });
+  }
+  document.querySelectorAll(".language-card").forEach((card) => {
+    if (!(card instanceof HTMLElement)) return;
+    const isActive = card.dataset.language === selected;
+    card.classList.toggle("border-primary", isActive);
+    card.classList.toggle("ring-2", isActive);
+    card.classList.toggle("ring-primary/40", isActive);
+  });
+};
+
+const handleLanguageSelectionChange = async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement) || target.name !== "languageSetting") {
+    return;
+  }
+  const lang = target.value;
+  if (!lang || lang === getCurrentLanguage()) {
+    updateLanguageRadios();
+    return;
+  }
+  try {
+    await setLanguage(lang);
+    updateLanguageRadios(lang);
+    showToast(t("toast.languageUpdated", "Language updated"), "success");
+  } catch (error) {
+    console.error("[Language] Failed to change language:", error);
+    showToast(
+      getErrorMessage(error) || t("toast.languageUpdateFailed", "Failed to update language"),
+      "error"
+    );
+    updateLanguageRadios();
+  }
 };
 
 const initButtonTooltips = () => {
@@ -302,11 +351,18 @@ const initButtonTooltips = () => {
 };
 
 const initSettings = async () => {
+  try {
+    await initI18n();
+  } catch (error) {
+    console.error("[i18n] Initialization failed:", error);
+  }
+  applyTranslations(document);
+
   // 初始化主题
   initTheme();
 
   // 添加主题切换按钮
-  const themeContainer = document.getElementById('themeToggleContainer');
+  const themeContainer = document.getElementById("themeToggleContainer");
   if (themeContainer) {
     themeContainer.appendChild(createThemeToggleButton());
     updateThemeIcon();
@@ -315,7 +371,21 @@ const initSettings = async () => {
   await setupWindowCloseHandler();
   cacheElements();
   bindEvents();
-  switchTab("tabPrompts");
+  updateLanguageRadios();
+  switchTab(state.activeTabId);
+  initButtonTooltips();
+
+  onLanguageChange(() => {
+    applyTranslations(document);
+    updateLanguageRadios();
+    renderPromptTable();
+    renderClientTable();
+    const cachedSnapshots = state.snapshotCache[state.snapshotClientId]?.snapshots ?? [];
+    renderSnapshotTable(cachedSnapshots);
+    updateSettingsDropdownLabel(state.activeTabId);
+    initButtonTooltips();
+  });
+
   try {
     await withLoading(async () => {
       await loadPrompts();
@@ -324,7 +394,7 @@ const initSettings = async () => {
       await loadSnapshotClients();
     });
   } catch (error) {
-    showToast(getErrorMessage(error) || "初始化设置页失败", "error");
+    showToast(getErrorMessage(error) || t("toast.settingsInitFailed", "Failed to initialize settings"), "error");
   }
 };
 
@@ -335,7 +405,7 @@ const loadPrompts = async () => {
     renderPromptTable();
     updateTagSuggestions();
   } catch (error) {
-    throw new Error(getErrorMessage(error) || "加载提示词失败");
+    throw new Error(getErrorMessage(error) || t("errors.loadPromptsFailed", "Failed to load prompts"));
   }
 };
 
@@ -345,7 +415,7 @@ const loadClients = async () => {
     state.clients = Array.isArray(clients) ? clients : [];
     renderClientTable();
   } catch (error) {
-    throw new Error(getErrorMessage(error) || "加载客户端失败");
+    throw new Error(getErrorMessage(error) || t("errors.loadClientsFailed", "Failed to load clients"));
   }
 };
 
@@ -357,7 +427,11 @@ const hydrateAppState = async () => {
     }
   } catch (error) {
     if (state.clients.length) {
-      showToast(getErrorMessage(error) || "加载应用状态失败，已使用默认客户端", "warning");
+      showToast(
+        getErrorMessage(error) ||
+          t("toast.loadAppStateFailed", "Failed to load app state, using default client"),
+        "warning"
+      );
     }
   }
   if (!state.clients.some((client) => client.id === state.currentClientId)) {
@@ -432,8 +506,8 @@ const renderPromptTable = () => {
     const editBtn = document.createElement("button");
     editBtn.type = "button";
     editBtn.className = "btn-icon btn-icon-primary";
-    editBtn.setAttribute("aria-label", "编辑提示词");
-    editBtn.setAttribute("data-tooltip", "编辑");
+    editBtn.setAttribute("aria-label", t("prompts.editAction", "Edit prompt"));
+    editBtn.setAttribute("data-tooltip", t("prompts.edit", "Edit"));
     editBtn.innerHTML = `
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
@@ -444,8 +518,8 @@ const renderPromptTable = () => {
     const duplicateBtn = document.createElement("button");
     duplicateBtn.type = "button";
     duplicateBtn.className = "btn-icon btn-icon-primary";
-    duplicateBtn.setAttribute("aria-label", "复制提示词");
-    duplicateBtn.setAttribute("data-tooltip", "复制");
+    duplicateBtn.setAttribute("aria-label", t("prompts.duplicateAction", "Duplicate prompt"));
+    duplicateBtn.setAttribute("data-tooltip", t("prompts.duplicate", "Duplicate"));
     duplicateBtn.innerHTML = `
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V5a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2h-4" />
@@ -454,7 +528,7 @@ const renderPromptTable = () => {
     `;
     duplicateBtn.addEventListener("click", () => {
       const prefillData = {
-        name: `${prompt.name} (副本)`,
+        name: `${prompt.name} ${t("prompts.copySuffix", "(Copy)")}`,
         content: prompt.content,
         tags: prompt.tags,
         sourcePromptId: prompt.id,
@@ -465,8 +539,8 @@ const renderPromptTable = () => {
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
     deleteBtn.className = "btn-icon btn-icon-primary";
-    deleteBtn.setAttribute("aria-label", "删除提示词");
-    deleteBtn.setAttribute("data-tooltip", "删除");
+    deleteBtn.setAttribute("aria-label", t("prompts.deleteAction", "Delete prompt"));
+    deleteBtn.setAttribute("data-tooltip", t("prompts.delete", "Delete"));
     deleteBtn.innerHTML = `
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -534,11 +608,13 @@ const renderClientTable = () => {
 
     const autoTagCell = document.createElement("td");
     autoTagCell.className = "px-4 py-3 text-sm text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700";
-    autoTagCell.textContent = client.auto_tag ? "是" : "否";
+    autoTagCell.textContent = client.auto_tag
+      ? t("common.yes", "Yes")
+      : t("common.no", "No");
 
     const builtinCell = document.createElement("td");
     builtinCell.className = "px-4 py-3 text-sm text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700";
-    builtinCell.textContent = client.is_builtin ? "是" : "否";
+    builtinCell.textContent = client.is_builtin ? t("common.yes", "Yes") : t("common.no", "No");
 
     const actionCell = document.createElement("td");
     actionCell.className = "px-4 py-3 text-sm text-right border-b border-gray-200 dark:border-gray-700";
@@ -548,8 +624,8 @@ const renderClientTable = () => {
     const editBtn = document.createElement("button");
     editBtn.type = "button";
     editBtn.className = "btn-icon btn-icon-primary";
-    editBtn.setAttribute("aria-label", "编辑客户端");
-    editBtn.setAttribute("data-tooltip", "编辑");
+    editBtn.setAttribute("aria-label", t("clients.editAction", "Edit client"));
+    editBtn.setAttribute("data-tooltip", t("common.edit", "Edit"));
     editBtn.innerHTML = `
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
@@ -560,17 +636,17 @@ const renderClientTable = () => {
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
     deleteBtn.className = "btn-icon btn-icon-primary";
-    deleteBtn.setAttribute("aria-label", "删除客户端");
-    deleteBtn.setAttribute("data-tooltip", "删除");
+    deleteBtn.setAttribute("aria-label", t("clients.deleteAction", "Delete client"));
+    deleteBtn.setAttribute("data-tooltip", t("common.delete", "Delete"));
     deleteBtn.innerHTML = `
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
       </svg>
     `;
-    // 只有一个客户端时不允许删除
+    // Only one client, deletion not allowed
     const isOnlyClient = state.clients.length <= 1;
     deleteBtn.disabled = isOnlyClient;
-    deleteBtn.title = isOnlyClient ? "至少需要保留一个客户端" : "";
+    deleteBtn.title = isOnlyClient ? t("toast.keepOneClient", "At least one client must remain") : "";
     deleteBtn.addEventListener("click", () => deleteClient(client.id));
 
     actionsDiv.appendChild(editBtn);
@@ -604,7 +680,7 @@ const loadSnapshotClients = async () => {
     });
     elements.btnRefreshSnapshots?.setAttribute("disabled", "true");
     renderSnapshotTable([]);
-    setSnapshotEmptyState("暂无客户端");
+    setSnapshotEmptyState(t("snapshots.noClients", "No clients available"));
     syncClientSelectors();
     return;
   }
@@ -628,7 +704,7 @@ const populateClientSelector = (selector, hasClients) => {
   if (!hasClients) {
     const option = document.createElement("option");
     option.value = "";
-    option.textContent = "暂无客户端";
+    option.textContent = t("settings.noClientsOption", "No clients available");
     selector.appendChild(option);
     selector.setAttribute("disabled", "true");
     return;
@@ -657,17 +733,20 @@ const showPromptModal = (promptId = null, mode = null, prefillData = null) => {
   if (!elements.modalPrompt) return;
   const resolvedMode = mode ?? (promptId ? "edit" : "create");
   if (resolvedMode === "edit" && !promptId) {
-    showToast("未找到提示词", "error");
+    showToast(t("toast.promptNotFound", "Prompt not found"), "error");
     return;
   }
   state.editingPromptId = resolvedMode === "edit" ? promptId : null;
   state.sourcePromptId = prefillData?.sourcePromptId ?? null;
-  elements.modalPromptTitle.textContent = resolvedMode === "edit" ? "编辑提示词" : "新建提示词";
+  const promptTitleKey =
+    resolvedMode === "edit" ? "settings.promptModalEditTitle" : "settings.promptModalTitle";
+  const promptTitleFallback = resolvedMode === "edit" ? "Edit Prompt" : "New Prompt";
+  elements.modalPromptTitle.textContent = t(promptTitleKey, promptTitleFallback);
   elements.formPrompt?.reset();
   if (resolvedMode === "edit") {
     const prompt = state.prompts.find((item) => item.id === promptId);
     if (!prompt) {
-      showToast("未找到提示词", "error");
+      showToast(t("toast.promptNotFound", "Prompt not found"), "error");
       return;
     }
     elements.inputPromptName.value = prompt.name;
@@ -701,13 +780,15 @@ const closePromptModal = () => {
 const showClientModal = (clientId = null) => {
   if (!elements.modalClient) return;
   state.editingClientId = clientId;
-  elements.modalClientTitle.textContent = clientId ? "编辑客户端" : "新建客户端";
+  const clientTitleKey = clientId ? "settings.clientModalEditTitle" : "settings.clientModalTitle";
+  const clientTitleFallback = clientId ? "Edit Client" : "New Client";
+  elements.modalClientTitle.textContent = t(clientTitleKey, clientTitleFallback);
   elements.formClient?.reset();
   elements.inputClientId.disabled = Boolean(clientId);
   if (clientId) {
     const client = state.clients.find((item) => item.id === clientId);
     if (!client) {
-      showToast("未找到客户端", "error");
+    showToast(t("toast.clientNotFound", "Client not found"), "error");
       return;
     }
     elements.inputClientId.value = client.id;
@@ -731,7 +812,7 @@ const handlePromptSubmit = async (event) => {
   const name = elements.inputPromptName.value.trim();
   const content = elements.inputPromptContent.value.trim();
   if (!name || !content) {
-    showToast("名称和内容不能为空", "warning");
+    showToast(t("toast.promptMissingFields", "Name and content are required"), "warning");
     return;
   }
   const tags = parseTags(elements.inputPromptTags.value);
@@ -755,7 +836,13 @@ const handlePromptSubmit = async (event) => {
               sourceTags.every((tag, index) => tag === newTags[index]);
             const contentEqual = (sourcePrompt.content ?? "").trim() === content;
             if (contentEqual && tagsEqual) {
-              showToast("提示：内容与原提示词完全相同，请按需调整后再保存", "warning");
+            showToast(
+              t(
+                "toast.promptDuplicateContent",
+                "Hint: content matches the original prompt. Adjust before saving."
+              ),
+              "warning"
+            );
             }
           }
         }
@@ -764,10 +851,15 @@ const handlePromptSubmit = async (event) => {
       await loadPrompts();
     });
     state.sourcePromptId = null;
-    showToast(state.editingPromptId ? "提示词已更新" : "提示词已创建", "success");
+    const messageKey = state.editingPromptId ? "toast.promptUpdated" : "toast.promptCreated";
+    const fallback = state.editingPromptId ? "Prompt updated" : "Prompt created";
+    showToast(t(messageKey, fallback), "success");
     closePromptModal();
   } catch (error) {
-    showToast(getErrorMessage(error) || "保存提示词失败", "error");
+    showToast(
+      getErrorMessage(error) || t("toast.savePromptFailed", "Failed to save prompt"),
+      "error"
+    );
   }
 };
 
@@ -777,7 +869,7 @@ const handleClientSubmit = async (event) => {
   const name = elements.inputClientName.value.trim();
   const path = elements.inputClientPath.value.trim();
   if (!id || !name || !path) {
-    showToast("请填写完整客户端信息", "warning");
+    showToast(t("toast.clientMissingFields", "Please complete all client information"), "warning");
     return;
   }
   const autoTag = elements.inputClientAutoTag.checked;
@@ -794,25 +886,35 @@ const handleClientSubmit = async (event) => {
       await loadClients();
       await loadSnapshotClients();
     });
-    showToast(state.editingClientId ? "客户端已更新" : "客户端已创建", "success");
+    const messageKey = state.editingClientId ? "toast.clientUpdated" : "toast.clientCreated";
+    const fallback = state.editingClientId ? "Client updated" : "Client created";
+    showToast(t(messageKey, fallback), "success");
     closeClientModal();
   } catch (error) {
-    showToast(getErrorMessage(error) || "保存客户端失败", "error");
+    showToast(
+      getErrorMessage(error) || t("toast.saveClientFailed", "Failed to save client"),
+      "error"
+    );
   }
 };
 
 const deletePrompt = async (promptId) => {
   if (!promptId) return;
-  const confirmed = await showConfirm("确定要删除该提示词吗？");
+  const confirmed = await showConfirm(
+    t("dialogs.deletePromptConfirm", "Delete this prompt?")
+  );
   if (!confirmed) return;
   try {
     await withLoading(async () => {
       await PromptAPI.delete(promptId);
       await loadPrompts();
     });
-    showToast("提示词已删除", "success");
+    showToast(t("toast.promptDeleted", "Prompt deleted"), "success");
   } catch (error) {
-    showToast(getErrorMessage(error) || "删除提示词失败", "error");
+    showToast(
+      getErrorMessage(error) || t("toast.deletePromptFailed", "Failed to delete prompt"),
+      "error"
+    );
   }
 };
 
@@ -828,9 +930,12 @@ const handleExportPrompts = async () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast("提示词已导出", "success");
+    showToast(t("toast.promptsExported", "Prompts exported"), "success");
   } catch (error) {
-    showToast(getErrorMessage(error) || "导出提示词失败", "error");
+    showToast(
+      getErrorMessage(error) || t("toast.exportPromptsFailed", "Failed to export prompts"),
+      "error"
+    );
   }
 };
 
@@ -846,19 +951,12 @@ const handleImportFileChange = async (event) => {
       return result;
     });
     const { total = 0, added = 0, updated = 0 } = importResult || {};
-    let message;
-    if (total === 0) {
-      message = "未导入任何提示词";
-    } else if (added === total) {
-      message = `成功导入 ${total} 个新提示词`;
-    } else if (added === 0) {
-      message = `已更新 ${updated} 个提示词`;
-    } else {
-      message = `成功导入 ${total} 个提示词（新增 ${added} 个，更新 ${updated} 个）`;
-    }
-    showToast(message, "success");
+    showToast(formatImportResultMessage(total, added, updated), "success");
   } catch (error) {
-    showToast(getErrorMessage(error) || "导入提示词失败", "error");
+    showToast(
+      getErrorMessage(error) || t("toast.importPromptsFailed", "Failed to import prompts"),
+      "error"
+    );
   } finally {
     if (event.target) {
       event.target.value = "";
@@ -866,18 +964,42 @@ const handleImportFileChange = async (event) => {
   }
 };
 
+const formatImportResultMessage = (total, added, updated) => {
+  if (total === 0) {
+    return t("toast.importNone", "No prompts were imported");
+  }
+  if (added === total) {
+    return t("toast.importAllNew", "Imported {total} new prompts").replace("{total}", `${total}`);
+  }
+  if (added === 0) {
+    return t("toast.importUpdatedOnly", "Updated {updated} prompts").replace(
+      "{updated}",
+      `${updated}`
+    );
+  }
+  return t(
+    "toast.importMixed",
+    "Imported {total} prompts ({added} new, {updated} updated)"
+  )
+    .replace("{total}", `${total}`)
+    .replace("{added}", `${added}`)
+    .replace("{updated}", `${updated}`);
+};
+
 const validateImportPayload = (jsonText) => {
   if (!jsonText.trim()) {
-    throw new Error("导入文件为空");
+    throw new Error(t("errors.importFileEmpty", "Import file is empty"));
   }
   let parsed;
   try {
     parsed = JSON.parse(jsonText);
   } catch (error) {
-    throw new Error("JSON 格式无效");
+    throw new Error(t("errors.importInvalidJson", "Invalid JSON format"));
   }
   if (!Array.isArray(parsed)) {
-    throw new Error("JSON 内容必须是提示词数组");
+    throw new Error(
+      t("errors.importInvalidStructure", "JSON content must be an array of prompts")
+    );
   }
 };
 
@@ -885,10 +1007,10 @@ const deleteClient = async (clientId) => {
   if (!clientId) return;
   // 检查是否只有一个客户端
   if (state.clients.length <= 1) {
-    showToast("至少需要保留一个客户端", "error");
+    showToast(t("toast.keepOneClient", "At least one client must remain"), "error");
     return;
   }
-  const confirmed = await showConfirm("确定要删除该客户端吗？");
+  const confirmed = await showConfirm(t("dialogs.deleteClientConfirm", "Delete this client?"));
   if (!confirmed) return;
   try {
     await withLoading(async () => {
@@ -896,9 +1018,12 @@ const deleteClient = async (clientId) => {
       await loadClients();
       await loadSnapshotClients();
     });
-    showToast("客户端已删除", "success");
+    showToast(t("toast.clientDeleted", "Client deleted"), "success");
   } catch (error) {
-    showToast(getErrorMessage(error) || "删除客户端失败", "error");
+    showToast(
+      getErrorMessage(error) || t("toast.deleteClientFailed", "Failed to delete client"),
+      "error"
+    );
   }
 };
 
@@ -975,7 +1100,7 @@ const loadSnapshotsTable = async (clientId, { silent = false } = {}) => {
   const targetId = clientId ?? state.snapshotClientId;
   if (!targetId) {
     renderSnapshotTable([]);
-    setSnapshotEmptyState("请选择客户端");
+    setSnapshotEmptyState(t("snapshots.selectClientPrompt", "Please select a client"));
     return [];
   }
   try {
@@ -1011,11 +1136,14 @@ const loadSnapshotsTable = async (clientId, { silent = false } = {}) => {
     return snapshots;
   } catch (error) {
     if (!silent) {
-      showToast(getErrorMessage(error) || "加载快照失败", "error");
+      showToast(
+        getErrorMessage(error) || t("toast.loadSnapshotsFailed", "Failed to load snapshots"),
+        "error"
+      );
     }
     if (targetId === state.snapshotClientId) {
       renderSnapshotTable([]);
-      setSnapshotEmptyState("无法加载快照");
+      setSnapshotEmptyState(t("snapshots.loadFailed", "Unable to load snapshots"));
     }
     throw error;
   }
@@ -1031,7 +1159,11 @@ const renderSnapshotTable = (snapshots = []) => {
 
   if (!snapshots.length) {
     elements.emptyStateSnapshot?.classList.remove("hidden");
-    setSnapshotEmptyState(state.snapshotClientId ? "暂无快照" : "请选择客户端");
+    setSnapshotEmptyState(
+      state.snapshotClientId
+        ? t("snapshots.empty", "No snapshots")
+        : t("snapshots.selectClientPrompt", "Please select a client")
+    );
     return;
   }
 
@@ -1060,7 +1192,9 @@ const renderSnapshotTable = (snapshots = []) => {
         ? "bg-amber-50 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200"
         : "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200"
     }`;
-    badge.textContent = snapshot.is_auto ? "自动" : "手动";
+    badge.textContent = snapshot.is_auto
+      ? t("snapshots.autoBadge", "Auto")
+      : t("snapshots.manualBadge", "Manual");
     typeCell.appendChild(badge);
 
     const actionCell = document.createElement("td");
@@ -1072,8 +1206,8 @@ const renderSnapshotTable = (snapshots = []) => {
     const renameBtn = document.createElement("button");
     renameBtn.type = "button";
     renameBtn.className = "btn-icon btn-icon-primary";
-    renameBtn.setAttribute("aria-label", "重命名快照");
-    renameBtn.setAttribute("data-tooltip", "重命名");
+    renameBtn.setAttribute("aria-label", t("snapshots.rename", "Rename snapshot"));
+    renameBtn.setAttribute("data-tooltip", t("snapshots.renameAction", "Rename"));
     renameBtn.setAttribute("data-snapshot-action", "rename");
     renameBtn.setAttribute("data-snapshot-id", snapshot.id);
     renameBtn.setAttribute("data-snapshot-name", snapshot.name || "");
@@ -1086,8 +1220,8 @@ const renderSnapshotTable = (snapshots = []) => {
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
     deleteBtn.className = "btn-icon btn-icon-primary";
-    deleteBtn.setAttribute("aria-label", "删除快照");
-    deleteBtn.setAttribute("data-tooltip", "删除");
+    deleteBtn.setAttribute("aria-label", t("snapshots.delete", "Delete snapshot"));
+    deleteBtn.setAttribute("data-tooltip", t("snapshots.deleteAction", "Delete"));
     deleteBtn.setAttribute("data-snapshot-action", "delete");
     deleteBtn.setAttribute("data-snapshot-id", snapshot.id);
     deleteBtn.innerHTML = `
@@ -1219,7 +1353,11 @@ const loadGeneralSettings = async (clientId) => {
       manual: state.generalMaxManualSnapshots,
     });
   } catch (error) {
-    showToast(getErrorMessage(error) || "加载快照设置失败", "error");
+    showToast(
+      getErrorMessage(error) ||
+        t("toast.loadSnapshotSettingsFailed", "Failed to load snapshot settings"),
+      "error"
+    );
     updateGeneralSettingsInput();
   }
 };
@@ -1227,7 +1365,7 @@ const loadGeneralSettings = async (clientId) => {
 const saveGeneralSettings = async (event) => {
   event.preventDefault();
   if (!state.generalSettingsClientId) {
-    showToast("请先选择客户端", "warning");
+    showToast(t("toast.selectClientFirst", "Please select a client first"), "warning");
     return;
   }
 
@@ -1270,10 +1408,13 @@ const saveGeneralSettings = async (event) => {
       };
     }
 
-    showToast("设置已保存", "success");
+    showToast(t("toast.settingsSaved", "Settings saved"), "success");
     await loadSnapshotsTable(state.generalSettingsClientId, { silent: true });
   } catch (error) {
-    showToast(getErrorMessage(error) || "保存设置失败", "error");
+    showToast(
+      getErrorMessage(error) || t("toast.saveSettingsFailed", "Failed to save settings"),
+      "error"
+    );
   }
 };
 
@@ -1316,8 +1457,8 @@ const handleSnapshotActionClick = (event) => {
     return;
   }
   if (!state.snapshotClientId) {
-    console.warn("[Snapshot] 未选择客户端，无法执行", state.snapshotClientId);
-    showToast("请选择客户端", "warning");
+    console.warn("[Snapshot] No client selected, cannot proceed", state.snapshotClientId);
+    showToast(t("toast.selectClientFirst", "Please select a client first"), "warning");
     return;
   }
 
@@ -1332,29 +1473,35 @@ const handleSnapshotActionClick = (event) => {
 
 const deleteSnapshot = async (clientId, snapshotId) => {
   if (!clientId || !snapshotId) return;
-  const confirmed = await showConfirm("确定要删除该快照吗？");
+  const confirmed = await showConfirm(t("dialogs.deleteSnapshotConfirm", "Delete this snapshot?"));
   if (!confirmed) return;
   try {
     await withLoading(async () => {
       await SnapshotAPI.delete(clientId, snapshotId);
       await SnapshotAPI.refreshTrayMenu();
     });
-    showToast("快照已删除", "success");
+    showToast(t("toast.snapshotDeleted", "Snapshot deleted"), "success");
     await loadSnapshotsTable(clientId, { silent: true });
   } catch (error) {
-    showToast(getErrorMessage(error) || "删除快照失败", "error");
+    showToast(
+      getErrorMessage(error) || t("toast.deleteSnapshotFailed", "Failed to delete snapshot"),
+      "error"
+    );
   }
 };
 
 const renameSnapshot = async (clientId, snapshotId, currentName) => {
   if (!clientId || !snapshotId) return;
-  const nextName = await showPrompt("请输入新的快照名称", currentName || "");
+  const nextName = await showPrompt(
+    t("dialogs.renameSnapshotPrompt", "Enter a new snapshot name"),
+    currentName || ""
+  );
   if (nextName === null) {
     return;
   }
   const normalized = nextName.trim();
   if (!normalized) {
-    showToast("快照名称不能为空", "warning");
+    showToast(t("toast.snapshotNameRequired", "Snapshot name cannot be empty"), "warning");
     return;
   }
   if (normalized === currentName) {
@@ -1365,10 +1512,13 @@ const renameSnapshot = async (clientId, snapshotId, currentName) => {
       await SnapshotAPI.rename(clientId, snapshotId, normalized);
       await SnapshotAPI.refreshTrayMenu();
     });
-    showToast("快照已重命名", "success");
+    showToast(t("toast.snapshotRenamed", "Snapshot renamed"), "success");
     await loadSnapshotsTable(clientId, { silent: true });
   } catch (error) {
-    showToast(getErrorMessage(error) || "重命名快照失败", "error");
+    showToast(
+      getErrorMessage(error) || t("toast.renameSnapshotFailed", "Failed to rename snapshot"),
+      "error"
+    );
   }
 };
 
@@ -1419,7 +1569,7 @@ const formatExportTimestamp = () => {
 };
 
 const formatDateTime = (iso) => {
-  if (!iso) return "未知";
+  if (!iso) return t("time.unknown", "Unknown");
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
     return iso;
@@ -1436,9 +1586,12 @@ const formatDateTime = (iso) => {
 const formatSnapshotLabel = (snapshot) => {
   const timestamp = formatDateTime(snapshot.created_at);
   if (snapshot.is_auto) {
-    return `Auto Saved ${timestamp}`;
+    return t("snapshots.autoLabelWithTime", "Auto saved {time}").replace("{time}", timestamp);
   }
-  return `${snapshot.name || "未命名"} ${timestamp}`;
+  const name = snapshot.name || t("prompts.untitled", "Untitled prompt");
+  return t("snapshots.manualLabelWithTime", "{name} {time}")
+    .replace("{name}", name)
+    .replace("{time}", timestamp);
 };
 
 const registerModalDismiss = (modal, handler) => {
@@ -1480,10 +1633,16 @@ const closeSettingsDropdown = () => {
 const updateSettingsDropdownLabel = (targetId) => {
   const label = elements.settingsDropdownLabel;
   if (!label) return;
-  label.textContent = TAB_LABEL_MAP[targetId] ?? "设置";
+  const resolver = TAB_LABEL_MAP[targetId];
+  if (typeof resolver === "function") {
+    label.textContent = resolver();
+    return;
+  }
+  label.textContent = t("settings.header", "Settings");
 };
 
 const switchTab = (targetId) => {
+  state.activeTabId = targetId;
   document.querySelectorAll('[role="tabpanel"]').forEach((panel) => {
     const isActive = panel.id === targetId;
     panel.classList.toggle("hidden", !isActive);
@@ -1509,6 +1668,5 @@ const switchTab = (targetId) => {
 const getErrorMessage = (error) => (typeof error === "string" ? error : error?.message);
 
 document.addEventListener("DOMContentLoaded", () => {
-  initButtonTooltips();
   initSettings();
 });

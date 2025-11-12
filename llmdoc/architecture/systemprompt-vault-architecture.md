@@ -15,6 +15,7 @@ graph TB
         API[API 封装层]
         State[状态管理层]
         Theme[主题系统]
+        I18n[国际化系统]
     end
 
     subgraph "Tauri 桥接层"
@@ -31,25 +32,29 @@ graph TB
     subgraph "文件系统"
         Config[配置文件]
         Data[JSON 数据]
+        Locales[语言资源文件]
     end
 
     UI --> API
+    UI --> I18n
     API --> Bridge
     Bridge --> Commands
     Commands --> Storage
     Commands --> Models
     Storage --> Config
     Storage --> Data
+    I18n --> Locales
     State --> Theme
 ```
 
 ### 2.2 前端模块化架构
 
-- **`dist/js/main.js`**: 主应用模块，包含应用初始化、状态管理、UI 渲染
-- **`dist/js/settings.js`**: 设置页面模块，管理提示词和客户端的 CRUD 操作、窗口生命周期管理、UI交互优化
+- **`dist/js/main.js`**: 主应用模块，包含应用初始化、状态管理、UI 渲染、i18n 集成
+- **`dist/js/settings.js`**: 设置页面模块，管理提示词和客户端的 CRUD 操作、窗口生命周期管理、UI交互优化、语言设置界面
 - **`dist/js/api.js`**: API 封装模块，统一处理 Tauri 命令调用
 - **`dist/js/theme.js`**: 主题管理模块，处理暗色/亮色主题切换
-- **`dist/js/utils.js`**: 工具函数模块，提供通用工具方法
+- **`dist/js/i18n.js`**: 国际化模块，提供多语言支持、语言检测、DOM 自动更新、跨窗口同步
+- **`dist/js/utils.js`**: 工具函数模块，提供通用工具方法、Toast 系统
 
 ### 2.3 Vite 构建流程架构
 
@@ -186,7 +191,7 @@ graph LR
 
 1. **应用初始化流程**:
    ```
-   DOM 加载 → 主题初始化 → 元素缓存 → 事件绑定 → 数据加载 →
+   DOM 加载 → i18n 初始化 → 主题初始化 → 元素缓存 → 事件绑定 → 数据加载 →
    启动快照 → 文件监听器 → UI 渲染
    ```
 
@@ -195,24 +200,31 @@ graph LR
    用户点击 → API 调用 → Rust 命令 → 文件写入 → 状态更新 → UI 反馈
    ```
 
-3. **主题切换流程**:
+3. **语言切换流程**:
+   ```
+   用户选择语言 → setLanguage() → 加载语言文件 → 更新 translations →
+   localStorage 持久化 → 更新 <html lang> → 更新所有 data-i18n 元素 →
+   触发 languageListeners → storage 事件跨窗口同步
+   ```
+
+4. **主题切换流程**:
    ```
    用户触发 → 主题计算 → CSS 类更新 → 本地存储 → 图标更新
    ```
 
-4. **快照创建与恢复流程**:
+5. **快照创建与恢复流程**:
    ```
    手动/自动触发 → 创建快照 → 持久化存储 → FIFO清理 → 刷新托盘菜单
    托盘恢复点击 → 读取快照 → 写入配置 → 发送事件 → 前端重新加载
    ```
 
-5. **文件变化检测流程**:
+6. **文件变化检测流程**:
    ```
    外部修改文件 → 文件监听器检测 → 发送Tauri事件 → 前端Toast提示 →
    用户确认 → 重新加载配置
    ```
 
-6. **Vite 开发构建流程**:
+7. **Vite 开发构建流程**:
    ```
    开发者修改代码 → Vite HMR检测 → 增量编译 → WebSocket推送 → 浏览器热更新
    ```
@@ -247,13 +259,15 @@ const tooltipState = {
 // 本地存储键名
 const RECENT_TAGS_KEY = "tagFilterRecentTags";  // 最近使用标签持久化键
 const SPLIT_RATIO_KEY = "splitRatio";            // 分割比例持久化键
+const LANGUAGE_STORAGE_KEY = "app_language";     // 用户语言选择持久化键（i18n 模块）
 ```
 
 ## 3. Relevant Code Modules
 
 ### 前端核心模块
-- `dist/js/main.js`: 主应用逻辑、状态管理、UI渲染、快照触发、文件监听管理
-- `dist/js/settings.js`: 设置页面管理、窗口生命周期管理、UI交互优化、快照管理界面、模态框处理、表格渲染
+- `dist/js/main.js`: 主应用逻辑、状态管理、UI渲染、快照触发、文件监听管理、i18n 集成
+- `dist/js/settings.js`: 设置页面管理、窗口生命周期管理、UI交互优化、快照管理界面、模态框处理、表格渲染、语言设置界面
+- `dist/js/i18n.js`: 国际化模块，语言检测、翻译加载、DOM自动更新、跨窗口同步
 - `dist/js/theme.js`: 主题切换逻辑、状态持久化
 - `dist/js/api.js`: Tauri命令封装、错误处理、SnapshotAPI、ConfigFileAPI
 - `dist/js/utils.js`: 工具函数、Toast系统、ActionToast带按钮Toast
@@ -278,8 +292,10 @@ const SPLIT_RATIO_KEY = "splitRatio";            // 分割比例持久化键
 - `tailwind.config.js`: Tailwind CSS主配置文件、主题扩展、内容扫描路径
 - `postcss.config.js`: PostCSS配置、Tailwind和Autoprefixer集成
 - `package.json`: 包管理、构建脚本定义（`dev`, `build`, `preview`）
-- `dist/index.html`: 主页面结构
-- `dist/settings.html`: 设置页面结构
+- `dist/index.html`: 主页面结构、data-i18n 属性支持
+- `dist/settings.html`: 设置页面结构、语言设置界面、data-i18n 属性支持
+- `dist/locales/en.json`: 英文翻译资源文件（228行）
+- `dist/locales/zh.json`: 中文翻译资源文件（228行）
 
 ### 样式文件
 - `dist/css/tailwind.css`: Tailwind CSS源文件、基础层、组件层、工具层

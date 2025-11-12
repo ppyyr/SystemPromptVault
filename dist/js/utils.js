@@ -1,3 +1,5 @@
+import { t, getCurrentLanguage, applyTranslations } from "./i18n.js";
+
 const TOAST_DURATION = 3600;
 let loadingCounter = 0;
 let confirmOverlay;
@@ -8,28 +10,39 @@ let activePromptHandlers = null;
 const requireElement = (id) => {
   const el = document.getElementById(id);
   if (!el) {
-    throw new Error(`缺少元素: ${id}`);
+    throw new Error(`${t("errors.missingElement", "Missing element")}: ${id}`);
   }
   return el;
 };
 
 export const formatDate = (isoString) => {
-  if (!isoString) return "未知";
+  if (!isoString) return t("time.unknown", "Unknown");
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) return isoString;
   const diffMs = Date.now() - date.getTime();
+  const locale = getCurrentLanguage() === "zh" ? "zh-CN" : "en-US";
+  const replaceValue = (template, value) =>
+    (template || "").includes("{value}")
+      ? template.replace("{value}", String(value))
+      : `${value} ${template}`;
   if (diffMs < 0) {
-    return date.toLocaleString("zh-CN", { hour12: false });
+    return date.toLocaleString(locale, { hour12: false });
   }
   const diffMinutes = Math.floor(diffMs / 60000);
-  if (diffMinutes < 1) return "刚刚";
-  if (diffMinutes < 60) return `${diffMinutes}分钟前`;
+  if (diffMinutes < 1) return t("time.justNow", "Just now");
+  if (diffMinutes < 60) {
+    return replaceValue(t("time.minutesAgo", "{value} minutes ago"), diffMinutes);
+  }
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}小时前`;
-  if (diffHours < 48) return "昨天";
+  if (diffHours < 24) {
+    return replaceValue(t("time.hoursAgo", "{value} hours ago"), diffHours);
+  }
+  if (diffHours < 48) return t("time.yesterday", "Yesterday");
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}天前`;
-  return date.toLocaleDateString("zh-CN", {
+  if (diffDays < 7) {
+    return replaceValue(t("time.daysAgo", "{value} days ago"), diffDays);
+  }
+  return date.toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -107,11 +120,12 @@ const ensureConfirmOverlay = () => {
     <div class="confirm-dialog" role="dialog" aria-modal="true">
       <p class="confirm-message"></p>
       <div class="confirm-actions">
-        <button type="button" class="btn btn-secondary" data-action="cancel">取消</button>
-        <button type="button" class="btn btn-primary" data-action="confirm">确认</button>
+        <button type="button" class="btn btn-secondary" data-action="cancel" data-i18n="common.cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" data-action="confirm" data-i18n="common.confirm">Confirm</button>
       </div>
     </div>
   `;
+  applyTranslations(overlay);
   document.body.appendChild(overlay);
   confirmOverlay = overlay;
   return overlay;
@@ -131,11 +145,12 @@ const ensurePromptOverlay = () => {
         value=""
       />
       <div class="confirm-actions">
-        <button type="button" class="btn btn-secondary" data-action="cancel">取消</button>
-        <button type="button" class="btn btn-primary" data-action="confirm">确认</button>
+        <button type="button" class="btn btn-secondary" data-action="cancel" data-i18n="common.cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" data-action="confirm" data-i18n="common.confirm">Confirm</button>
       </div>
     </div>
   `;
+  applyTranslations(overlay);
   document.body.appendChild(overlay);
   promptOverlay = overlay;
   return overlay;

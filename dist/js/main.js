@@ -11,6 +11,7 @@ import { listen } from "@tauri-apps/api/event";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { initI18n, t, applyTranslations, onLanguageChange } from "./i18n.js";
 
 const appWindow = getCurrentWindow();
 
@@ -168,8 +169,9 @@ const withLoading = async (task) => {
   }
 };
 
-const formatSnapshotName = (prefix = "自动快照") => {
-  const label = prefix?.trim() || "自动快照";
+const formatSnapshotName = (prefix) => {
+  const defaultLabel = t("snapshots.autoPrefix", "Auto Snapshot");
+  const label = typeof prefix === "string" && prefix.trim() ? prefix.trim() : defaultLabel;
   const now = new Date();
   const pad = (value) => String(value).padStart(2, "0");
   const formatted = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(
@@ -178,9 +180,9 @@ const formatSnapshotName = (prefix = "自动快照") => {
   return `${label} ${formatted}`;
 };
 
-const createAutoSnapshot = async (clientId, content = "", prefix = "自动快照") => {
+const createAutoSnapshot = async (clientId, content = "", prefix = null) => {
   if (!clientId) {
-    throw new Error("缺少客户端 ID，无法创建自动快照");
+    throw new Error(t("errors.missingClientId", "Missing client ID, cannot create snapshot"));
   }
   const snapshotContent = typeof content === "string" ? content : content ?? "";
   const name = formatSnapshotName(prefix);
@@ -422,7 +424,7 @@ const waitForMonacoLoader = () =>
       }
       if (attempts >= MONACO_POLL_MAX_ATTEMPTS) {
         window.clearInterval(timer);
-        reject(new Error("Monaco Editor 加载器不可用"));
+        reject(new Error(t("errors.monacoLoaderUnavailable", "Monaco loader unavailable")));
       }
     }, MONACO_POLL_INTERVAL);
   });
@@ -457,7 +459,7 @@ const ensureMonacoLoaded = async () => {
               if (window.monaco?.editor) {
                 resolve(window.monaco);
               } else {
-                reject(new Error("Monaco Editor 未能初始化"));
+                reject(new Error(t("errors.monacoInitFailed", "Monaco Editor failed to initialize")));
               }
             },
             (error) => reject(error)
@@ -536,7 +538,7 @@ const attachFallbackEditor = () => {
   textarea.id = "configEditorFallback";
   textarea.className =
     "w-full h-full border-0 bg-transparent p-4 font-mono text-sm resize-none outline-none";
-  textarea.placeholder = "在此编辑选中客户端的配置文件";
+  textarea.placeholder = t("editor.fallbackPlaceholder", "Edit the selected client's config here");
   textarea.value = state.configContent;
   if (fallbackEditorListener && elements.configEditor) {
     elements.configEditor.removeEventListener("input", fallbackEditorListener);
@@ -551,7 +553,7 @@ const attachFallbackEditor = () => {
     handleEditorChange();
   };
   textarea.addEventListener("input", fallbackEditorListener);
-  showToast("编辑器加载失败，已切换到基础模式", "warning");
+  showToast(t("toast.editorFallback", "Editor failed to load, switched to basic mode"), "warning");
   updateEditorAvailability();
 };
 
@@ -645,10 +647,10 @@ const renderMarkdownPreview = () => {
     window.clearTimeout(previewRenderTimer);
   }
 
-  // 显示加载状态
+  const loadingText = t("editor.previewLoading", "Rendering preview...");
   elements.markdownPreviewBody.innerHTML = `
     <div class="flex items-center justify-center p-8">
-      <div class="text-sm text-gray-500 dark:text-gray-400">正在加载预览...</div>
+      <div class="text-sm text-gray-500 dark:text-gray-400">${loadingText}</div>
     </div>
   `;
 
@@ -663,9 +665,13 @@ const renderMarkdownPreview = () => {
       const cleanHtml = DOMPurify.sanitize(rawHtml, MARKDOWN_SANITIZE_OPTIONS);
       elements.markdownPreviewBody.innerHTML = cleanHtml;
     } catch (error) {
-      console.error("Markdown 渲染失败", error);
-      elements.markdownPreviewBody.innerHTML =
-        '<p class="text-sm text-red-500">Markdown 渲染失败: ' + error.message + '</p>';
+      console.error("[Markdown] Render failed", error);
+      const errorText = t("editor.previewError", "Failed to render preview");
+      const safeMessage =
+        typeof error?.message === "string" && error.message.trim()
+          ? `: ${DOMPurify.sanitize(error.message)}`
+          : "";
+      elements.markdownPreviewBody.innerHTML = `<p class="text-sm text-red-500">${errorText}${safeMessage}</p>`;
     }
   }, MARKDOWN_RENDER_DEBOUNCE);
 };
@@ -684,10 +690,12 @@ const setModeToggleState = () => {
     }
   }
 
-  // 更新 tooltip 提示
   if (elements.btnToggleEditorMode) {
-    elements.btnToggleEditorMode.setAttribute("data-tooltip", isPreview ? "编辑" : "预览");
-    elements.btnToggleEditorMode.setAttribute("aria-label", isPreview ? "切换到编辑模式" : "切换到预览模式");
+    const tooltipKey = isPreview ? "editor.edit" : "editor.preview";
+    const tooltipText = t(tooltipKey, isPreview ? "Edit" : "Preview");
+    const ariaLabelKey = isPreview ? "editor.switchToEdit" : "editor.switchToPreview";
+    elements.btnToggleEditorMode.setAttribute("data-tooltip", tooltipText);
+    elements.btnToggleEditorMode.setAttribute("aria-label", t(ariaLabelKey, "Switch editor mode"));
   }
 };
 
@@ -996,6 +1004,27 @@ const initResizer = () => {
 };
 
 const initApp = async () => {
+  try {
+    await initI18n();
+  } catch (error) {
+    console.error("[i18n] Initialization failed:", error);
+  }
+  applyTranslations(document);
+  onLanguageChange(() => {
+    applyTranslations(document);
+    updateConfigFileName();
+    renderClientDropdown();
+    renderTagFilter();
+    renderPromptList();
+    setModeToggleState();
+    if (elements.configEditor?.id === "configEditorFallback") {
+      elements.configEditor.placeholder = t(
+        "editor.fallbackPlaceholder",
+        "Edit the selected client's config here"
+      );
+    }
+  });
+
   // 初始化主题
   initTheme();
   subscribeThemeChange(() => {
@@ -1035,7 +1064,11 @@ const initApp = async () => {
     if (state.currentClientId) {
       try {
         const content = await ConfigFileAPI.read(state.currentClientId);
-        await createAutoSnapshot(state.currentClientId, content ?? "", "启动时自动快照");
+        await createAutoSnapshot(
+          state.currentClientId,
+          content ?? "",
+          t("snapshots.startupPrefix", "Startup Snapshot")
+        );
       } catch (error) {
         console.warn("创建启动快照失败:", error);
       }
@@ -1043,7 +1076,7 @@ const initApp = async () => {
     await listenToFileChanges();
     await startFileWatcher(state.currentClientId);
   } catch (error) {
-    showToast(getErrorMessage(error) || "初始化失败", "error");
+    showToast(getErrorMessage(error) || t("toast.initFailed", "Initialization failed"), "error");
   }
 };
 
@@ -1051,7 +1084,7 @@ const loadClients = async () => {
   const clients = await ClientAPI.getAll();
   state.clients = Array.isArray(clients) ? clients : [];
   if (!state.clients.length) {
-    throw new Error("尚未配置任何客户端");
+    throw new Error(t("errors.noClientsConfigured", "No clients configured"));
   }
 };
 
@@ -1062,7 +1095,11 @@ const hydrateAppState = async () => {
       state.currentClientId = appState.current_client_id;
     }
   } catch (error) {
-    showToast(getErrorMessage(error) || "加载应用状态失败，已使用默认客户端", "warning");
+    showToast(
+      getErrorMessage(error) ||
+        t("toast.loadAppStateFailed", "Failed to load app state, using default client"),
+      "warning"
+    );
   }
   if (!state.clients.some((client) => client.id === state.currentClientId)) {
     state.currentClientId = state.clients[0].id;
@@ -1123,7 +1160,7 @@ const loadPrompts = async () => {
     const prompts = await PromptAPI.getAll();
     state.prompts = Array.isArray(prompts) ? prompts : [];
   } catch (error) {
-    throw new Error(getErrorMessage(error) || "加载提示词失败");
+    throw new Error(getErrorMessage(error) || t("errors.loadPromptsFailed", "Failed to load prompts"));
   }
 };
 
@@ -1138,7 +1175,7 @@ const loadConfigFile = async (clientId) => {
   } catch (error) {
     success = false;
     state.configContent = "";
-    showToast(getErrorMessage(error) || "读取配置文件失败", "error");
+    showToast(getErrorMessage(error) || t("toast.readConfigFailed", "Failed to read config file"), "error");
   }
   console.log("[LoadConfig] Syncing editor...");
   syncEditor();
@@ -1195,10 +1232,10 @@ const reloadConfigFile = async () => {
   if (success) {
     dismissFileChangeToast();
     console.log("[Reload] Config reloaded successfully");
-    showToast("配置已重新加载", "success");
+    showToast(t("toast.configReloaded", "Configuration reloaded"), "success");
   } else {
     console.error("[Reload] Config reload failed");
-    showToast("重新加载失败", "error");
+    showToast(t("toast.reloadFailed", "Reload failed"), "error");
   }
 };
 
@@ -1227,12 +1264,15 @@ const handleConfigFileChanged = async () => {
   if (state.editorDirty) {
     console.log("[FileChange] Showing toast with confirmation (has unsaved changes)");
     state.fileChangeToast = showActionToast(
-      "配置文件已在外部修改",
-      "重新加载",
+      t("toast.configChanged", "Config file changed externally"),
+      t("actions.reload", "Reload"),
       async () => {
         console.log("[FileChange] User clicked reload button (with unsaved changes)");
         const confirmed = await showConfirm(
-          "配置文件已在外部修改，是否重新加载？（将丢失未保存的修改）"
+          t(
+            "dialogs.configChangedConfirm",
+            "The config file was changed externally. Reload and discard local changes?"
+          )
         );
         console.log(`[FileChange] User confirmed: ${confirmed}`);
         if (confirmed) {
@@ -1242,10 +1282,14 @@ const handleConfigFileChanged = async () => {
     );
   } else {
     console.log("[FileChange] Showing toast (no unsaved changes)");
-    state.fileChangeToast = showActionToast("配置文件已更新", "重新加载", async () => {
-      console.log("[FileChange] User clicked reload button");
-      await reloadConfigFile();
-    });
+    state.fileChangeToast = showActionToast(
+      t("toast.configUpdated", "Config file updated"),
+      t("actions.reload", "Reload"),
+      async () => {
+        console.log("[FileChange] User clicked reload button");
+        await reloadConfigFile();
+      }
+    );
   }
 };
 
@@ -1340,27 +1384,34 @@ const saveConfigFile = async ({ silent = false, createSnapshot = false } = {}) =
     }, 1000);
     state.editorDirty = false;
     if (!silent) {
-      showToast("配置已保存", "success");
+      showToast(t("toast.configSaved", "Configuration saved"), "success");
     }
     if (createSnapshot) {
-      const name = await showPrompt("请输入快照名称（留空取消）：", "");
+      const name = await showPrompt(
+        t("dialogs.snapshotNamePrompt", "Enter a snapshot name (leave blank to cancel):"),
+        ""
+      );
       const trimmedName = name?.trim();
       if (trimmedName) {
         try {
           await SnapshotAPI.create(state.currentClientId, trimmedName, content ?? "", false);
           await SnapshotAPI.refreshTrayMenu();
           console.info(`[Snapshot] 手动快照已创建：${trimmedName} (client: ${state.currentClientId})`);
-          showToast(`快照「${trimmedName}」已创建`, "success");
+          const messageTemplate = t("toast.snapshotCreated", 'Snapshot "{value}" created');
+          showToast(messageTemplate.replace("{value}", trimmedName), "success");
         } catch (error) {
           console.warn("手动创建快照失败:", error);
-          showToast("创建快照失败", "error");
+          showToast(t("toast.snapshotFailed", "Failed to create snapshot"), "error");
         }
       }
     }
     return true;
   } catch (error) {
     state.isSavingInternally = false;
-    showToast(getErrorMessage(error) || "保存配置失败", "error");
+    showToast(
+      getErrorMessage(error) || t("toast.saveConfigFailed", "Failed to save configuration"),
+      "error"
+    );
     return false;
   }
 };
@@ -1371,7 +1422,11 @@ const switchClient = async (clientId) => {
   if (previousClientId) {
     try {
       const currentContent = getEditorContent();
-      await createAutoSnapshot(previousClientId, currentContent, "自动保存");
+      await createAutoSnapshot(
+        previousClientId,
+        currentContent,
+        t("snapshots.autoSavePrefix", "Auto Save")
+      );
     } catch (error) {
       console.warn("切换客户端时保存快照失败:", error);
     }
@@ -1393,27 +1448,32 @@ const switchClient = async (clientId) => {
     });
     await startFileWatcher(clientId);
   } catch (error) {
-    showToast(getErrorMessage(error) || "切换客户端失败", "error");
+    showToast(
+      getErrorMessage(error) || t("toast.switchClientFailed", "Failed to switch client"),
+      "error"
+    );
   }
 };
 
 const applyPrompt = async (promptId) => {
   const prompt = state.prompts.find((item) => item.id === promptId);
   if (!prompt) {
-    showToast("未找到提示词", "error");
+    showToast(t("toast.promptNotFound", "Prompt not found"), "error");
     return;
   }
   setEditorContent(prompt.content ?? "");
   const saved = await saveConfigFile({ silent: true });
   if (saved) {
-    showToast(`已应用提示词「${prompt.name}」`, "success");
+    const messageTemplate = t("toast.promptApplied", 'Prompt "{value}" applied');
+    const promptName = prompt.name || t("prompts.untitled", "Untitled prompt");
+    showToast(messageTemplate.replace("{value}", promptName), "success");
   }
 };
 
 const appendPrompt = async (promptId) => {
   const prompt = state.prompts.find((item) => item.id === promptId);
   if (!prompt) {
-    showToast("未找到提示词", "error");
+    showToast(t("toast.promptNotFound", "Prompt not found"), "error");
     return;
   }
   const currentValue = getEditorContent();
@@ -1452,7 +1512,9 @@ const appendPrompt = async (promptId) => {
 
   const saved = await saveConfigFile({ silent: true });
   if (saved) {
-    showToast(`已追加提示词「${prompt.name}」`, "success");
+    const messageTemplate = t("toast.promptAppended", 'Prompt "{value}" appended');
+    const promptName = prompt.name || t("prompts.untitled", "Untitled prompt");
+    showToast(messageTemplate.replace("{value}", promptName), "success");
   }
 };
 
@@ -1576,7 +1638,7 @@ const updateClientDropdownLabel = () => {
   const label = elements.clientDropdownLabel;
   if (!label) return;
   const client = getCurrentClient();
-  label.textContent = client ? client.name : "选择客户端";
+  label.textContent = client ? client.name : "Select Client";
 };
 
 const toggleClientDropdown = () => {
@@ -1610,12 +1672,18 @@ const renderTagFilter = () => {
   const autoTags = new Set(getAutoTags());
   const selectedTagSet = new Set(state.selectedTags);
   let hasSearchQuery = Boolean(state.tagSearchQuery?.trim());
+  const noTagsAvailable = t("tags.noAvailable", "No tags available");
+  const searchPlaceholder = t("tags.searchPlaceholder", "Search tags...");
+  const noTagsLabel = t("tags.noTags", "No tags");
+  const noMatchLabel = t("tags.noMatch", "No matching tags");
+  const noRecentLabel = t("tags.noRecent", "No recent tags");
+  const noRecentMatchLabel = t("tags.noRecentMatch", "No matching tags in recent");
 
   toggle.disabled = !hasTags;
   toggle.setAttribute("aria-disabled", String(!hasTags));
   toggle.classList.toggle("is-disabled", !hasTags);
   if (!hasTags) {
-    toggle.title = "暂无可用标签";
+    toggle.title = noTagsAvailable;
     state.tagSearchQuery = "";
     closeTagDropdown();
     hasSearchQuery = false;
@@ -1628,7 +1696,7 @@ const renderTagFilter = () => {
     if (searchInput.value !== state.tagSearchQuery) {
       searchInput.value = state.tagSearchQuery;
     }
-    searchInput.placeholder = hasTags ? "搜索标签..." : "暂无可用标签";
+    searchInput.placeholder = hasTags ? searchPlaceholder : noTagsAvailable;
   }
 
   if (elements.tagDropdownBadge) {
@@ -1648,21 +1716,25 @@ const renderTagFilter = () => {
   renderTagList(elements.tagDropdownList, filteredTags, {
     autoTags,
     selectedTagSet,
-    emptyLabel: hasTags ? (hasSearchQuery ? "无匹配标签" : "暂无标签") : "暂无标签",
+    emptyLabel: hasTags ? (hasSearchQuery ? noMatchLabel : noTagsLabel) : noTagsLabel,
   });
   renderTagList(elements.tagDropdownRecent, filteredRecent, {
     autoTags,
     selectedTagSet,
-    emptyLabel: hasSearchQuery ? "最近使用无匹配标签" : "暂无最近使用",
+    emptyLabel: hasSearchQuery ? noRecentMatchLabel : noRecentLabel,
   });
 
   if (elements.tagDropdownCount) {
     if (!hasTags) {
       elements.tagDropdownCount.textContent = "";
     } else if (hasSearchQuery) {
-      elements.tagDropdownCount.textContent = `匹配 ${filteredTags.length} / ${tags.length}`;
+      const template = t("tags.countMatched", "{matched} / {total} matched");
+      elements.tagDropdownCount.textContent = template
+        .replace("{matched}", String(filteredTags.length))
+        .replace("{total}", String(tags.length));
     } else {
-      elements.tagDropdownCount.textContent = `共 ${tags.length} 个`;
+      const template = t("tags.countTotal", "{total} total");
+      elements.tagDropdownCount.textContent = template.replace("{total}", String(tags.length));
     }
   }
 
@@ -1707,7 +1779,7 @@ const createTagDropdownOption = (tag, { isAuto, isActive }) => {
     button.disabled = true;
     button.setAttribute("aria-disabled", "true");
     button.classList.add("is-auto");
-    button.title = "由当前客户端自动应用";
+    button.title = t("tags.autoApplyTooltip", "Applied automatically by current client");
   }
 
   const label = document.createElement("span");
@@ -1718,7 +1790,7 @@ const createTagDropdownOption = (tag, { isAuto, isActive }) => {
   if (isAuto) {
     const meta = document.createElement("span");
     meta.className = "tag-dropdown__option-meta";
-    meta.textContent = "自动";
+    meta.textContent = t("tags.autoLabel", "Auto");
     button.appendChild(meta);
   }
 
@@ -1735,7 +1807,7 @@ const renderPromptList = () => {
   if (!prompts.length) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.textContent = "暂无符合条件的提示词";
+    empty.textContent = t("prompts.empty", "No prompts found");
     container.appendChild(empty);
     return;
   }
@@ -1754,16 +1826,20 @@ const createPromptListItem = (prompt) => {
 
   const title = document.createElement("span");
   title.className = "prompt-item-title";
-  title.textContent = prompt.name || "未命名提示词";
+  title.textContent = prompt.name || t("prompts.untitled", "Untitled prompt");
   item.appendChild(title);
 
   const actions = document.createElement("div");
   actions.className = "prompt-item-actions";
   actions.appendChild(
-    createPromptActionButton("apply", "应用提示词", () => applyPrompt(prompt.id))
+    createPromptActionButton("apply", t("prompts.applyAction", "Apply Prompt"), () =>
+      applyPrompt(prompt.id)
+    )
   );
   actions.appendChild(
-    createPromptActionButton("append", "追加提示词", () => appendPrompt(prompt.id))
+    createPromptActionButton("append", t("prompts.appendAction", "Append Prompt"), () =>
+      appendPrompt(prompt.id)
+    )
   );
   item.appendChild(actions);
 
@@ -2082,10 +2158,9 @@ const togglePinTooltip = (nextState) => {
   const pinButton = elements.promptTooltipPinButton;
   if (pinButton) {
     pinButton.setAttribute("aria-pressed", shouldPin ? "true" : "false");
-    pinButton.setAttribute(
-      "aria-label",
-      shouldPin ? "取消固定提示词" : "固定提示词"
-    );
+    const labelKey = shouldPin ? "prompts.unpinTooltip" : "prompts.pinTooltip";
+    const fallback = shouldPin ? "Unpin prompt" : "Pin prompt";
+    pinButton.setAttribute("aria-label", t(labelKey, fallback));
   }
   if (shouldPin) {
     const rect = tooltip.getBoundingClientRect();
@@ -2157,7 +2232,7 @@ const showPromptTooltip = (prompt, clientX, clientY) => {
   tooltipState.activePromptId = prompt.id;
   tooltip.dataset.promptId = String(prompt.id ?? "");
   if (elements.promptTooltipTitle) {
-    elements.promptTooltipTitle.textContent = prompt.name || "未命名提示词";
+    elements.promptTooltipTitle.textContent = prompt.name || t("prompts.untitled", "Untitled prompt");
   }
   if (elements.promptTooltipTags) {
     elements.promptTooltipTags.innerHTML = "";
@@ -2172,7 +2247,7 @@ const showPromptTooltip = (prompt, clientX, clientY) => {
     } else {
       const emptyTag = document.createElement("span");
       emptyTag.className = "prompt-tooltip-tag muted";
-      emptyTag.textContent = "无标签";
+      emptyTag.textContent = t("prompts.noTags", "No tags");
       elements.promptTooltipTags.appendChild(emptyTag);
     }
   }
@@ -2299,7 +2374,7 @@ const updateConfigFileName = () => {
   if (!elements.configFileName) return;
   const client = getCurrentClient();
   if (!client) {
-    elements.configFileName.textContent = "未选择客户端";
+    elements.configFileName.textContent = t("clients.noClientSelected", "No Client Selected");
     return;
   }
   const filePath = client.config_file_path || "";

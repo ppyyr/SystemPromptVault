@@ -11,6 +11,7 @@
 ## 功能模块文档
 
 - [主题系统实现](features/theme-system-implementation.md): 暗色/亮色主题切换、主题状态管理、系统集成
+- [i18n 国际化功能实现](features/i18n-internationalization.md): 完整的多语言支持、系统语言自动检测、DOM 自动更新、跨窗口同步
 - [提示词管理模块](features/prompt-management-module.md): 提示词过滤算法、下拉菜单标签选择器、智能追加操作、Monaco编辑器集成、撤销重做支持
 - [UI 交互优化](features/ui-interaction-optimization.md): Tooltip 系统、下拉菜单标签选择器、防抖机制、无障碍支持、CSS Grid 布局
 - [编辑器模式状态管理](features/editor-mode-state-management.md): 编辑器模式切换、状态同步修复、滚动容器约束、按钮可见性控制、Monaco编辑器深度集成
@@ -23,6 +24,7 @@
 ## 核心模块文档
 
 - [主题管理模块](modules/theme-module.md): `theme.js` 模块详解，包含主题切换逻辑、状态持久化
+- [i18n 国际化模块](modules/i18n-module.md): `i18n.js` 模块详解，包含语言检测、翻译加载、DOM更新、跨窗口同步
 - [API 接口模块](modules/api-module.md): 前端 API 封装、错误处理、状态管理
 - [命令处理模块](modules/command-handling-module.md): Rust 端命令实现、参数验证、错误处理
 - [存储管理模块](modules/storage-module.md): JSON 数据存储、文件操作、数据持久化
@@ -51,3 +53,4 @@
 **更新日期**: 2025-11-12
 **项目版本**: 0.1.0
 **维护者**: SystemPromptVault 开发团队
+**最近更新**: 新增 i18n 国际化系统文档
