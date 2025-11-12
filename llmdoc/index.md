@@ -16,7 +16,7 @@
 - [编辑器模式状态管理](features/editor-mode-state-management.md): 编辑器模式切换、状态同步修复、滚动容器约束、按钮可见性控制、Monaco编辑器深度集成
 - [导入导出功能](features/import-export-functionality.md): 提示词批量导入导出、文件处理、数据验证
 - [客户端配置管理](features/client-configuration-management.md): 多客户端支持、配置文件读写、自动标签
-- [快照版本管理系统](features/snapshot-version-management.md): 配置文件快照、自动备份、System Tray集成、FIFO清理策略
+- [快照版本管理系统](features/snapshot-version-management.md): 配置文件快照、内容去重、分类FIFO清理、System Tray集成、自动/手动快照分别管理
 - [配置文件变化检测与重新加载](features/config-file-change-detection.md): 实时文件监听、外部修改检测、Toast提示、冲突保护、托盘恢复优化机制
 - [设置页面窗口生命周期管理](features/settings-window-lifecycle-management.md): 设置页面窗口关闭事件处理、Tauri API集成、与主窗口行为一致性保证
 

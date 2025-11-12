@@ -118,7 +118,6 @@ pub fn init_tray(app: &App) -> TrayResult<()> {
 fn create_tray_icon<R: Runtime>(app_handle: &AppHandle<R>, menu: Menu<R>) -> TrayResult<()> {
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
-        .tooltip("SystemPromptVault")
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| {
             if let Err(err) = crate::tray::handle_tray_event(app, &event) {
@@ -177,11 +176,6 @@ pub fn run() {
 fn build_tray_menu<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Menu<R>> {
     let menu = Menu::new(app_handle).map_err(TrayError::from)?;
 
-    // 应用标题
-    let title_item = MenuItem::new(app_handle, "SystemPromptVault", false, None::<&str>)
-        .map_err(TrayError::from)?;
-    menu.append(&title_item).map_err(TrayError::from)?;
-
     // 客户端子菜单
     let client_submenus = build_client_submenus(app_handle)?;
     if client_submenus.is_empty() {
@@ -202,13 +196,13 @@ fn build_tray_menu<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Menu<R>>
     let show_item = MenuItem::with_id(
         app_handle,
         SHOW_MAIN_WINDOW_MENU_ID,
-        "🏠 打开主窗口",
+        "Open",
         true,
         None::<&str>,
     ).map_err(TrayError::from)?;
     menu.append(&show_item).map_err(TrayError::from)?;
 
-    let quit_item = MenuItem::with_id(app_handle, QUIT_MENU_ID, "❌ 退出", true, None::<&str>)
+    let quit_item = MenuItem::with_id(app_handle, QUIT_MENU_ID, "Quit", true, None::<&str>)
         .map_err(TrayError::from)?;
     menu.append(&quit_item).map_err(TrayError::from)?;
 
@@ -280,7 +274,7 @@ fn build_client_submenu<R: Runtime>(
                 MenuItem::with_id(
                     app_handle,
                     item_id,
-                    format_snapshot_label(&snapshot),
+                    format_snapshot_label(&snapshot, snapshot.is_auto),
                     true,
                     None::<&str>,
                 ).map_err(TrayError::from)?
@@ -310,20 +304,21 @@ fn build_client_submenu<R: Runtime>(
 
 ```rust
 fn format_client_label(client: &ClientConfig, snapshot_count: usize) -> String {
-    if snapshot_count > 0 {
-        format!("Client: {} ({}个快照)", client.name, snapshot_count)
-    } else {
-        format!("Client: {}", client.name)
-    }
+    format!("{}({})", client.name, snapshot_count)
 }
 ```
 
 #### 2.5.2 快照标签格式化
 
 ```rust
-fn format_snapshot_label(snapshot: &Snapshot) -> String {
+fn format_snapshot_label(snapshot: &Snapshot, is_auto: bool) -> String {
     let local_time: DateTime<Local> = snapshot.created_at.with_timezone(&Local);
-    format!("{} {}", snapshot.name, local_time.format("%m-%d %H:%M"))
+    let timestamp = local_time.format("%Y-%m-%d %H:%M:%S");
+    if is_auto {
+        format!("Auto Saved {}", timestamp)
+    } else {
+        format!("{} {}", snapshot.name, timestamp)
+    }
 }
 ```
 
@@ -582,8 +577,10 @@ await SnapshotAPI.refreshTrayMenu();
 
 1. **菜单排序**：客户端按名称排序，快照按时间降序排列
 2. **空状态处理**：无快照时显示明确的占位符文本
-3. **本地化时间**：快照时间转换为用户本地时区显示
+3. **本地化时间**：快照时间转换为用户本地时区显示，格式为 `YYYY-MM-DD HH:MM:SS`
 4. **即时反馈**：恢复快照后立即显示系统通知
+5. **简洁界面**：移除emoji图标，使用简洁的英文菜单项
+6. **客户端标签优化**：显示格式为 `名称(快照数量)`，简洁明了
 
 ### 跨平台注意事项
 
