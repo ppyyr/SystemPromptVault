@@ -49,6 +49,13 @@ impl SnapshotRepository {
         Ok(snapshots)
     }
 
+    pub fn get_config(&self, client_id: &str) -> Result<SnapshotConfig, String> {
+        let client_id = Self::normalize_client_id(client_id)?;
+        let mut config = self.load_config(&client_id)?;
+        config.snapshots.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        Ok(config)
+    }
+
     pub fn restore_snapshot(&self, client_id: &str, snapshot_id: &str) -> Result<String, String> {
         let client_id = Self::normalize_client_id(client_id)?;
         let snapshot_id = Self::normalize_snapshot_id(snapshot_id)?;

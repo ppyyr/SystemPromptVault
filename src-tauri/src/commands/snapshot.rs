@@ -1,4 +1,4 @@
-use crate::models::Snapshot;
+use crate::models::{Snapshot, SnapshotConfig};
 use crate::storage::snapshot_repository::SnapshotRepository;
 use crate::tray;
 use std::sync::{Arc, Mutex};
@@ -28,9 +28,9 @@ pub fn create_snapshot(
 pub fn get_snapshots(
     repository: State<'_, Arc<Mutex<SnapshotRepository>>>,
     client_id: String,
-) -> Result<Vec<Snapshot>, String> {
+) -> Result<SnapshotConfig, String> {
     let repo = lock_repo(&repository)?;
-    repo.get_snapshots(&client_id)
+    repo.get_config(&client_id)
 }
 
 #[tauri::command]
