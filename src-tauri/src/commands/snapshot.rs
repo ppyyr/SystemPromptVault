@@ -75,6 +75,26 @@ pub fn set_max_snapshots(
 }
 
 #[tauri::command]
+pub fn set_max_auto_snapshots(
+    repository: State<'_, Arc<Mutex<SnapshotRepository>>>,
+    client_id: String,
+    max: usize,
+) -> Result<(), String> {
+    let repo = lock_repo(&repository)?;
+    repo.set_max_auto_snapshots(&client_id, max)
+}
+
+#[tauri::command]
+pub fn set_max_manual_snapshots(
+    repository: State<'_, Arc<Mutex<SnapshotRepository>>>,
+    client_id: String,
+    max: usize,
+) -> Result<(), String> {
+    let repo = lock_repo(&repository)?;
+    repo.set_max_manual_snapshots(&client_id, max)
+}
+
+#[tauri::command]
 pub fn refresh_tray_menu(app_handle: tauri::AppHandle) -> Result<(), String> {
     tray::refresh_tray_menu(&app_handle).map_err(|err| err.to_string())
 }

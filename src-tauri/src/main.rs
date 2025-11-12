@@ -82,6 +82,8 @@ fn main() {
             commands::snapshot::delete_snapshot,
             commands::snapshot::rename_snapshot,
             commands::snapshot::set_max_snapshots,
+            commands::snapshot::set_max_auto_snapshots,
+            commands::snapshot::set_max_manual_snapshots,
             commands::snapshot::refresh_tray_menu,
         ])
         .run(tauri::generate_context!())

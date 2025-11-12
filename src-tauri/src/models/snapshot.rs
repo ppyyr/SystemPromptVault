@@ -10,6 +10,8 @@ pub struct Snapshot {
     pub client_id: String,
     pub created_at: DateTime<Utc>,
     pub is_auto: bool,
+    #[serde(default)]
+    pub content_hash: String,
 }
 
 impl Snapshot {
@@ -18,6 +20,7 @@ impl Snapshot {
         name: impl Into<String>,
         content: impl Into<String>,
         is_auto: bool,
+        content_hash: impl Into<String>,
     ) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
@@ -26,6 +29,7 @@ impl Snapshot {
             client_id: client_id.into(),
             created_at: Utc::now(),
             is_auto,
+            content_hash: content_hash.into(),
         }
     }
 }
@@ -35,6 +39,10 @@ pub struct SnapshotConfig {
     pub client_id: String,
     #[serde(default = "SnapshotConfig::default_max_snapshots")]
     pub max_snapshots: usize,
+    #[serde(default = "SnapshotConfig::default_max_auto_snapshots")]
+    pub max_auto_snapshots: usize,
+    #[serde(default = "SnapshotConfig::default_max_manual_snapshots")]
+    pub max_manual_snapshots: usize,
     #[serde(default)]
     pub snapshots: Vec<Snapshot>,
 }
@@ -44,12 +52,22 @@ impl SnapshotConfig {
         Self {
             client_id: client_id.into(),
             max_snapshots: Self::default_max_snapshots(),
+            max_auto_snapshots: Self::default_max_auto_snapshots(),
+            max_manual_snapshots: Self::default_max_manual_snapshots(),
             snapshots: Vec::new(),
         }
     }
 
     pub fn default_max_snapshots() -> usize {
-        5
+        Self::default_max_manual_snapshots()
+    }
+
+    pub fn default_max_auto_snapshots() -> usize {
+        3
+    }
+
+    pub fn default_max_manual_snapshots() -> usize {
+        10
     }
 }
 

@@ -230,17 +230,31 @@
               </select>
             </div>
             <div class="form-group flex flex-col gap-2">
-              <label for="inputMaxSnapshots" class="text-sm font-medium text-gray-700 dark:text-gray-300">最大快照保存数量</label>
+              <label for="inputMaxAutoSnapshots" class="text-sm font-medium text-gray-700 dark:text-gray-300">最大自动快照保存数量</label>
               <input
                 type="number"
-                id="inputMaxSnapshots"
+                id="inputMaxAutoSnapshots"
                 min="1"
                 max="20"
-                value="5"
+                value="3"
                 class="form-control w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <p class="form-help-text text-sm text-gray-500 dark:text-gray-400">
-                超过此数量时将自动删除最旧的快照（默认5个）
+                自动快照超过此数量时将自动删除最旧的（默认3个，包括启动时快照和切换客户端前快照）
+              </p>
+            </div>
+            <div class="form-group flex flex-col gap-2">
+              <label for="inputMaxManualSnapshots" class="text-sm font-medium text-gray-700 dark:text-gray-300">最大手动快照保存数量</label>
+              <input
+                type="number"
+                id="inputMaxManualSnapshots"
+                min="1"
+                max="50"
+                value="10"
+                class="form-control w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <p class="form-help-text text-sm text-gray-500 dark:text-gray-400">
+                手动快照（Shift+保存）超过此数量时将自动删除最旧的（默认10个）
               </p>
             </div>
             <button type="submit" class="btn-primary self-start px-4 py-2 rounded-md text-white">保存设置</button>

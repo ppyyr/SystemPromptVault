@@ -16,7 +16,11 @@ impl ConfigFileWatcher {
         }
     }
 
-    pub fn watch_file<R: Runtime>(&mut self, path: PathBuf, app_handle: AppHandle<R>) -> Result<(), String> {
+    pub fn watch_file<R: Runtime>(
+        &mut self,
+        path: PathBuf,
+        app_handle: AppHandle<R>,
+    ) -> Result<(), String> {
         if self.watched_path.as_ref() == Some(&path) {
             return Ok(());
         }

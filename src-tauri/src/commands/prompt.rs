@@ -115,7 +115,6 @@ pub fn delete_prompt(
     repo.delete(&id)
 }
 
-
 #[tauri::command]
 pub fn export_prompts(
     repository: State<'_, Arc<Mutex<PromptRepository>>>,
@@ -250,5 +249,3 @@ fn field_label(field: &str) -> &str {
         _ => field,
     }
 }
-
-

@@ -4,7 +4,8 @@ import { initTheme, createThemeToggleButton, updateThemeIcon } from "./theme.js"
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const SNAPSHOT_LOAD_DEBOUNCE = 300;
-const DEFAULT_MAX_SNAPSHOTS = 5;
+const DEFAULT_MAX_AUTO_SNAPSHOTS = 3;
+const DEFAULT_MAX_MANUAL_SNAPSHOTS = 10;
 const TAB_LABEL_MAP = {
   tabPrompts: "提示词管理",
   tabClients: "客户端管理",
@@ -26,7 +27,8 @@ const state = {
   generalSettingsClientId: null,
   snapshotCache: {},
   snapshotLoadTimer: null,
-  generalMaxSnapshots: DEFAULT_MAX_SNAPSHOTS,
+  generalMaxAutoSnapshots: DEFAULT_MAX_AUTO_SNAPSHOTS,
+  generalMaxManualSnapshots: DEFAULT_MAX_MANUAL_SNAPSHOTS,
 };
 
 const elements = {
@@ -61,7 +63,8 @@ const elements = {
   promptActions: null,
   snapshotActions: null,
   formGeneralSettings: null,
-  inputMaxSnapshots: null,
+  inputMaxAutoSnapshots: null,
+  inputMaxManualSnapshots: null,
   generalClientSelector: null,
   btnSaveGeneralSettings: null,
   snapshotClientSelector: null,
@@ -137,7 +140,8 @@ const cacheElements = () => {
   elements.promptActions = document.getElementById("promptActions");
   elements.snapshotActions = document.getElementById("snapshotActions");
   elements.formGeneralSettings = document.getElementById("formGeneralSettings");
-  elements.inputMaxSnapshots = document.getElementById("inputMaxSnapshots");
+  elements.inputMaxAutoSnapshots = document.getElementById("inputMaxAutoSnapshots");
+  elements.inputMaxManualSnapshots = document.getElementById("inputMaxManualSnapshots");
   elements.generalClientSelector = document.getElementById("generalClientSelector");
   elements.btnSaveGeneralSettings =
     elements.formGeneralSettings?.querySelector('button[type="submit"]') ?? null;
@@ -591,8 +595,13 @@ const loadSnapshotClients = async () => {
   if (!hasClients) {
     state.snapshotClientId = null;
     state.generalSettingsClientId = null;
+    state.generalMaxAutoSnapshots = DEFAULT_MAX_AUTO_SNAPSHOTS;
+    state.generalMaxManualSnapshots = DEFAULT_MAX_MANUAL_SNAPSHOTS;
     setGeneralSettingsDisabled(true);
-    updateGeneralSettingsInput(DEFAULT_MAX_SNAPSHOTS);
+    updateGeneralSettingsInput({
+      auto: DEFAULT_MAX_AUTO_SNAPSHOTS,
+      manual: DEFAULT_MAX_MANUAL_SNAPSHOTS,
+    });
     elements.btnRefreshSnapshots?.setAttribute("disabled", "true");
     renderSnapshotTable([]);
     setSnapshotEmptyState("暂无客户端");
@@ -922,20 +931,44 @@ const scheduleSnapshotReload = (clientId) => {
 };
 
 const normalizeSnapshotResponse = (payload) => {
+  const empty = {
+    snapshots: [],
+    maxSnapshots: null,
+    maxAutoSnapshots: null,
+    maxManualSnapshots: null,
+  };
+
   if (Array.isArray(payload)) {
-    return { snapshots: payload, maxSnapshots: null };
+    return { ...empty, snapshots: payload };
   }
+
   if (payload && typeof payload === "object") {
-    const snapshots = Array.isArray(payload.snapshots) ? payload.snapshots : [];
+    const source =
+      payload.config && typeof payload.config === "object" ? payload.config : payload;
+    const snapshots = Array.isArray(payload.snapshots)
+      ? payload.snapshots
+      : Array.isArray(source.snapshots)
+      ? source.snapshots
+      : [];
+
+    const readNumber = (...keys) => {
+      for (const key of keys) {
+        if (typeof source[key] === "number") {
+          return source[key];
+        }
+      }
+      return null;
+    };
+
+    const maxAutoSnapshots = readNumber("maxAutoSnapshots", "max_auto_snapshots");
+    const maxManualSnapshots = readNumber("maxManualSnapshots", "max_manual_snapshots");
     const maxSnapshots =
-      typeof payload.maxSnapshots === "number"
-        ? payload.maxSnapshots
-        : typeof payload.max_snapshots === "number"
-        ? payload.max_snapshots
-        : null;
-    return { snapshots, maxSnapshots };
+      readNumber("maxSnapshots", "max_snapshots") ?? maxManualSnapshots ?? maxAutoSnapshots;
+
+    return { snapshots, maxSnapshots, maxAutoSnapshots, maxManualSnapshots };
   }
-  return { snapshots: [], maxSnapshots: null };
+
+  return empty;
 };
 
 const loadSnapshotsTable = async (clientId, { silent = false } = {}) => {
@@ -947,24 +980,33 @@ const loadSnapshotsTable = async (clientId, { silent = false } = {}) => {
   }
   try {
     const response = await SnapshotAPI.getAll(targetId);
-    const { snapshots, maxSnapshots } = normalizeSnapshotResponse(response);
-    state.snapshotCache[targetId] = {
+    const { snapshots, maxAutoSnapshots, maxManualSnapshots } = normalizeSnapshotResponse(response);
+    const cacheEntry = {
       snapshots,
-      maxSnapshots:
-        typeof maxSnapshots === "number"
-          ? maxSnapshots
-          : state.snapshotCache[targetId]?.maxSnapshots ?? null,
+      maxAutoSnapshots:
+        typeof maxAutoSnapshots === "number"
+          ? maxAutoSnapshots
+          : state.snapshotCache[targetId]?.maxAutoSnapshots ?? null,
+      maxManualSnapshots:
+        typeof maxManualSnapshots === "number"
+          ? maxManualSnapshots
+          : state.snapshotCache[targetId]?.maxManualSnapshots ?? null,
     };
+    state.snapshotCache[targetId] = cacheEntry;
     if (targetId === state.snapshotClientId) {
       renderSnapshotTable(snapshots);
     }
-    if (
-      typeof maxSnapshots === "number" &&
-      state.generalSettingsClientId &&
-      targetId === state.generalSettingsClientId
-    ) {
-      state.generalMaxSnapshots = maxSnapshots;
-      updateGeneralSettingsInput(maxSnapshots);
+    if (state.generalSettingsClientId && targetId === state.generalSettingsClientId) {
+      if (typeof cacheEntry.maxAutoSnapshots === "number") {
+        state.generalMaxAutoSnapshots = cacheEntry.maxAutoSnapshots;
+      }
+      if (typeof cacheEntry.maxManualSnapshots === "number") {
+        state.generalMaxManualSnapshots = cacheEntry.maxManualSnapshots;
+      }
+      updateGeneralSettingsInput({
+        auto: state.generalMaxAutoSnapshots,
+        manual: state.generalMaxManualSnapshots,
+      });
     }
     return snapshots;
   } catch (error) {
@@ -1073,30 +1115,49 @@ const setSnapshotEmptyState = (message) => {
   }
 };
 
-const updateGeneralSettingsInput = (value) => {
-  if (!elements.inputMaxSnapshots) return;
-  elements.inputMaxSnapshots.value = String(value ?? DEFAULT_MAX_SNAPSHOTS);
+const updateGeneralSettingsInput = (payload = {}) => {
+  const { auto, manual } =
+    typeof payload === "number"
+      ? { auto: payload, manual: payload }
+      : payload ?? {};
+
+  if (elements.inputMaxAutoSnapshots) {
+    const resolvedAuto =
+      auto ?? state.generalMaxAutoSnapshots ?? DEFAULT_MAX_AUTO_SNAPSHOTS;
+    elements.inputMaxAutoSnapshots.value = String(resolvedAuto);
+  }
+
+  if (elements.inputMaxManualSnapshots) {
+    const resolvedManual =
+      manual ?? state.generalMaxManualSnapshots ?? DEFAULT_MAX_MANUAL_SNAPSHOTS;
+    elements.inputMaxManualSnapshots.value = String(resolvedManual);
+  }
 };
 
 const setGeneralSettingsDisabled = (disabled) => {
-  [elements.inputMaxSnapshots, elements.generalClientSelector, elements.btnSaveGeneralSettings].forEach(
-    (control) => {
-      if (!control) return;
-      if (disabled) {
-        control.setAttribute("disabled", "true");
-      } else {
-        control.removeAttribute("disabled");
-      }
+  [
+    elements.inputMaxAutoSnapshots,
+    elements.inputMaxManualSnapshots,
+    elements.generalClientSelector,
+    elements.btnSaveGeneralSettings,
+  ].forEach((control) => {
+    if (!control) return;
+    if (disabled) {
+      control.setAttribute("disabled", "true");
+    } else {
+      control.removeAttribute("disabled");
     }
-  );
+  });
   if (elements.formGeneralSettings) {
     elements.formGeneralSettings.classList.toggle("opacity-60", disabled);
   }
 };
 
 const loadGeneralSettings = async (clientId) => {
-  const input = elements.inputMaxSnapshots;
-  if (!input) return;
+  if (!elements.inputMaxAutoSnapshots || !elements.inputMaxManualSnapshots) {
+    return;
+  }
+
   const targetId =
     clientId ??
     state.generalSettingsClientId ??
@@ -1110,35 +1171,56 @@ const loadGeneralSettings = async (clientId) => {
 
   if (!targetId) {
     setGeneralSettingsDisabled(true);
-    updateGeneralSettingsInput(DEFAULT_MAX_SNAPSHOTS);
+    state.generalMaxAutoSnapshots = DEFAULT_MAX_AUTO_SNAPSHOTS;
+    state.generalMaxManualSnapshots = DEFAULT_MAX_MANUAL_SNAPSHOTS;
+    updateGeneralSettingsInput({
+      auto: DEFAULT_MAX_AUTO_SNAPSHOTS,
+      manual: DEFAULT_MAX_MANUAL_SNAPSHOTS,
+    });
     return;
   }
 
   setGeneralSettingsDisabled(false);
 
   const cached = state.snapshotCache[targetId];
-  if (cached && typeof cached.maxSnapshots === "number") {
-    state.generalMaxSnapshots = cached.maxSnapshots;
-    updateGeneralSettingsInput(cached.maxSnapshots);
+  if (
+    cached &&
+    (typeof cached.maxAutoSnapshots === "number" || typeof cached.maxManualSnapshots === "number")
+  ) {
+    if (typeof cached.maxAutoSnapshots === "number") {
+      state.generalMaxAutoSnapshots = cached.maxAutoSnapshots;
+    }
+    if (typeof cached.maxManualSnapshots === "number") {
+      state.generalMaxManualSnapshots = cached.maxManualSnapshots;
+    }
+    updateGeneralSettingsInput({
+      auto: state.generalMaxAutoSnapshots,
+      manual: state.generalMaxManualSnapshots,
+    });
     return;
   }
 
   try {
     const response = await SnapshotAPI.getAll(targetId);
-    const { snapshots, maxSnapshots } = normalizeSnapshotResponse(response);
+    const { snapshots, maxAutoSnapshots, maxManualSnapshots } = normalizeSnapshotResponse(response);
     state.snapshotCache[targetId] = {
       snapshots,
-      maxSnapshots: typeof maxSnapshots === "number" ? maxSnapshots : null,
+      maxAutoSnapshots: typeof maxAutoSnapshots === "number" ? maxAutoSnapshots : null,
+      maxManualSnapshots: typeof maxManualSnapshots === "number" ? maxManualSnapshots : null,
     };
-    if (typeof maxSnapshots === "number") {
-      state.generalMaxSnapshots = maxSnapshots;
-      updateGeneralSettingsInput(maxSnapshots);
-    } else {
-      updateGeneralSettingsInput(state.generalMaxSnapshots ?? DEFAULT_MAX_SNAPSHOTS);
+    if (typeof maxAutoSnapshots === "number") {
+      state.generalMaxAutoSnapshots = maxAutoSnapshots;
     }
+    if (typeof maxManualSnapshots === "number") {
+      state.generalMaxManualSnapshots = maxManualSnapshots;
+    }
+    updateGeneralSettingsInput({
+      auto: state.generalMaxAutoSnapshots,
+      manual: state.generalMaxManualSnapshots,
+    });
   } catch (error) {
     showToast(getErrorMessage(error) || "加载快照设置失败", "error");
-    updateGeneralSettingsInput(state.generalMaxSnapshots ?? DEFAULT_MAX_SNAPSHOTS);
+    updateGeneralSettingsInput();
   }
 };
 
@@ -1148,22 +1230,46 @@ const saveGeneralSettings = async (event) => {
     showToast("请先选择客户端", "warning");
     return;
   }
-  let maxSnapshots = Number.parseInt(elements.inputMaxSnapshots.value, 10);
-  if (Number.isNaN(maxSnapshots)) {
-    maxSnapshots = state.generalMaxSnapshots ?? DEFAULT_MAX_SNAPSHOTS;
+
+  const fallbackAuto = state.generalMaxAutoSnapshots ?? DEFAULT_MAX_AUTO_SNAPSHOTS;
+  const fallbackManual = state.generalMaxManualSnapshots ?? DEFAULT_MAX_MANUAL_SNAPSHOTS;
+
+  let maxAuto = Number.parseInt(elements.inputMaxAutoSnapshots?.value ?? "", 10);
+  if (Number.isNaN(maxAuto)) {
+    maxAuto = fallbackAuto;
   }
-  maxSnapshots = clampNumber(maxSnapshots, 1, 20);
-  updateGeneralSettingsInput(maxSnapshots);
+  let maxManual = Number.parseInt(elements.inputMaxManualSnapshots?.value ?? "", 10);
+  if (Number.isNaN(maxManual)) {
+    maxManual = fallbackManual;
+  }
+
+  maxAuto = clampNumber(maxAuto, 1, 20);
+  maxManual = clampNumber(maxManual, 1, 20);
+  updateGeneralSettingsInput({ auto: maxAuto, manual: maxManual });
 
   try {
     await withLoading(async () => {
-      await SnapshotAPI.setMaxSnapshots(state.generalSettingsClientId, maxSnapshots);
+      await Promise.all([
+        SnapshotAPI.setMaxAutoSnapshots(state.generalSettingsClientId, maxAuto),
+        SnapshotAPI.setMaxManualSnapshots(state.generalSettingsClientId, maxManual),
+      ]);
       await SnapshotAPI.refreshTrayMenu();
     });
-    state.generalMaxSnapshots = maxSnapshots;
-    if (state.snapshotCache[state.generalSettingsClientId]) {
-      state.snapshotCache[state.generalSettingsClientId].maxSnapshots = maxSnapshots;
+
+    state.generalMaxAutoSnapshots = maxAuto;
+    state.generalMaxManualSnapshots = maxManual;
+    const cache = state.snapshotCache[state.generalSettingsClientId];
+    if (cache) {
+      cache.maxAutoSnapshots = maxAuto;
+      cache.maxManualSnapshots = maxManual;
+    } else {
+      state.snapshotCache[state.generalSettingsClientId] = {
+        snapshots: [],
+        maxAutoSnapshots: maxAuto,
+        maxManualSnapshots: maxManual,
+      };
     }
+
     showToast("设置已保存", "success");
     await loadSnapshotsTable(state.generalSettingsClientId, { silent: true });
   } catch (error) {

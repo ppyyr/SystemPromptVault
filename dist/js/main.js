@@ -1,5 +1,5 @@
 import { PromptAPI, ClientAPI, ConfigFileAPI, AppStateAPI, SnapshotAPI } from "./api.js";
-import { showToast, showLoading, hideLoading, showActionToast, showConfirm } from "./utils.js";
+import { showToast, showLoading, hideLoading, showActionToast, showConfirm, showPrompt } from "./utils.js";
 import {
   initTheme,
   createThemeToggleButton,
@@ -184,10 +184,20 @@ const createAutoSnapshot = async (clientId, content = "", prefix = "自动快照
   }
   const snapshotContent = typeof content === "string" ? content : content ?? "";
   const name = formatSnapshotName(prefix);
-  await SnapshotAPI.create(clientId, name, snapshotContent, true);
-  await SnapshotAPI.refreshTrayMenu();
-  console.info(`[Snapshot] 自动快照已创建：${name} (client: ${clientId})`);
-  return name;
+
+  try {
+    await SnapshotAPI.create(clientId, name, snapshotContent, true);
+    await SnapshotAPI.refreshTrayMenu();
+    console.log(`[Snapshot] 已创建快照: ${name} (客户端: ${clientId})`);
+    return name;
+  } catch (error) {
+    if (error && typeof error === "string" && error.includes("内容未变化")) {
+      console.log(`[Snapshot] 内容未变化,跳过快照: ${prefix} (客户端: ${clientId})`);
+      return null;
+    }
+    console.warn(`[Snapshot] 创建快照失败:`, error);
+    return null;
+  }
 };
 
 const handleEditorChange = () => {
@@ -1311,7 +1321,7 @@ const saveConfigFile = async ({ silent = false, createSnapshot = false } = {}) =
       showToast("配置已保存", "success");
     }
     if (createSnapshot) {
-      const name = prompt("请输入快照名称（留空取消）：");
+      const name = await showPrompt("请输入快照名称（留空取消）：", "");
       const trimmedName = name?.trim();
       if (trimmedName) {
         try {

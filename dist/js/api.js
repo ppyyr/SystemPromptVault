@@ -51,5 +51,7 @@ export const SnapshotAPI = {
   rename: (clientId, snapshotId, newName) =>
     call("rename_snapshot", { clientId, snapshotId, newName }),
   setMaxSnapshots: (clientId, max) => call("set_max_snapshots", { clientId, max }),
+  setMaxAutoSnapshots: (clientId, max) => call("set_max_auto_snapshots", { clientId, max }),
+  setMaxManualSnapshots: (clientId, max) => call("set_max_manual_snapshots", { clientId, max }),
   refreshTrayMenu: () => call("refresh_tray_menu"),
 };

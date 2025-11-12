@@ -1,5 +1,6 @@
 use crate::models::{Snapshot, SnapshotConfig};
 use crate::utils::file_ops::atomic_write;
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::PathBuf;
 
@@ -29,11 +30,22 @@ impl SnapshotRepository {
             return Err("快照名称不能为空".to_string());
         }
         let mut config = self.load_config(&client_id)?;
+        let content_hash = Self::calculate_content_hash(&content);
+        if let Some(latest) = config
+            .snapshots
+            .iter()
+            .max_by(|a, b| a.created_at.cmp(&b.created_at))
+        {
+            if latest.content_hash == content_hash {
+                return Err("内容未变化,跳过快照创建".to_string());
+            }
+        }
         let snapshot = Snapshot::new(
             client_id.clone(),
             normalized_name.to_string(),
             content,
             is_auto,
+            content_hash,
         );
         config.snapshots.push(snapshot.clone());
         Self::enforce_limit(&mut config);
@@ -52,7 +64,9 @@ impl SnapshotRepository {
     pub fn get_config(&self, client_id: &str) -> Result<SnapshotConfig, String> {
         let client_id = Self::normalize_client_id(client_id)?;
         let mut config = self.load_config(&client_id)?;
-        config.snapshots.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        config
+            .snapshots
+            .sort_by(|a, b| b.created_at.cmp(&a.created_at));
         Ok(config)
     }
 
@@ -112,6 +126,33 @@ impl SnapshotRepository {
         let client_id = Self::normalize_client_id(client_id)?;
         let mut config = self.load_config(&client_id)?;
         config.max_snapshots = max;
+        config.max_auto_snapshots = max;
+        config.max_manual_snapshots = max;
+        Self::sync_legacy_limit(&mut config);
+        let _ = Self::enforce_limit(&mut config);
+        self.save_config(&config)
+    }
+
+    pub fn set_max_auto_snapshots(&self, client_id: &str, max: usize) -> Result<(), String> {
+        if max == 0 {
+            return Err("最大快照数量必须大于 0".to_string());
+        }
+        let client_id = Self::normalize_client_id(client_id)?;
+        let mut config = self.load_config(&client_id)?;
+        config.max_auto_snapshots = max;
+        Self::sync_legacy_limit(&mut config);
+        let _ = Self::enforce_limit(&mut config);
+        self.save_config(&config)
+    }
+
+    pub fn set_max_manual_snapshots(&self, client_id: &str, max: usize) -> Result<(), String> {
+        if max == 0 {
+            return Err("最大快照数量必须大于 0".to_string());
+        }
+        let client_id = Self::normalize_client_id(client_id)?;
+        let mut config = self.load_config(&client_id)?;
+        config.max_manual_snapshots = max;
+        Self::sync_legacy_limit(&mut config);
         let _ = Self::enforce_limit(&mut config);
         self.save_config(&config)
     }
@@ -134,9 +175,7 @@ impl SnapshotRepository {
             if config.client_id.trim().is_empty() {
                 config.client_id = client_id.to_string();
             }
-            if config.max_snapshots == 0 {
-                config.max_snapshots = SnapshotConfig::default_max_snapshots();
-            }
+            Self::normalize_limits(&mut config);
             Ok(config)
         } else {
             Ok(SnapshotConfig::new(client_id.to_string()))
@@ -176,17 +215,60 @@ impl SnapshotRepository {
     }
 
     fn enforce_limit(config: &mut SnapshotConfig) -> bool {
-        if config.snapshots.len() <= config.max_snapshots {
+        if config.snapshots.is_empty() {
             return false;
         }
+        Self::normalize_limits(config);
         config
             .snapshots
             .sort_by(|a, b| a.created_at.cmp(&b.created_at));
-        let mut changed = false;
-        while config.snapshots.len() > config.max_snapshots {
-            config.snapshots.remove(0);
-            changed = true;
+        let auto_count = config.snapshots.iter().filter(|s| s.is_auto).count();
+        let manual_count = config.snapshots.iter().filter(|s| !s.is_auto).count();
+        let mut auto_to_remove = auto_count.saturating_sub(config.max_auto_snapshots);
+        let mut manual_to_remove = manual_count.saturating_sub(config.max_manual_snapshots);
+        if auto_to_remove == 0 && manual_to_remove == 0 {
+            return false;
         }
+        let mut changed = false;
+        config.snapshots.retain(|snapshot| {
+            if snapshot.is_auto && auto_to_remove > 0 {
+                auto_to_remove -= 1;
+                changed = true;
+                false
+            } else if !snapshot.is_auto && manual_to_remove > 0 {
+                manual_to_remove -= 1;
+                changed = true;
+                false
+            } else {
+                true
+            }
+        });
         changed
+    }
+
+    fn calculate_content_hash(content: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(content.as_bytes());
+        format!("{:x}", hasher.finalize())
+    }
+
+    fn normalize_limits(config: &mut SnapshotConfig) {
+        if config.max_snapshots == 0 {
+            config.max_snapshots = SnapshotConfig::default_max_snapshots();
+        }
+        if config.max_auto_snapshots == 0 {
+            config.max_auto_snapshots = config.max_snapshots;
+        }
+        if config.max_manual_snapshots == 0 {
+            config.max_manual_snapshots = config.max_snapshots;
+        }
+        Self::sync_legacy_limit(config);
+    }
+
+    fn sync_legacy_limit(config: &mut SnapshotConfig) {
+        config.max_snapshots = config
+            .max_snapshots
+            .max(config.max_auto_snapshots)
+            .max(config.max_manual_snapshots);
     }
 }
