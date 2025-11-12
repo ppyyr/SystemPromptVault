@@ -136,6 +136,28 @@
               </svg>
             </button>
           </div>
+
+          <div class="flex items-center gap-2 flex-wrap hidden" id="snapshotActions">
+            <label class="text-sm text-gray-700 dark:text-gray-300" for="snapshotClientSelector">选择客户端：</label>
+            <select
+              id="snapshotClientSelector"
+              class="form-select w-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+              aria-label="选择客户端"
+            >
+              <option value="">暂无客户端</option>
+            </select>
+            <button
+              id="btnRefreshSnapshots"
+              class="btn-icon btn-icon-primary"
+              type="button"
+              aria-label="刷新快照列表"
+              data-tooltip="刷新快照列表"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <section class="flex flex-col gap-4 flex-1" style="min-height: 0;" id="tabPrompts" role="tabpanel" aria-labelledby="settingsDropdownToggle">
@@ -167,19 +189,6 @@
         </section>
 
         <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabClients" role="tabpanel" aria-labelledby="settingsDropdownToggle">
-          <div class="flex items-center justify-end gap-3 flex-wrap">
-            <button
-              class="btn-icon btn-icon-primary"
-              id="btnNewClient"
-              type="button"
-              aria-label="新增客户端"
-              data-tooltip="新增客户端"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-            </button>
-          </div>
           <div class="settings-table-container">
             <table class="w-full border-collapse">
               <thead>
@@ -210,10 +219,6 @@
         </section>
 
         <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabGeneral" role="tabpanel" aria-labelledby="settingsDropdownToggle">
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">常规设置</h2>
-          <p class="text-sm text-gray-600 dark:text-gray-400">
-            该设置会应用于所选客户端，可在下拉框中快速切换。
-          </p>
           <form id="formGeneralSettings" class="flex flex-col gap-4">
             <div class="form-group flex flex-col gap-2">
               <label for="generalClientSelector" class="text-sm font-medium text-gray-700 dark:text-gray-300">选择客户端</label>
@@ -243,30 +248,6 @@
         </section>
 
         <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabSnapshots" role="tabpanel" aria-labelledby="settingsDropdownToggle">
-          <div class="flex items-center justify-between flex-wrap gap-4">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">快照管理</h2>
-            <div class="flex items-center gap-2">
-              <label class="text-sm text-gray-700 dark:text-gray-300" for="snapshotClientSelector">选择客户端：</label>
-              <select
-                id="snapshotClientSelector"
-                class="form-select w-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
-                aria-label="选择客户端"
-              >
-                <option value="">暂无客户端</option>
-              </select>
-              <button
-                id="btnRefreshSnapshots"
-                class="btn-icon btn-icon-primary"
-                type="button"
-                aria-label="刷新快照列表"
-                data-tooltip="刷新快照列表"
-              >
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6M5 19A9 9 0 0019 5" />
-                </svg>
-              </button>
-            </div>
-          </div>
           <div class="settings-table-container">
             <table class="w-full border-collapse">
               <thead>

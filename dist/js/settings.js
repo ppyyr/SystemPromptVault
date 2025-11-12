@@ -59,6 +59,7 @@ const elements = {
   settingsDropdownPanel: null,
   settingsDropdownList: null,
   promptActions: null,
+  snapshotActions: null,
   formGeneralSettings: null,
   inputMaxSnapshots: null,
   generalClientSelector: null,
@@ -134,6 +135,7 @@ const cacheElements = () => {
   elements.settingsDropdownPanel = document.getElementById("settingsDropdownPanel");
   elements.settingsDropdownList = document.getElementById("settingsDropdownList");
   elements.promptActions = document.getElementById("promptActions");
+  elements.snapshotActions = document.getElementById("snapshotActions");
   elements.formGeneralSettings = document.getElementById("formGeneralSettings");
   elements.inputMaxSnapshots = document.getElementById("inputMaxSnapshots");
   elements.generalClientSelector = document.getElementById("generalClientSelector");
@@ -1377,6 +1379,10 @@ const switchTab = (targetId) => {
 
   if (elements.promptActions) {
     elements.promptActions.classList.toggle("hidden", targetId !== "tabPrompts");
+  }
+
+  if (elements.snapshotActions) {
+    elements.snapshotActions.classList.toggle("hidden", targetId !== "tabSnapshots");
   }
 };
 
