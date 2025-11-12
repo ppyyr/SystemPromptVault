@@ -7,6 +7,7 @@ use crate::storage::{
     client_repository::ClientRepository, snapshot_repository::SnapshotRepository,
 };
 use chrono::{DateTime, Local};
+use serde::Serialize;
 #[cfg(target_os = "macos")]
 use std::process::Command;
 use tauri::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
@@ -19,6 +20,12 @@ const SHOW_MAIN_WINDOW_MENU_ID: &str = "show_main_window";
 const QUIT_MENU_ID: &str = "quit";
 const SNAPSHOT_EVENT_NAME: &str = "tray://snapshot-restored";
 const CONFIG_RELOAD_SILENT_EVENT: &str = "config-reload-silent";
+
+#[derive(Serialize, Clone)]
+struct ConfigReloadPayload {
+    client_id: String,
+    path: String,
+}
 
 pub type TrayResult<T> = Result<T, TrayError>;
 
@@ -99,7 +106,6 @@ pub fn handle_tray_event<R: Runtime>(
 fn create_tray_icon<R: Runtime>(app_handle: &AppHandle<R>, menu: Menu<R>) -> TrayResult<()> {
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
-        .tooltip("SystemPromptVault")
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| {
             if let Err(err) = crate::tray::handle_tray_event(app, &event) {
@@ -196,12 +202,16 @@ fn restore_snapshot_from_menu<R: Runtime>(
     if let Some(path) = &config_path {
         let expanded_path = expand_tilde(path);
         let path_str = expanded_path.to_string_lossy().to_string();
+        let payload = ConfigReloadPayload {
+            client_id: client_id.to_string(),
+            path: path_str.clone(),
+        };
 
         eprintln!(
-            "[Tray] Emitting config-reload-silent event for path: {} (expanded from: {})",
-            path_str, path
+            "[Tray] Emitting config-reload-silent event for client '{}' path: {} (expanded from: {})",
+            client_id, path_str, path
         );
-        match app_handle.emit(CONFIG_RELOAD_SILENT_EVENT, path_str) {
+        match app_handle.emit(CONFIG_RELOAD_SILENT_EVENT, payload) {
             Ok(_) => eprintln!("[Tray] Event emitted successfully"),
             Err(e) => eprintln!("[Tray] Failed to emit event: {}", e),
         }
@@ -219,9 +229,6 @@ fn restore_snapshot_from_menu<R: Runtime>(
 
 fn build_tray_menu<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Menu<R>> {
     let menu = Menu::new(app_handle).map_err(TrayError::from)?;
-    let title_item = MenuItem::new(app_handle, "SystemPromptVault", false, None::<&str>)
-        .map_err(TrayError::from)?;
-    menu.append(&title_item).map_err(TrayError::from)?;
 
     let client_submenus = build_client_submenus(app_handle)?;
     if client_submenus.is_empty() {
@@ -240,14 +247,14 @@ fn build_tray_menu<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Menu<R>>
     let show_item = MenuItem::with_id(
         app_handle,
         SHOW_MAIN_WINDOW_MENU_ID,
-        "🏠 打开主窗口",
+        "Open",
         true,
         None::<&str>,
     )
     .map_err(TrayError::from)?;
     menu.append(&show_item).map_err(TrayError::from)?;
 
-    let quit_item = MenuItem::with_id(app_handle, QUIT_MENU_ID, "❌ 退出", true, None::<&str>)
+    let quit_item = MenuItem::with_id(app_handle, QUIT_MENU_ID, "Quit", true, None::<&str>)
         .map_err(TrayError::from)?;
     menu.append(&quit_item).map_err(TrayError::from)?;
 
@@ -302,7 +309,7 @@ fn build_client_submenu<R: Runtime>(
                 MenuItem::with_id(
                     app_handle,
                     item_id,
-                    format_snapshot_label(&snapshot),
+                    format_snapshot_label(&snapshot, snapshot.is_auto),
                     true,
                     None::<&str>,
                 )
@@ -336,16 +343,17 @@ fn collect_clients<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Vec<Clie
 }
 
 fn format_client_label(client: &ClientConfig, snapshot_count: usize) -> String {
-    if snapshot_count > 0 {
-        format!("Client: {} ({}个快照)", client.name, snapshot_count)
-    } else {
-        format!("Client: {}", client.name)
-    }
+    format!("{}({})", client.name, snapshot_count)
 }
 
-fn format_snapshot_label(snapshot: &Snapshot) -> String {
+fn format_snapshot_label(snapshot: &Snapshot, is_auto: bool) -> String {
     let local_time: DateTime<Local> = snapshot.created_at.with_timezone(&Local);
-    format!("{} {}", snapshot.name, local_time.format("%m-%d %H:%M"))
+    let timestamp = local_time.format("%Y-%m-%d %H:%M:%S");
+    if is_auto {
+        format!("Auto Saved {}", timestamp)
+    } else {
+        format!("{} {}", snapshot.name, timestamp)
+    }
 }
 
 fn notify_snapshot_restored<R: Runtime>(app_handle: &AppHandle<R>, snapshot_name: &str) {

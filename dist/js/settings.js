@@ -1046,11 +1046,11 @@ const renderSnapshotTable = (snapshots = []) => {
 
     const nameCell = document.createElement("td");
     nameCell.className = "px-4 py-3 text-sm text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700";
-    nameCell.textContent = snapshot.name || "未命名快照";
+    nameCell.textContent = formatSnapshotLabel(snapshot);
 
     const timeCell = document.createElement("td");
     timeCell.className = "px-4 py-3 text-sm text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700";
-    timeCell.textContent = formatDateTime(snapshot.created_at);
+    timeCell.textContent = "—";
 
     const typeCell = document.createElement("td");
     typeCell.className = "px-4 py-3 text-sm border-b border-gray-200 dark:border-gray-700";
@@ -1424,7 +1424,21 @@ const formatDateTime = (iso) => {
   if (Number.isNaN(date.getTime())) {
     return iso;
   }
-  return date.toLocaleString("zh-CN", { hour12: false });
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+const formatSnapshotLabel = (snapshot) => {
+  const timestamp = formatDateTime(snapshot.created_at);
+  if (snapshot.is_auto) {
+    return `Auto Saved ${timestamp}`;
+  }
+  return `${snapshot.name || "未命名"} ${timestamp}`;
 };
 
 const registerModalDismiss = (modal, handler) => {

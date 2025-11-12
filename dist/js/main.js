@@ -1281,6 +1281,28 @@ const listenToFileChanges = async () => {
       state.silentReloadUnlisten = await listen("config-reload-silent", async (event) => {
         console.log("[FileWatcher] Silent reload event received:", event.payload);
         try {
+          const payload = event?.payload;
+          const payloadIsObject = typeof payload === "object" && payload !== null;
+          const targetClientId = payloadIsObject
+            ? payload.client_id ?? payload.clientId ?? null
+            : null;
+          const targetPath = payloadIsObject
+            ? payload.path ?? null
+            : typeof payload === "string"
+              ? payload
+              : null;
+
+          if (targetClientId && targetClientId !== state.currentClientId) {
+            console.log(
+              `[FileWatcher] Switching client from ${state.currentClientId} to ${targetClientId} for silent reload (path: ${
+                targetPath ?? "unknown"
+              })`
+            );
+            await switchClient(targetClientId);
+          } else if (!targetClientId) {
+            console.log("[FileWatcher] Silent reload payload missing client_id, using current client");
+          }
+
           await reloadConfigSilently();
         } catch (error) {
           console.warn("[FileWatcher] Failed to process silent reload:", error);
