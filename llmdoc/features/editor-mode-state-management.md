@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-SystemPromptVault 的编辑器支持编辑模式和预览模式两种状态，本文档详细描述了模式切换的状态管理、预览窗口的滚动容器设计、按钮可见性控制，以及CSS Grid布局系统在配置编辑器区域的应用。这些设计确保了编辑器在不同模式下的用户体验一致性和布局稳定性。
+SystemPromptVault 的编辑器支持编辑模式和预览模式两种状态，本文档详细描述了模式切换的状态管理、预览窗口的滚动容器设计、按钮可见性控制，以及CSS Grid布局系统在配置编辑器区域的应用。这些设计确保了编辑器在不同模式下的用户体验一致性、布局稳定性，以及与Monaco编辑器的深度集成功能，如智能插入提示词和撤销重做支持。
 
 ## 2. How it Works
 
@@ -22,6 +22,13 @@ graph TB
         Buttons[按钮可见性控制]
     end
 
+    subgraph "编辑器集成层"
+        MonacoAPI[Monaco API]
+        Position[光标位置]
+        EditOps[编辑操作]
+        UndoRedo[撤销/重做栈]
+    end
+
     subgraph "UI 交互层"
         ToggleBtn[模式切换按钮]
         SaveBtn[保存按钮]
@@ -37,6 +44,11 @@ graph TB
     Buttons --> SaveBtn
     Layout --> Monaco
     Layout --> Preview
+
+    Monaco --> MonacoAPI
+    MonacoAPI --> Position
+    MonacoAPI --> EditOps
+    EditOps --> UndoRedo
 ```
 
 ### 2.2 状态同步修复实现
@@ -295,6 +307,51 @@ const setModeToggleState = () => {
 };
 ```
 
+### 2.7 Monaco编辑器深度集成
+
+编辑模式不仅提供基础的代码编辑功能，还实现了与提示词系统的深度集成，支持智能插入和撤销重做操作。
+
+#### 2.7.1 智能插入支持
+
+```javascript
+// 编辑器模式检测逻辑
+if (state.editorMode === "edit" && state.monacoEditor) {
+  // 获取当前光标位置
+  const position = state.monacoEditor.getPosition();
+  if (position) {
+    // 使用Monaco API进行精确插入
+    state.monacoEditor.executeEdits(
+      "appendPrompt",
+      [
+        {
+          range: {
+            startLineNumber: position.lineNumber,
+            startColumn: position.column,
+            endLineNumber: position.lineNumber,
+            endColumn: position.column,
+          },
+          text: insertionText,
+          forceMoveMarkers: true,
+        },
+      ]
+    );
+  }
+}
+```
+
+#### 2.7.2 撤销重做栈管理
+
+通过使用Monaco的 `executeEdits()` API 而非直接内容替换，确保：
+
+1. **撤销/重做支持**: 用户可通过 Cmd+Z / Shift+Cmd+Z 进行撤销和重做
+2. **编辑历史完整性**: 保持Monaco编辑器的内部操作历史
+3. **光标位置保持**: 插入操作后光标自动移动到插入内容末尾
+
+#### 2.7.3 编辑器模式影响
+
+- **编辑模式**: 启用Monaco编辑器的高级功能，包括智能插入、撤销重做、语法高亮
+- **预览模式**: 禁用编辑功能，切换到Markdown预览，回退到传统的文件末尾追加
+
 ## 3. Relevant Code Modules
 
 ### 核心状态管理模块
@@ -316,6 +373,13 @@ const setModeToggleState = () => {
 - `dist/css/theme.css`: 暗色主题下编辑器容器的样式适配
 
 ## 4. Attention
+
+### Monaco编辑器集成注意事项
+
+1. **智能插入逻辑**: 提示词追加操作会根据编辑器模式选择不同的插入策略，编辑模式下使用光标位置插入
+2. **撤销重做栈**: 必须使用Monaco的 `executeEdits()` API来保持撤销重做功能，避免直接内容替换
+3. **模式依赖**: 智能插入功能仅在编辑模式下可用，预览模式回退到传统文件末尾追加
+4. **光标位置管理**: 插入操作后需要正确处理光标位置，确保良好的用户体验
 
 ### 状态同步注意事项
 

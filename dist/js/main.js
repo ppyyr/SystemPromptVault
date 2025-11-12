@@ -1339,9 +1339,39 @@ const appendPrompt = async (promptId) => {
     return;
   }
   const currentValue = getEditorContent();
+  const promptContent = prompt.content ?? "";
   const needsSpacer = currentValue.trim().length > 0;
-  const nextValue = `${currentValue}${needsSpacer ? "\n\n" : ""}${prompt.content ?? ""}`;
-  setEditorContent(nextValue);
+  const insertionText = `${needsSpacer ? "\n\n" : ""}${promptContent}`;
+  let handledByMonaco = false;
+
+  if (state.editorMode === "edit" && state.monacoEditor) {
+    const position = state.monacoEditor.getPosition();
+    if (position) {
+      // 使用 Monaco 内置编辑操作以保持撤销/重做栈
+      state.monacoEditor.executeEdits(
+        "appendPrompt",
+        [
+          {
+            range: {
+              startLineNumber: position.lineNumber,
+              startColumn: position.column,
+              endLineNumber: position.lineNumber,
+              endColumn: position.column,
+            },
+            text: insertionText,
+            forceMoveMarkers: true,
+          },
+        ]
+      );
+      handledByMonaco = true;
+    }
+  }
+
+  if (!handledByMonaco) {
+    const nextValue = `${currentValue}${insertionText}`;
+    setEditorContent(nextValue);
+  }
+
   const saved = await saveConfigFile({ silent: true });
   if (saved) {
     showToast(`已追加提示词「${prompt.name}」`, "success");

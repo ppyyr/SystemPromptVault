@@ -327,7 +327,7 @@ const applyPrompt = async (promptId) => {
 
 #### 2.5.2 追加提示词
 
-**追加**操作会在配置文件末尾添加内容:
+**追加**操作支持智能插入策略，根据编辑器模式和光标位置进行内容插入：
 
 ```javascript
 const appendPrompt = async (promptId) => {
@@ -337,15 +337,41 @@ const appendPrompt = async (promptId) => {
     return;
   }
 
-  const editor = elements.configEditor;
-  if (!editor) return;
+  const currentValue = getEditorContent();
+  const promptContent = prompt.content ?? "";
+  const needsSpacer = currentValue.trim().length > 0;
+  const insertionText = `${needsSpacer ? "\n\n" : ""}${promptContent}`;
+  let handledByMonaco = false;
 
-  // 追加内容,如果原内容非空则添加换行符
-  const needsSpacer = editor.value.trim().length > 0;
-  const nextValue = `${editor.value}${needsSpacer ? "\n\n" : ""}${prompt.content}`;
+  // 编辑模式 + Monaco编辑器：插入到当前光标位置
+  if (state.editorMode === "edit" && state.monacoEditor) {
+    const position = state.monacoEditor.getPosition();
+    if (position) {
+      // 使用 Monaco 内置编辑操作以保持撤销/重做栈
+      state.monacoEditor.executeEdits(
+        "appendPrompt",
+        [
+          {
+            range: {
+              startLineNumber: position.lineNumber,
+              startColumn: position.column,
+              endLineNumber: position.lineNumber,
+              endColumn: position.column,
+            },
+            text: insertionText,
+            forceMoveMarkers: true,
+          },
+        ]
+      );
+      handledByMonaco = true;
+    }
+  }
 
-  editor.value = nextValue;
-  state.configContent = nextValue;
+  // 预览模式或fallback：追加到文件末尾
+  if (!handledByMonaco) {
+    const nextValue = `${currentValue}${insertionText}`;
+    setEditorContent(nextValue);
+  }
 
   const saved = await saveConfigFile({ silent: true });
   if (saved) {
@@ -353,6 +379,21 @@ const appendPrompt = async (promptId) => {
   }
 };
 ```
+
+**智能插入行为**:
+
+1. **编辑模式 + Monaco编辑器**:
+   - 在当前光标位置插入提示词内容
+   - 支持撤销/重做操作（Cmd+Z / Shift+Cmd+Z）
+   - 保持编辑器撤销栈的完整性
+
+2. **预览模式或fallback**:
+   - 追加到文件末尾（保持原有行为）
+   - 使用传统的文本替换方式
+
+3. **格式化处理**:
+   - 自动添加双换行符分隔（当原内容非空时）
+   - 保持内容格式的一致性
 
 ### 2.6 数据流
 
@@ -363,6 +404,9 @@ sequenceDiagram
     participant State as 状态管理
     participant Filter as 过滤器
     participant List as 提示词列表
+    participant Editor as 编辑器
+    participant Monaco as Monaco API
+    participant Backend as 后端存储
 
     User->>UI: 选择/取消标签
     UI->>State: 更新 selectedTags
@@ -376,15 +420,31 @@ sequenceDiagram
 
     User->>List: 点击"应用"按钮
     List->>State: 调用 applyPrompt
-    State->>ConfigEditor: 替换配置内容
+    State->>Editor: 替换配置内容
     State->>Backend: 保存配置文件
     Backend->>UI: 显示成功提示
+
+    User->>List: 点击"追加"按钮
+    List->>State: 调用 appendPrompt
+    State->>State: 检测编辑器模式
+    alt 编辑模式 + Monaco编辑器
+        State->>Monaco: 获取当前光标位置
+        State->>Monaco: 执行 executeEdits() 插入
+        Monaco->>Monaco: 更新撤销/重做栈
+    else 预览模式或fallback
+        State->>Editor: 追加到文件末尾
+    end
+    State->>Backend: 保存配置文件
+    Backend->>UI: 显示成功提示
+
+    Note over User, Backend: 用户可通过 Cmd+Z / Shift+Cmd+Z 进行撤销/重做
 ```
 
 ## 3. Relevant Code Modules
 
 ### 前端核心模块
 - `dist/js/main.js`: 提示词过滤逻辑、列表渲染、应用/追加操作 (第 545-850 行)
+- `dist/js/main.js`: 智能追加提示词实现，支持Monaco编辑器和光标位置插入 (第 1335-1379 行)
 - `dist/index.html`: 标签下拉菜单 DOM 结构 (第 45-120 行)
 
 ### 样式模块
@@ -398,6 +458,13 @@ sequenceDiagram
 - `dist/js/api.js`: `PromptAPI.getAll()` 接口封装
 
 ## 4. Attention
+
+### 智能插入注意事项
+
+1. **Monaco编辑器集成**: 编辑模式下优先使用Monaco的 `executeEdits()` API，确保撤销/重做栈的完整性
+2. **光标位置插入**: 在编辑模式下，提示词会插入到当前光标位置，而非文件末尾
+3. **fallback机制**: 当Monaco编辑器不可用或处于预览模式时，自动回退到文件末尾追加
+4. **格式化一致性**: 无论在何处插入，都会自动添加适当的换行符分隔符
 
 ### 过滤策略注意事项
 

@@ -11,13 +11,13 @@
 ## 功能模块文档
 
 - [主题系统实现](features/theme-system-implementation.md): 暗色/亮色主题切换、主题状态管理、系统集成
-- [提示词管理模块](features/prompt-management-module.md): 提示词过滤算法、下拉菜单标签选择器、应用/追加操作
+- [提示词管理模块](features/prompt-management-module.md): 提示词过滤算法、下拉菜单标签选择器、智能追加操作、Monaco编辑器集成、撤销重做支持
 - [UI 交互优化](features/ui-interaction-optimization.md): Tooltip 系统、下拉菜单标签选择器、防抖机制、无障碍支持、CSS Grid 布局
-- [编辑器模式状态管理](features/editor-mode-state-management.md): 编辑器模式切换、状态同步修复、滚动容器约束、按钮可见性控制
+- [编辑器模式状态管理](features/editor-mode-state-management.md): 编辑器模式切换、状态同步修复、滚动容器约束、按钮可见性控制、Monaco编辑器深度集成
 - [导入导出功能](features/import-export-functionality.md): 提示词批量导入导出、文件处理、数据验证
 - [客户端配置管理](features/client-configuration-management.md): 多客户端支持、配置文件读写、自动标签
 - [快照版本管理系统](features/snapshot-version-management.md): 配置文件快照、自动备份、System Tray集成、FIFO清理策略
-- [配置文件变化检测与重新加载](features/config-file-change-detection.md): 实时文件监听、外部修改检测、Toast提示、冲突保护、双重保障机制
+- [配置文件变化检测与重新加载](features/config-file-change-detection.md): 实时文件监听、外部修改检测、Toast提示、冲突保护、托盘恢复优化机制
 
 ## 核心模块文档
 
@@ -25,7 +25,7 @@
 - [API 接口模块](modules/api-module.md): 前端 API 封装、错误处理、状态管理
 - [命令处理模块](modules/command-handling-module.md): Rust 端命令实现、参数验证、错误处理
 - [存储管理模块](modules/storage-module.md): JSON 数据存储、文件操作、数据持久化
-- [System Tray 模块](modules/system-tray-module.md): 系统托盘实现、菜单构建、快照恢复、事件处理、通知系统
+- [System Tray 模块](modules/system-tray-module.md): 系统托盘实现、菜单构建、快照恢复、事件处理、通知系统、文件监听器控制
 
 ## 技术指南
 

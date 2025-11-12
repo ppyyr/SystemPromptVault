@@ -24,12 +24,14 @@ graph TB
         FileWatcher[ConfigFileWatcher]
         NotifyLib[notify crate]
         TauriEvent[Tauri事件系统]
+        TrayEventController[托盘事件控制器]
     end
 
     subgraph "前端检测层 (JavaScript)"
         EventHandler[事件监听器]
         DirtyTracker[编辑器脏状态跟踪]
         ToastManager[Toast管理器]
+        SilentReloadHandler[静默重新加载处理器]
         ConflictResolver[冲突解决器]
     end
 
@@ -40,18 +42,26 @@ graph TB
     end
 
     ExternalEditor --> ConfigFile
-    SystemTray --> ConfigFile
+    SystemTray -.-> ConfigFile
     OtherProcess --> ConfigFile
     ConfigFile --> FileWatcher
     FileWatcher --> NotifyLib
     NotifyLib --> TauriEvent
     TauriEvent --> EventHandler
+
+    SystemTray --> TrayEventController
+    TrayEventController --> FileWatcher
+    TrayEventController --> TauriEvent
+    TauriEvent -.-> SilentReloadHandler
+
     EventHandler --> DirtyTracker
     DirtyTracker --> ToastManager
     ToastManager --> ActionToast
     ActionToast --> ConflictResolver
     ConflictResolver --> ConfirmDialog
     ConflictResolver --> Editor
+
+    SilentReloadHandler --> Editor
 ```
 
 ### 2.2 文件监听器实现
@@ -62,58 +72,61 @@ graph TB
 // src-tauri/src/file_watcher.rs
 pub struct ConfigFileWatcher {
     watcher: Option<notify::RecommendedWatcher>,
-    watched_paths: Vec<PathBuf>,
+    watched_path: Option<PathBuf>,
 }
 
 impl ConfigFileWatcher {
     pub fn new() -> Self {
         Self {
             watcher: None,
-            watched_paths: Vec::new(),
+            watched_path: None,
         }
     }
 
-    pub fn watch_file(&mut self, path: PathBuf, app_handle: AppHandle) -> Result<(), String> {
-        // 停止现有监听
+    pub fn watch_file<R: Runtime>(&mut self, path: PathBuf, app_handle: AppHandle<R>) -> Result<(), String> {
+        if self.watched_path.as_ref() == Some(&path) {
+            return Ok(());
+        }
+
         self.stop();
 
-        let path_clone = path.clone();
-        let path_str = path_clone.to_string_lossy().to_string();
+        let (tx, rx) = mpsc::channel::<Event>();
+        let emitter_app = app_handle.clone();
+        let fallback_path = path.to_string_lossy().to_string();
 
-        // 创建推荐的文件监听器
-        let mut watcher = notify::recommended_watcher(move |res: Result<Event, _>| {
-            match res {
-                Ok(event) => {
-                    // 只处理文件修改事件
-                    if event.kind.is_modify() {
-                        eprintln!("[FileWatcher] File modified: {}", path_str);
-                        // 发送Tauri事件到前端
-                        let _ = app_handle.emit("config-file-changed", &path_str);
-                    }
-                }
-                Err(e) => {
-                    eprintln!("[FileWatcher] Watch error: {:?}", e);
+        std::thread::spawn(move || {
+            while let Ok(event) = rx.recv() {
+                let path_str = event
+                    .paths
+                    .first()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| fallback_path.clone());
+                let _ = emitter_app.emit("config-file-changed", path_str);
+            }
+        });
+
+        let mut watcher = notify::recommended_watcher(move |res: Result<Event, notify::Error>| {
+            if let Ok(event) = res {
+                if matches!(
+                    event.kind,
+                    EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)
+                ) {
+                    let _ = tx.send(event);
                 }
             }
         }).map_err(|e| format!("创建文件监听器失败: {}", e))?;
 
-        // 开始监听文件（非递归）
         watcher.watch(&path, RecursiveMode::NonRecursive)
             .map_err(|e| format!("监听文件失败: {}", e))?;
 
         self.watcher = Some(watcher);
-        self.watched_paths.push(path);
-
-        eprintln!("[FileWatcher] Started watching: {}", path_str);
+        self.watched_path = Some(path);
         Ok(())
     }
 
     pub fn stop(&mut self) {
-        if let Some(watcher) = self.watcher.take() {
-            drop(watcher); // 自动停止监听
-            eprintln!("[FileWatcher] Stopped watching");
-        }
-        self.watched_paths.clear();
+        self.watcher = None;
+        self.watched_path = None;
     }
 }
 ```
@@ -288,13 +301,19 @@ const reloadConfigFile = async () => {
 };
 ```
 
-### 2.5 托盘恢复快照的双重保障机制
+### 2.5 托盘恢复快照的事件优化机制
 
 #### 2.5.1 问题背景
 
-macOS的FSEvents在某些情况下（如快速连续写入、原子写入）可能不会立即触发文件变化事件，导致从托盘恢复快照后主窗口编辑器不同步。
+在托盘恢复快照时，会同时触发两个事件：
+1. `config-reload-silent` (托盘主动发送) → 静默重新加载 ✅
+2. `config-file-changed` (文件监听器检测到文件变化) → 显示 "配置文件已更新 重新加载" toast ❌
 
-#### 2.5.2 双重保障解决方案
+这导致用户在托盘恢复快照时看到不必要的Toast提示，影响用户体验。
+
+#### 2.5.2 优化解决方案
+
+托盘恢复快照现在采用**文件监听器临时控制 + 静默事件**的机制：
 
 ```rust
 // src-tauri/src/tray.rs - restore_snapshot_from_menu 函数
@@ -303,52 +322,104 @@ fn restore_snapshot_from_menu<R: Runtime>(
     client_id: &str,
     snapshot_id: &str,
 ) -> TrayResult<()> {
-    // 1. 恢复快照内容
-    let content = commands::snapshot::restore_snapshot(
-        snapshot_state,
-        client_id.to_string(),
-        snapshot_id.to_string(),
-    )?;
+    // ... 获取快照内容 ...
 
-    // 2. 写入配置文件
+    // 临时停止文件监听器，避免写入时触发 config-file-changed 事件
+    let watcher_state = app_handle.state::<Arc<Mutex<crate::file_watcher::ConfigFileWatcher>>>();
+    {
+        let mut watcher = watcher_state
+            .lock()
+            .map_err(|_| TrayError::from_poison("文件监听器"))?;
+        watcher.stop();
+        eprintln!("[Tray] Temporarily stopped file watcher before writing config");
+    }
+
+    // 写入配置文件
     commands::config_file::write_config_file(client_state.clone(), client_id.to_string(), content)?;
 
-    // 3. 主动发送事件（双重保障）
-    let changed_path = {
-        let repo = client_state.inner().lock()
-            .map_err(|_| TrayError::from_poison("客户端仓库"))?;
-        match repo.get_by_id(client_id) {
-            Ok(Some(client)) => Some(client.config_file_path),
-            _ => None,
+    // 重新启动文件监听器
+    if let Some(path) = &config_path {
+        let mut watcher = watcher_state
+            .lock()
+            .map_err(|_| TrayError::from_poison("文件监听器"))?;
+        let expanded_path = expand_tilde(path);
+        if let Err(e) = watcher.watch_file(expanded_path, app_handle.clone()) {
+            eprintln!("[Tray] Warning: Failed to restart file watcher: {}", e);
+        } else {
+            eprintln!("[Tray] File watcher restarted successfully");
         }
-    };
+    }
 
-    if let Some(path) = changed_path {
-        let expanded_path = expand_tilde(&path);
+    // 发送静默重新加载事件
+    if let Some(path) = &config_path {
+        let expanded_path = expand_tilde(path);
         let path_str = expanded_path.to_string_lossy().to_string();
 
-        // 主动发送 config-file-changed 事件
-        match app_handle.emit("config-file-changed", path_str) {
+        match app_handle.emit("config-reload-silent", path_str) {
             Ok(_) => eprintln!("[Tray] Event emitted successfully"),
             Err(e) => eprintln!("[Tray] Failed to emit event: {}", e),
         }
     }
 
-    // 4. 显示通知
-    notify_snapshot_restored(app_handle, &snapshot_name);
-    Ok(())
+    // ... 显示通知 ...
 }
 ```
 
-#### 2.5.3 保障机制工作原理
+#### 2.5.3 前端静默重新加载处理
 
-1. **文件监听器（被动）**：继续检测外部编辑器的文件修改
-2. **主动事件发送（主动）**：托盘恢复快照后立即发送事件
+```javascript
+// dist/js/main.js - 静默重新加载事件处理
+const listenToFileChanges = async () => {
+    try {
+        const { listen } = window.__TAURI_INTERNALS_;
 
-**优势**：
-- ✅ 托盘恢复快照：100% 可靠触发主窗口更新
-- ✅ 外部编辑器修改：仍可通过文件监听器检测
-- ✅ 不依赖单一机制的可靠性
+        // 监听文件变化事件（外部编辑器）
+        await listen("config-file-changed", async (event) => {
+            console.log("[FileWatcher] File change detected:", event.payload);
+            await handleConfigFileChanged();
+        });
+
+        // 监听静默重新加载事件（托盘恢复快照）
+        await listen("config-reload-silent", async (event) => {
+            console.log("[FileWatcher] Silent reload event received:", event.payload);
+            try {
+                await reloadConfigSilently();
+            } catch (error) {
+                console.warn("[FileWatcher] Failed to process silent reload:", error);
+            }
+        });
+    } catch (error) {
+        console.error("[FileWatcher] Failed to setup event listener:", error);
+    }
+};
+
+const reloadConfigSilently = async () => {
+    console.log("[ReloadSilent] Starting silent config reload...");
+    if (!state.currentClientId) {
+        console.warn("[ReloadSilent] No current client ID");
+        return;
+    }
+    const success = await loadConfigFile(state.currentClientId);
+    if (success) {
+        dismissFileChangeToast();
+        console.log("[ReloadSilent] Config reloaded silently");
+    } else {
+        console.error("[ReloadSilent] Failed to reload config");
+    }
+};
+```
+
+#### 2.5.4 优化效果
+
+**优化前**：
+- ❌ 托盘恢复快照 → 显示不必要的Toast提示
+- ❌ 用户体验被打断
+
+**优化后**：
+- ✅ 托盘恢复快照 → 静默刷新，不显示Toast
+- ✅ 外部编辑器修改 → 正常显示Toast提示
+- ✅ 用户体验流畅，无干扰
+- ✅ 保持文件监听器对外部修改的检测能力
 
 ### 2.6 用户界面实现
 
@@ -433,13 +504,13 @@ export const showActionToast = (message, actionLabel, onAction) => {
 ## 3. Relevant Code Modules
 
 ### 后端核心模块
-- `src-tauri/src/file_watcher.rs`: ConfigFileWatcher核心实现，跨平台文件监听
+- `src-tauri/src/file_watcher.rs`: ConfigFileWatcher核心实现，支持泛型Runtime和临时停止功能
 - `src-tauri/src/commands/file_watcher.rs`: 文件监听Tauri命令接口
-- `src-tauri/src/tray.rs`: 托盘恢复快照的主动事件发送
+- `src-tauri/src/tray.rs`: 托盘恢复快照的文件监听器控制和静默事件发送
 - `src-tauri/src/main.rs`: 应用启动时的状态初始化和命令注册
 
 ### 前端核心模块
-- `dist/js/main.js`: 文件监听管理、编辑器脏状态跟踪、事件处理逻辑
+- `dist/js/main.js`: 文件监听管理、编辑器脏状态跟踪、双事件处理逻辑、静默重新加载处理
 - `dist/js/utils.js`: showActionToast函数实现
 - `dist/css/components.css`: ActionToast样式定义
 
@@ -454,7 +525,9 @@ export const showActionToast = (message, actionLabel, onAction) => {
 1. **文件监听范围**：仅监听应用管理的配置文件，不监听其他目录
 2. **事件去重**：短时间内多次文件变化可能触发多个事件，前端需要处理
 3. **错误恢复**：文件监听失败时自动重试机制
-4. **资源清理**：切换客户端时自动停止旧监听，启动新监听
+4. **托盘恢复优化**：托盘恢复快照时临时停止文件监听器，避免重复事件
+5. **静默事件处理**：使用`config-reload-silent`事件进行静默更新，不显示Toast
+6. **资源清理**：切换客户端时自动停止旧监听，启动新监听
 
 ### 性能注意事项
 
@@ -469,6 +542,7 @@ export const showActionToast = (message, actionLabel, onAction) => {
 2. **清晰提示**：Toast消息明确说明变化类型和操作选项
 3. **冲突保护**：检测到未保存修改时显示警告对话框
 4. **自动消失**：Toast在30秒后自动消失，避免界面混乱
+5. **静默更新**：托盘恢复快照时不显示干扰性Toast，保持用户体验流畅
 
 ### 安全注意事项
 
@@ -479,15 +553,19 @@ export const showActionToast = (message, actionLabel, onAction) => {
 
 ### 兼容性注意事项
 
-1. **macOS FSEvents**：在某些边缘情况下可能不触发，已通过双重保障解决
+1. **macOS FSEvents**：在某些边缘情况下可能不触发，已通过托盘主动事件解决
 2. **Windows权限**：需要文件系统读取权限
 3. **Linux inotify**：监听文件数量有限制（通常足够使用）
 4. **网络文件系统**：网络驱动器可能支持有限
+5. **事件类型支持**：新的`config-reload-silent`事件需要前端支持
 
 ## 5. Testing Checklist
 
 - [ ] 外部编辑器修改配置文件后显示Toast提示
 - [ ] 托盘恢复快照后主窗口自动更新
+- [ ] 托盘恢复快照时不显示Toast提示（静默更新）
+- [ ] 托盘恢复快照时临时停止文件监听器
+- [ ] 托盘恢复快照后重新启动文件监听器
 - [ ] 有未保存修改时显示警告对话框
 - [ ] 无未保存修改时直接显示重新加载按钮
 - [ ] 切换客户端时文件监听器正确切换
@@ -498,3 +576,6 @@ export const showActionToast = (message, actionLabel, onAction) => {
 - [ ] 多次快速文件修改不会导致重复Toast
 - [ ] 确认对话框的取消操作保留当前编辑器内容
 - [ ] 重新加载成功后编辑器脏状态清除
+- [ ] config-reload-silent事件正确触发和处理
+- [ ] 静默重新加载时正确移除现有的文件变化Toast
+- [ ] 文件监听器重启失败时显示警告日志

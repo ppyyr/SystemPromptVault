@@ -21,6 +21,7 @@ graph TB
     subgraph "事件处理层"
         MenuEventHandler[菜单事件处理器]
         SnapshotRestorer[快照恢复器]
+        FileWatcherController[文件监听器控制器]
         NotificationSystem[通知系统]
     end
 
@@ -28,6 +29,7 @@ graph TB
         SnapshotRepo[快照仓库]
         ClientRepo[客户端仓库]
         ConfigFileAPI[配置文件API]
+        ConfigFileWatcher[文件监听器]
         EventEmit[事件发送器]
     end
 
@@ -46,12 +48,15 @@ graph TB
     SnapshotItems --> MenuEventHandler
     ControlItems --> MenuEventHandler
     MenuEventHandler --> SnapshotRestorer
+    MenuEventHandler --> FileWatcherController
     MenuEventHandler --> NotificationSystem
 
     SnapshotRestorer --> SnapshotRepo
     SnapshotRestorer --> ClientRepo
     SnapshotRestorer --> ConfigFileAPI
+    FileWatcherController --> ConfigFileWatcher
     SnapshotRestorer --> EventEmit
+    ConfigFileWatcher --> EventEmit
 
     MenuEventHandler --> TauriTrayAPI
     MenuEventHandler --> TauriMenuAPI
@@ -95,6 +100,7 @@ const SNAPSHOT_MENU_PREFIX: &str = "restore_snapshot_";
 const SHOW_MAIN_WINDOW_MENU_ID: &str = "show_main_window";
 const QUIT_MENU_ID: &str = "quit";
 const SNAPSHOT_EVENT_NAME: &str = "tray://snapshot-restored";
+const CONFIG_RELOAD_SILENT_EVENT: &str = "config-reload-silent";
 ```
 
 ### 2.3 托盘初始化
@@ -377,7 +383,7 @@ fn restore_snapshot_from_menu<R: Runtime>(
 
     // 获取快照名称（用于通知）
     let snapshot_name = {
-        let repo = snapshot_repo.lock()
+        let repo = snapshot_state.lock()
             .map_err(|_| TrayError::from_poison("快照仓库"))?;
         let snapshots = repo.get_snapshots(client_id).map_err(TrayError::from)?;
         snapshots
@@ -387,32 +393,69 @@ fn restore_snapshot_from_menu<R: Runtime>(
             .unwrap_or_else(|| "未知快照".to_string())
     };
 
-    // 写入配置文件
     let client_state = app_handle.state::<Arc<Mutex<ClientRepository>>>();
-    commands::config_file::write_config_file(client_state.clone(), client_id.to_string(), content)
-        .map_err(TrayError::from)?;
 
-    // 主动发送文件变化事件（双重保障）
-    let changed_path = {
-        let repo = client_state.inner().lock()
+    // 获取配置文件路径（用于后续重新启动监听器）
+    let config_path = {
+        let repo = client_state
+            .inner()
+            .lock()
             .map_err(|_| TrayError::from_poison("客户端仓库"))?;
         match repo.get_by_id(client_id) {
-            Ok(Some(client)) => Some(client.config_file_path),
+            Ok(Some(client)) => Some(client.config_file_path.clone()),
             _ => None,
         }
     };
 
-    if let Some(path) = changed_path {
-        let expanded_path = expand_tilde(&path);
-        let path_str = expanded_path.to_string_lossy().to_string();
+    // 临时停止文件监听器，避免写入时触发 config-file-changed 事件
+    let watcher_state = app_handle.state::<Arc<Mutex<crate::file_watcher::ConfigFileWatcher>>>();
+    {
+        let mut watcher = watcher_state
+            .lock()
+            .map_err(|_| TrayError::from_poison("文件监听器"))?;
+        watcher.stop();
+        eprintln!("[Tray] Temporarily stopped file watcher before writing config");
+    }
 
-        match app_handle.emit("config-file-changed", path_str) {
-            Ok(_) => eprintln!("[Tray] Event emitted successfully"),
-            Err(e) => eprintln!("[Tray] Failed to emit event: {}", e),
+    // 写入配置文件
+    commands::config_file::write_config_file(client_state.clone(), client_id.to_string(), content)
+        .map_err(TrayError::from)?;
+
+    // 重新启动文件监听器
+    if let Some(path) = &config_path {
+        let mut watcher = watcher_state
+            .lock()
+            .map_err(|_| TrayError::from_poison("文件监听器"))?;
+        let expanded_path = expand_tilde(path);
+        if let Err(e) = watcher.watch_file(expanded_path, app_handle.clone()) {
+            eprintln!("[Tray] Warning: Failed to restart file watcher: {}", e);
+        } else {
+            eprintln!("[Tray] File watcher restarted successfully");
         }
     }
 
-    // 显示恢复通知
+    // 主动通知监听器，避免托盘恢复后主窗口不同步（静默刷新，不触发外部更改提示）
+    if let Some(path) = &config_path {
+        let expanded_path = expand_tilde(path);
+        let path_str = expanded_path.to_string_lossy().to_string();
+
+        eprintln!(
+            "[Tray] Emitting config-reload-silent event for path: {} (expanded from: {})",
+            path_str, path
+        );
+        match app_handle.emit(CONFIG_RELOAD_SILENT_EVENT, path_str) {
+            Ok(_) => eprintln!("[Tray] Event emitted successfully"),
+            Err(e) => eprintln!("[Tray] Failed to emit event: {}", e),
+        }
+    } else {
+        eprintln!("[Tray] Warning: Could not get client config path for event emission");
+    }
+
+    eprintln!(
+        "[Tray] Restored snapshot '{}' for client '{}'",
+        snapshot_name, client_id
+    );
+
     notify_snapshot_restored(app_handle, &snapshot_name);
     Ok(())
 }
@@ -499,7 +542,7 @@ await SnapshotAPI.refreshTrayMenu();
 ## 3. Relevant Code Modules
 
 ### 核心模块文件
-- `src-tauri/src/tray.rs`: System Tray完整实现（350+行代码）
+- `src-tauri/src/tray.rs`: System Tray完整实现（450+行代码）
 - `src-tauri/src/commands/snapshot.rs`: 托盘菜单刷新命令接口
 - `src-tauri/src/main.rs`: 托盘初始化和事件处理集成
 
@@ -507,11 +550,11 @@ await SnapshotAPI.refreshTrayMenu();
 - `src-tauri/src/models/snapshot.rs`: 快照数据模型
 - `src-tauri/src/storage/snapshot_repository.rs`: 快照仓库
 - `src-tauri/src/commands/config_file.rs`: 配置文件读写
-- `src-tauri/src/file_watcher.rs`: 文件监听器（双重保障）
+- `src-tauri/src/file_watcher.rs`: 文件监听器（支持临时停止和重启）
 
 ### 前端集成
 - `dist/js/api.js`: SnapshotAPI.refreshTrayMenu()调用
-- `dist/js/main.js`: 快照操作后的菜单刷新
+- `dist/js/main.js`: 快照操作后的菜单刷新、config-reload-silent事件处理
 - `dist/js/settings.js`: 设置页面操作后的菜单更新
 
 ### 配置依赖
@@ -525,8 +568,9 @@ await SnapshotAPI.refreshTrayMenu();
 
 1. **菜单动态刷新**：快照操作（增删改）后必须调用 `refresh_tray_menu()`
 2. **ID格式规范**：快照菜单项使用 `restore_snapshot_{client_id}_{snapshot_id}` 格式
-3. **双重保障机制**：托盘恢复快照后主动发送 `config-file-changed` 事件
-4. **错误处理**：所有操作使用 `TrayResult<T>` 统一错误处理
+3. **文件监听器控制**：托盘恢复快照时会临时停止文件监听器，避免重复事件触发
+4. **静默刷新机制**：使用 `config-reload-silent` 事件进行静默刷新，不显示Toast提示
+5. **错误处理**：所有操作使用 `TrayResult<T>` 统一错误处理
 
 ### 性能注意事项
 
@@ -572,7 +616,10 @@ await SnapshotAPI.refreshTrayMenu();
 - [ ] 无快照时显示占位符
 - [ ] 点击快照项正确恢复配置
 - [ ] 恢复快照后显示系统通知（macOS）
-- [ ] 恢复快照后主动发送文件变化事件
+- [ ] 恢复快照后临时停止文件监听器
+- [ ] 恢复快照后重新启动文件监听器
+- [ ] 恢复快照后发送config-reload-silent事件
+- [ ] 主窗口静默更新，不显示Toast提示
 - [ ] 点击"打开主窗口"正确显示应用窗口
 - [ ] 点击"退出"正确关闭应用
 - [ ] 创建新快照后托盘菜单自动刷新
@@ -581,3 +628,5 @@ await SnapshotAPI.refreshTrayMenu();
 - [ ] 应用启动时托盘菜单正确初始化
 - [ ] 切换客户端后托盘菜单正确更新
 - [ ] 多次快速操作不会导致菜单重复或错乱
+- [ ] 文件监听器重启失败时显示警告日志
+- [ ] 配置路径获取失败时显示警告日志

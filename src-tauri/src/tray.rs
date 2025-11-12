@@ -152,22 +152,49 @@ fn restore_snapshot_from_menu<R: Runtime>(
     };
 
     let client_state = app_handle.state::<Arc<Mutex<ClientRepository>>>();
-    commands::config_file::write_config_file(client_state.clone(), client_id.to_string(), content)
-        .map_err(TrayError::from)?;
 
-    // 主动通知监听器，避免托盘恢复后主窗口不同步（静默刷新，不触发外部更改提示）
-    let changed_path = {
+    // 获取配置文件路径（用于后续重新启动监听器）
+    let config_path = {
         let repo = client_state
             .inner()
             .lock()
             .map_err(|_| TrayError::from_poison("客户端仓库"))?;
         match repo.get_by_id(client_id) {
-            Ok(Some(client)) => Some(client.config_file_path),
+            Ok(Some(client)) => Some(client.config_file_path.clone()),
             _ => None,
         }
     };
-    if let Some(path) = changed_path {
-        let expanded_path = expand_tilde(&path);
+
+    // 临时停止文件监听器，避免写入时触发 config-file-changed 事件
+    let watcher_state = app_handle.state::<Arc<Mutex<crate::file_watcher::ConfigFileWatcher>>>();
+    {
+        let mut watcher = watcher_state
+            .lock()
+            .map_err(|_| TrayError::from_poison("文件监听器"))?;
+        watcher.stop();
+        eprintln!("[Tray] Temporarily stopped file watcher before writing config");
+    }
+
+    // 写入配置文件
+    commands::config_file::write_config_file(client_state.clone(), client_id.to_string(), content)
+        .map_err(TrayError::from)?;
+
+    // 重新启动文件监听器
+    if let Some(path) = &config_path {
+        let mut watcher = watcher_state
+            .lock()
+            .map_err(|_| TrayError::from_poison("文件监听器"))?;
+        let expanded_path = expand_tilde(path);
+        if let Err(e) = watcher.watch_file(expanded_path, app_handle.clone()) {
+            eprintln!("[Tray] Warning: Failed to restart file watcher: {}", e);
+        } else {
+            eprintln!("[Tray] File watcher restarted successfully");
+        }
+    }
+
+    // 主动通知监听器，避免托盘恢复后主窗口不同步（静默刷新，不触发外部更改提示）
+    if let Some(path) = &config_path {
+        let expanded_path = expand_tilde(path);
         let path_str = expanded_path.to_string_lossy().to_string();
 
         eprintln!(
