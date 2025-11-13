@@ -174,22 +174,123 @@ flowchart TD
     L --> U[初始化失败]
 ```
 
-### 2.7 应用初始化中的 i18n 集成
+### 2.7 防闪烁（Anti-FOUC）机制
+
+```mermaid
+sequenceDiagram
+    participant HTML as HTML解析
+    participant AntiFoucJS as i18n-antifouc.js
+    participant AntiFoucCSS as i18n-antifouc.css
+    participant Element as 界面元素
+    participant I18n as i18n模块
+    participant User as 用户
+
+    HTML->>AntiFoucJS: 加载语言检测脚本
+    AntiFoucJS->>AntiFoucJS: detectLanguage()
+    AntiFoucJS->>HTML: 设置html data-lang属性
+    Note over AntiFoucJS: 同步执行，零延迟
+
+    HTML->>AntiFoucCSS: 加载CSS样式
+    HTML->>Element: 解析防闪烁元素
+
+    AntiFoucCSS->>Element: CSS选择器匹配
+    AntiFoucCSS->>Element: ::before伪元素渲染文本
+    Element->>User: 显示正确语言文本
+    Note over User: 用户看到第一个文本就是正确的语言
+
+    DOM->>I18n: DOMContentLoaded触发initI18n()
+    I18n->>Element: 检测防闪烁属性并跳过
+    I18n->>I18n: 处理剩余非防闪烁元素
+```
+
+### 2.8 CSS属性选择器防闪烁方案
+
+**核心技术**: CSS属性选择器 + 伪元素 + attr()函数
+
+**实现机制**:
+1. **语言检测**: `i18n-antifouc.js` 检测用户语言偏好并设置 `data-lang` 属性
+2. **自动匹配**: CSS根据 `[data-lang]` 值自动选择对应语言的翻译
+3. **伪元素渲染**: 通过 `::before` 伪元素和 `content: attr()` 显示文本
+4. **防重复处理**: i18n模块检测防闪烁元素，避免重复JS操作
+
+**模块化结构**:
+- `i18n-antifouc.js` (22行): 极简语言检测脚本
+- `i18n-antifouc.css` (42行): CSS自动应用规则
+- **HTML集成**: 每个页面仅需2行引用即可启用
+
+**HTML使用方式**:
+```html
+<head>
+  <!-- 启用i18n防闪烁 -->
+  <script src="js/i18n-antifouc.js"></script>
+  <link rel="stylesheet" href="css/i18n-antifouc.css" />
+</head>
+<body>
+  <!-- 防闪烁元素 -->
+  <a data-i18n="common.settings" data-i18n-en="Settings" data-i18n-zh="设置"></a>
+</body>
+```
+
+**CSS选择器逻辑**:
+```css
+/* 英文环境 */
+[data-lang="en"] [data-i18n-en]::before {
+  content: attr(data-i18n-en);
+}
+
+/* 中文环境 */
+[data-lang="zh"] [data-i18n-zh]::before {
+  content: attr(data-i18n-zh);
+}
+```
+
+**i18n模块协调**:
+```javascript
+const translateElement = (element) => {
+  const hasAntiFouc = element.hasAttribute("data-i18n-en") ||
+                    element.hasAttribute("data-i18n-zh");
+  if (!hasAntiFouc) {
+    // 只处理非防闪烁元素
+    const translation = t(key, element.textContent ?? "");
+    // 应用翻译...
+  }
+};
+```
+
+### 2.9 与主题系统的技术一致性
+
+防闪烁实现完全遵循主题系统的极简模式：
+
+| 技术特性 | 主题系统 | i18n系统 |
+|---------|---------|---------|
+| **JavaScript模块** | `theme-antifouc.js` | `i18n-antifouc.js` |
+| **CSS样式模块** | `theme-antifouc.css` | `i18n-antifouc.css` |
+| **HTML集成复杂度** | 2行引用 | 2行引用 |
+| **属性设置** | `data-theme` 属性 | `data-lang` 属性 |
+| **应用机制** | CSS类切换 | CSS伪元素内容 |
+| **模块复用** | 页面间共享 | 页面间共享 |
+| **执行时机** | HTML解析阶段 | HTML解析阶段 |
+| **零闪烁效果** | ✅ 实现 | ✅ 实现 |
+
+### 2.10 应用初始化中的 i18n 集成
 
 ```mermaid
 sequenceDiagram
     participant DOM as DOM加载
+    participant AntiFouc as 防闪烁脚本
     participant I18n as i18n模块
     participant Theme as 主题系统
     participant App as 应用逻辑
     participant UI as UI渲染
 
-    DOM->>I18n: initI18n()
-    I18n->>I18n: 检测系统语言
-    I18n->>I18n: 加载语言文件
-    I18n->>I18n: 应用翻译
-    I18n->>DOM: 设置 html lang
-    I18n-->>DOM: 初始化完成
+    DOM->>AntiFouc: 解析防闪烁脚本(同步)
+    AntiFouc->>DOM: 立即应用语言设置
+    Note over AntiFouc: 用户看到正确语言的界面
+
+    DOM->>I18n: initI18n() (异步)
+    I18n->>I18n: 检测防闪烁脚本已设置的语言
+    I18n->>I18n: 加载完整语言文件
+    I18n->>DOM: 全量更新翻译
     DOM->>Theme: initTheme()
     Theme-->>DOM: 主题初始化完成
     DOM->>App: 应用逻辑初始化
@@ -208,8 +309,16 @@ sequenceDiagram
 - `dist/js/main.js`: 主应用模块，集成 i18n 初始化和翻译函数使用
 - `dist/js/settings.js`: 设置页面模块，集成语言设置界面和翻译函数
 - `dist/js/utils.js`: 工具函数模块，Toast 系统国际化
-- `dist/index.html`: 主页面，添加 data-i18n 属性支持
-- `dist/settings.html`: 设置页面，添加语言设置界面和 data-i18n 属性
+
+### 防闪烁实现模块
+- `dist/js/i18n-antifouc.js`: 语言检测模块（22行），极简实现语言偏好检测
+- `dist/css/i18n-antifouc.css`: CSS自动应用模块（42行），属性选择器和伪元素实现
+- `dist/index.html:17-19`: 防闪烁模块引用（2行）
+- `dist/index.html:37-40`: 设置按钮防闪烁实现示例
+- `dist/settings.html:28,35`: 设置页面防闪烁实现示例
+
+### i18n模块防重复处理
+- `dist/js/i18n.js:94-97`: `translateElement` 函数中的防重复检测逻辑，跳过已处理的防闪烁元素
 
 ### 配置文件
 - `dist/js/i18n.js`: 定义常量 `SUPPORTED_LANGUAGES`, `DEFAULT_LANGUAGE`, `LANGUAGE_STORAGE_KEY`
@@ -242,3 +351,20 @@ sequenceDiagram
 1. **持久化键**: 使用固定键名 `app_language` 存储用户语言选择
 2. **跨窗口同步**: 通过 `storage` 事件实现多窗口语言自动同步
 3. **错误处理**: 语言加载失败时自动回退到默认语言，确保应用可用性
+
+### 防闪烁实现注意事项
+
+1. **模块化设计**: 新方案采用独立的JS和CSS模块，便于维护和页面复用
+2. **技术一致性**: 与主题系统完全一致的极简模式，便于理解和扩展
+3. **属性检测**: 防闪烁脚本必须与i18n.js使用相同的语言检测逻辑和常量
+4. **CSS优先级**: 防闪烁CSS通过伪元素显示内容，需要确保display属性正确设置
+5. **防重复处理**: i18n模块会检测防闪烁属性，避免重复处理已渲染的元素
+6. **扩展性**: 新页面只需添加2行引用即可支持防闪烁，新元素只需添加data属性
+
+### 防闪烁维护指南
+
+1. **模块同步**: 修改语言检测逻辑时需同步更新 `i18n-antifouc.js` 和 `i18n.js`
+2. **常量一致性**: `LANGUAGE_STORAGE_KEY` 等常量在两个模块间必须保持一致
+3. **CSS维护**: 一般情况下CSS选择器无需修改，除非有特殊样式需求
+4. **元素添加**: 为新元素添加防闪烁时，需同时添加 `data-i18n-en` 和 `data-i18n-zh` 属性
+5. **测试验证**: 确保首次访问、页面刷新、语言切换等场景的零闪烁效果

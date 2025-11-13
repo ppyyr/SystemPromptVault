@@ -40,6 +40,7 @@ const state = {
   suppressEditorChange: false,
   fileChangeUnlisten: null,
   silentReloadUnlisten: null,
+  snapshotRestoredUnlisten: null,
   windowBehaviorUnlisten: null,
   isSavingInternally: false,
   windowBehavior: { ...DEFAULT_WINDOW_BEHAVIOR },
@@ -1320,6 +1321,7 @@ const initApp = async () => {
       }
     }
     await listenToFileChanges();
+    await listenToSnapshotRestored();
     await startFileWatcher(state.currentClientId);
   } catch (error) {
     showToast(getErrorMessage(error) || t("toast.initFailed", "Initialization failed"), "error");
@@ -1653,6 +1655,56 @@ const listenToFileChanges = async () => {
     } catch (error) {
       console.error("[FileWatcher] Failed to register config-reload-silent listener:", error);
     }
+  }
+};
+
+const listenToSnapshotRestored = async () => {
+  console.log("[Snapshot] listenToSnapshotRestored() called");
+  if (typeof state.snapshotRestoredUnlisten === "function") {
+    console.log("[Snapshot] Already listening for snapshot restored events, skipping...");
+    return;
+  }
+
+  try {
+    state.snapshotRestoredUnlisten = await listen("tray://snapshot-restored", (event) => {
+      console.log("[Snapshot] Event received:", event?.payload);
+      try {
+        const rawPayload = event?.payload;
+        let payload = null;
+        if (typeof rawPayload === "string") {
+          try {
+            payload = JSON.parse(rawPayload);
+          } catch (parseError) {
+            console.warn("[Snapshot] Failed to parse payload string:", parseError);
+          }
+        } else if (typeof rawPayload === "object" && rawPayload !== null) {
+          payload = rawPayload;
+        }
+
+        if (!payload) {
+          console.warn("[Snapshot] Invalid snapshot restored payload");
+          return;
+        }
+
+        const snapshotName = payload.snapshot_name ?? payload.snapshotName ?? "";
+        const createdAt = payload.created_at ?? payload.createdAt ?? "";
+
+        if (!snapshotName) {
+          console.warn("[Snapshot] snapshot_name missing in payload");
+          return;
+        }
+
+        console.log(
+          `[Snapshot] Snapshot "${snapshotName}" restored${createdAt ? ` at ${createdAt}` : ""}`
+        );
+        showToast(`「${snapshotName}」已恢复`, "success");
+      } catch (error) {
+        console.warn("[Snapshot] Failed to handle snapshot restored event:", error);
+      }
+    });
+    console.log("[Snapshot] tray://snapshot-restored listener registered successfully!");
+  } catch (error) {
+    console.error("[Snapshot] Failed to register tray://snapshot-restored listener:", error);
   }
 };
 

@@ -11,7 +11,8 @@
 ## 功能模块文档
 
 - [主题系统实现](features/theme-system-implementation.md): 暗色/亮色主题切换、主题状态管理、系统集成
-- [i18n 国际化功能实现](features/i18n-internationalization.md): 完整的多语言支持、系统语言自动检测、DOM 自动更新、跨窗口同步
+- [i18n 国际化功能实现](features/i18n-internationalization.md): 完整的多语言支持、系统语言自动检测、DOM 自动更新、跨窗口同步、防闪烁机制
+- [i18n 防闪烁（Anti-FOUC）实现](features/i18n-anti-fouc-implementation.md): 基于CSS属性选择器和伪元素的优雅防闪烁方案，通过模块化设计实现代码复用，包含与主题系统一致的极简模式和防重复处理机制
 - [提示词管理模块](features/prompt-management-module.md): 提示词过滤算法、下拉菜单标签选择器、智能追加操作、Monaco编辑器集成、撤销重做支持
 - [UI 交互优化](features/ui-interaction-optimization.md): Tooltip 系统、下拉菜单标签选择器、防抖机制、无障碍支持、CSS Grid 布局
 - [编辑器模式状态管理](features/editor-mode-state-management.md): 编辑器模式切换、状态同步修复、滚动容器约束、按钮可见性控制、Monaco编辑器深度集成
@@ -51,7 +52,7 @@
 此目录包含由自动化工具生成的技术分析文档：
 - [agent/](agent/): 自动生成的代码分析、架构研究、技术实现指南
 
-**更新日期**: 2025-11-12
+**更新日期**: 2025-11-13
 **项目版本**: 0.1.0
 **维护者**: SystemPromptVault 开发团队
-**最近更新**: 更新窗口行为配置系统文档，新增 Tauri v2 技术限制文档，完善权限配置说明
+**最近更新**: i18n防闪烁方案重构为CSS属性选择器模式，代码减少50%，实现模块化设计和与主题系统的技术一致性

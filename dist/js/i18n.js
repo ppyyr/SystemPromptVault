@@ -91,11 +91,16 @@ const translateElement = (element) => {
   }
   const key = element.dataset.i18n;
   if (key) {
-    const translation = t(key, element.textContent ?? "");
-    if (element.dataset.i18nHtml === "true") {
-      element.innerHTML = translation;
-    } else {
-      element.textContent = translation;
+    // 跳过已使用防闪烁CSS的元素(data-i18n-en/zh属性)
+    // 这些元素通过CSS ::before伪元素显示内容,无需JS修改
+    const hasAntiFouc = element.hasAttribute("data-i18n-en") || element.hasAttribute("data-i18n-zh");
+    if (!hasAntiFouc) {
+      const translation = t(key, element.textContent ?? "");
+      if (element.dataset.i18nHtml === "true") {
+        element.innerHTML = translation;
+      } else {
+        element.textContent = translation;
+      }
     }
   }
   ATTRIBUTE_MAPPINGS.forEach(({ dataKey, attr }) => {

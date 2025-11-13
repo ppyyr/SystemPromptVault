@@ -14,6 +14,9 @@
         }
       })();
     </script>
+    <!-- 防止 i18n 文本闪烁 - 极简方案(与主题系统一致) -->
+    <script src="js/i18n-antifouc.js"></script>
+    <link rel="stylesheet" href="css/i18n-antifouc.css" />
     <link rel="stylesheet" href="css/output.css" />
     <!-- 保留原有样式以确保平滑过渡 -->
     <link rel="stylesheet" href="css/main.css" />
@@ -32,14 +35,14 @@
             class="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
             href="settings.html"
             data-i18n="common.settings"
-          >
-            Settings
-          </a>
+            data-i18n-en="Settings"
+            data-i18n-zh="设置"
+          ></a>
         </div>
       </header>
 
-      <div id="splitContainer" class="flex flex-col gap-4 lg:flex-row lg:gap-0 flex-1">
-        <section id="configSection" class="resizable-panel bg-white border border-gray-200 dark:border-gray-700 rounded-lg p-5 shadow-sm flex flex-col gap-4 min-h-[520px] w-full lg:flex-none" style="background: rgba(255, 255, 255, 0.95);">
+      <div id="splitContainer" class="flex flex-row gap-0 flex-1">
+        <section id="configSection" class="resizable-panel bg-white border border-gray-200 dark:border-gray-700 rounded-lg p-5 shadow-sm flex flex-col gap-4 min-h-[520px] w-full flex-none" style="background: rgba(255, 255, 255, 0.95);">
           <style>
             .dark #configSection {
               background: rgba(15, 23, 42, 0.9) !important;
@@ -159,7 +162,7 @@
           </div>
         </section>
 
-        <div id="splitResizer" class="split-resizer hidden lg:flex flex-col cursor-col-resize transition-all duration-300 items-center justify-center" aria-hidden="true">
+        <div id="splitResizer" class="split-resizer flex flex-col cursor-col-resize transition-all duration-300 items-center justify-center" aria-hidden="true">
           <div class="split-resizer__grip pointer-events-none flex flex-col items-center gap-2">
             <span class="split-resizer__track"></span>
             <div class="split-resizer__dots flex flex-col items-center gap-1.5">
@@ -170,7 +173,7 @@
           </div>
         </div>
 
-        <section id="promptSection" class="resizable-panel bg-white border border-gray-200 dark:border-gray-700 rounded-lg p-5 shadow-sm flex flex-col gap-4 min-h-[520px] w-full lg:flex-none" style="background: rgba(255, 255, 255, 0.95);">
+        <section id="promptSection" class="resizable-panel bg-white border border-gray-200 dark:border-gray-700 rounded-lg p-5 shadow-sm flex flex-col gap-4 min-h-[520px] w-full flex-none" style="background: rgba(255, 255, 255, 0.95);">
           <style>
             .dark #promptSection {
               background: rgba(15, 23, 42, 0.9) !important;

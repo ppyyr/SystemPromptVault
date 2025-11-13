@@ -6,9 +6,8 @@ use crate::models::{ClientConfig, Snapshot};
 use crate::storage::{
     client_repository::ClientRepository, snapshot_repository::SnapshotRepository,
 };
-use chrono::{DateTime, Local};
-#[cfg(target_os = "macos")]
-use std::process::Command;
+use chrono::{DateTime, Local, Utc};
+use serde::Serialize;
 use tauri::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{App, AppHandle, Emitter, Manager, Runtime};
@@ -18,6 +17,12 @@ const SNAPSHOT_MENU_PREFIX: &str = "restore_snapshot_";
 const SHOW_MAIN_WINDOW_MENU_ID: &str = "show_main_window";
 const QUIT_MENU_ID: &str = "quit";
 const SNAPSHOT_EVENT_NAME: &str = "tray://snapshot-restored";
+
+#[derive(Debug, Clone, Serialize)]
+struct SnapshotRestoredPayload {
+    snapshot_name: String,
+    created_at: String,
+}
 
 pub type TrayResult<T> = Result<T, TrayError>;
 
@@ -143,7 +148,7 @@ fn restore_snapshot_from_menu<R: Runtime>(
     )
     .map_err(TrayError::from)?;
 
-    let snapshot_name = {
+    let (snapshot_name, created_at_iso) = {
         let repo = snapshot_repo
             .lock()
             .map_err(|_| TrayError::from_poison("快照仓库"))?;
@@ -151,15 +156,15 @@ fn restore_snapshot_from_menu<R: Runtime>(
         snapshots
             .iter()
             .find(|s| s.id == snapshot_id)
-            .map(|s| s.name.clone())
-            .unwrap_or_else(|| "未知快照".to_string())
+            .map(|s| (s.name.clone(), s.created_at.to_rfc3339()))
+            .unwrap_or_else(|| ("未知快照".to_string(), Utc::now().to_rfc3339()))
     };
     eprintln!(
         "[Tray] Restored snapshot '{}' for client '{}'",
         snapshot_name, client_id
     );
 
-    notify_snapshot_restored(app_handle, &snapshot_name);
+    notify_snapshot_restored(app_handle, &snapshot_name, &created_at_iso);
     Ok(())
 }
 
@@ -292,33 +297,17 @@ fn format_snapshot_label(snapshot: &Snapshot, is_auto: bool) -> String {
     }
 }
 
-fn notify_snapshot_restored<R: Runtime>(app_handle: &AppHandle<R>, snapshot_name: &str) {
-    let message = format!("已恢复快照「{}」", snapshot_name);
+fn notify_snapshot_restored<R: Runtime>(
+    app_handle: &AppHandle<R>,
+    snapshot_name: &str,
+    created_at: &str,
+) {
+    let payload = SnapshotRestoredPayload {
+        snapshot_name: snapshot_name.to_string(),
+        created_at: created_at.to_string(),
+    };
 
-    #[cfg(target_os = "macos")]
-    if let Err(err) = show_macos_notification("SystemPromptVault", &message) {
+    if let Err(err) = app_handle.emit(SNAPSHOT_EVENT_NAME, payload) {
         eprintln!("通知发送失败: {}", err);
     }
-
-    let _ = app_handle.emit(SNAPSHOT_EVENT_NAME, message);
-}
-
-#[cfg(target_os = "macos")]
-fn show_macos_notification(title: &str, body: &str) -> TrayResult<()> {
-    let script = format!(
-        "display notification \"{}\" with title \"{}\"",
-        escape_osascript_arg(body),
-        escape_osascript_arg(title)
-    );
-    Command::new("osascript")
-        .arg("-e")
-        .arg(script)
-        .status()
-        .map_err(|err| TrayError::new(format!("调用 osascript 失败: {}", err)))?;
-    Ok(())
-}
-
-#[cfg(target_os = "macos")]
-fn escape_osascript_arg(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"")
 }
