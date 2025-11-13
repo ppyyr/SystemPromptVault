@@ -1053,6 +1053,7 @@ const handleClientSubmit = async (event) => {
       }
       await loadClients();
       await loadSnapshotClients();
+      await SnapshotAPI.refreshTrayMenu();
     });
     const messageKey = state.editingClientId ? "toast.clientUpdated" : "toast.clientCreated";
     const fallback = state.editingClientId ? "Client updated" : "Client created";
@@ -1185,6 +1186,7 @@ const deleteClient = async (clientId) => {
       await ClientAPI.delete(clientId);
       await loadClients();
       await loadSnapshotClients();
+      await SnapshotAPI.refreshTrayMenu();
     });
     showToast(t("toast.clientDeleted", "Client deleted"), "success");
   } catch (error) {
