@@ -155,6 +155,22 @@
             </button>
           </div>
 
+          <div class="flex items-center gap-2 flex-wrap hidden" id="clientActions">
+            <button
+              class="btn-icon btn-icon-primary"
+              id="btnNewClient"
+              type="button"
+              aria-label="Add Client"
+              data-tooltip="Add Client"
+              data-i18n-aria="settings.newClient"
+              data-i18n-tooltip="settings.newClient"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
+          </div>
+
           <div class="flex items-center gap-2 flex-wrap hidden" id="snapshotActions">
             <label class="text-sm text-gray-700 dark:text-gray-300" for="snapshotClientSelector" data-i18n="settings.selectClientLabel">Select Client:</label>
             <select
