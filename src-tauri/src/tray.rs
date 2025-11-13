@@ -1,13 +1,12 @@
 use std::sync::{Arc, Mutex};
 
 use crate::commands;
-use crate::commands::config_file::expand_tilde;
+use crate::file_watcher::ConfigFileWatcher;
 use crate::models::{ClientConfig, Snapshot};
 use crate::storage::{
     client_repository::ClientRepository, snapshot_repository::SnapshotRepository,
 };
 use chrono::{DateTime, Local};
-use serde::Serialize;
 #[cfg(target_os = "macos")]
 use std::process::Command;
 use tauri::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
@@ -19,13 +18,6 @@ const SNAPSHOT_MENU_PREFIX: &str = "restore_snapshot_";
 const SHOW_MAIN_WINDOW_MENU_ID: &str = "show_main_window";
 const QUIT_MENU_ID: &str = "quit";
 const SNAPSHOT_EVENT_NAME: &str = "tray://snapshot-restored";
-const CONFIG_RELOAD_SILENT_EVENT: &str = "config-reload-silent";
-
-#[derive(Serialize, Clone)]
-struct ConfigReloadPayload {
-    client_id: String,
-    path: String,
-}
 
 pub type TrayResult<T> = Result<T, TrayError>;
 
@@ -138,8 +130,14 @@ fn restore_snapshot_from_menu<R: Runtime>(
 ) -> TrayResult<()> {
     let snapshot_state = app_handle.state::<Arc<Mutex<SnapshotRepository>>>();
     let snapshot_repo = Arc::clone(snapshot_state.inner());
-    let content = commands::snapshot::restore_snapshot(
-        snapshot_state,
+    let client_state = app_handle.state::<Arc<Mutex<ClientRepository>>>();
+    let watcher_state = app_handle.state::<Arc<Mutex<ConfigFileWatcher>>>();
+
+    commands::snapshot::restore_snapshot_from_tray(
+        app_handle.clone(),
+        Arc::clone(snapshot_state.inner()),
+        Arc::clone(client_state.inner()),
+        Arc::clone(watcher_state.inner()),
         client_id.to_string(),
         snapshot_id.to_string(),
     )
@@ -156,68 +154,6 @@ fn restore_snapshot_from_menu<R: Runtime>(
             .map(|s| s.name.clone())
             .unwrap_or_else(|| "未知快照".to_string())
     };
-
-    let client_state = app_handle.state::<Arc<Mutex<ClientRepository>>>();
-
-    // 获取配置文件路径（用于后续重新启动监听器）
-    let config_path = {
-        let repo = client_state
-            .inner()
-            .lock()
-            .map_err(|_| TrayError::from_poison("客户端仓库"))?;
-        match repo.get_by_id(client_id) {
-            Ok(Some(client)) => Some(client.config_file_path.clone()),
-            _ => None,
-        }
-    };
-
-    // 临时停止文件监听器，避免写入时触发 config-file-changed 事件
-    let watcher_state = app_handle.state::<Arc<Mutex<crate::file_watcher::ConfigFileWatcher>>>();
-    {
-        let mut watcher = watcher_state
-            .lock()
-            .map_err(|_| TrayError::from_poison("文件监听器"))?;
-        watcher.stop();
-        eprintln!("[Tray] Temporarily stopped file watcher before writing config");
-    }
-
-    // 写入配置文件
-    commands::config_file::write_config_file(client_state.clone(), client_id.to_string(), content)
-        .map_err(TrayError::from)?;
-
-    // 重新启动文件监听器
-    if let Some(path) = &config_path {
-        let mut watcher = watcher_state
-            .lock()
-            .map_err(|_| TrayError::from_poison("文件监听器"))?;
-        let expanded_path = expand_tilde(path);
-        if let Err(e) = watcher.watch_file(expanded_path, app_handle.clone()) {
-            eprintln!("[Tray] Warning: Failed to restart file watcher: {}", e);
-        } else {
-            eprintln!("[Tray] File watcher restarted successfully");
-        }
-    }
-
-    // 主动通知监听器，避免托盘恢复后主窗口不同步（静默刷新，不触发外部更改提示）
-    if let Some(path) = &config_path {
-        let expanded_path = expand_tilde(path);
-        let path_str = expanded_path.to_string_lossy().to_string();
-        let payload = ConfigReloadPayload {
-            client_id: client_id.to_string(),
-            path: path_str.clone(),
-        };
-
-        eprintln!(
-            "[Tray] Emitting config-reload-silent event for client '{}' path: {} (expanded from: {})",
-            client_id, path_str, path
-        );
-        match app_handle.emit(CONFIG_RELOAD_SILENT_EVENT, payload) {
-            Ok(_) => eprintln!("[Tray] Event emitted successfully"),
-            Err(e) => eprintln!("[Tray] Failed to emit event: {}", e),
-        }
-    } else {
-        eprintln!("[Tray] Warning: Could not get client config path for event emission");
-    }
     eprintln!(
         "[Tray] Restored snapshot '{}' for client '{}'",
         snapshot_name, client_id

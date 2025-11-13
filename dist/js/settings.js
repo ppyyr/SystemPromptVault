@@ -67,6 +67,11 @@ const state = {
   generalSettingsClientId: null,
   snapshotCache: {},
   snapshotLoadTimer: null,
+  snapshotClientDropdownOpen: false,
+  snapshotClientDropdownFocusIndex: -1,
+  generalClientDropdownOpen: false,
+  generalClientDropdownFocusIndex: -1,
+  generalSettingsDisabled: false,
   generalMaxAutoSnapshots: DEFAULT_MAX_AUTO_SNAPSHOTS,
   generalMaxManualSnapshots: DEFAULT_MAX_MANUAL_SNAPSHOTS,
   activeTabId: "tabPrompts",
@@ -108,9 +113,17 @@ const elements = {
   formGeneralSettings: null,
   inputMaxAutoSnapshots: null,
   inputMaxManualSnapshots: null,
-  generalClientSelector: null,
+  generalClientDropdown: null,
+  generalClientDropdownToggle: null,
+  generalClientDropdownLabel: null,
+  generalClientDropdownPanel: null,
+  generalClientDropdownList: null,
   btnSaveGeneralSettings: null,
-  snapshotClientSelector: null,
+  snapshotClientDropdown: null,
+  snapshotClientDropdownToggle: null,
+  snapshotClientDropdownLabel: null,
+  snapshotClientDropdownPanel: null,
+  snapshotClientDropdownList: null,
   snapshotTable: null,
   emptyStateSnapshot: null,
   snapshotEmptyMessage: null,
@@ -127,6 +140,34 @@ const withLoading = async (task) => {
   } finally {
     hideLoading();
   }
+};
+
+const normalizeClientPaths = (client) => {
+  if (!client) return [];
+  const rawPaths = Array.isArray(client.config_file_paths) ? client.config_file_paths : [];
+  const normalized = rawPaths
+    .map((path) => (typeof path === "string" ? path.trim() : ""))
+    .filter((path) => path.length > 0);
+  if (!normalized.length && typeof client.config_file_path === "string") {
+    const legacyPath = client.config_file_path.trim();
+    if (legacyPath) {
+      normalized.push(legacyPath);
+    }
+  }
+  return normalized;
+};
+
+const resolveClientActivePath = (client, configPaths) => {
+  const rawActive =
+    typeof client?.active_config_path === "string" ? client?.active_config_path : "";
+  const activePath = rawActive.trim();
+  if (activePath) {
+    return activePath;
+  }
+  if (Array.isArray(configPaths) && configPaths.length) {
+    return configPaths[0];
+  }
+  return "";
 };
 
 // 监听窗口关闭事件，阻止默认行为并手动销毁窗口，确保设置页可通过标题栏按钮关闭
@@ -210,10 +251,18 @@ const cacheElements = () => {
   elements.formGeneralSettings = document.getElementById("formGeneralSettings");
   elements.inputMaxAutoSnapshots = document.getElementById("inputMaxAutoSnapshots");
   elements.inputMaxManualSnapshots = document.getElementById("inputMaxManualSnapshots");
-  elements.generalClientSelector = document.getElementById("generalClientSelector");
+  elements.generalClientDropdown = document.getElementById("generalClientDropdown");
+  elements.generalClientDropdownToggle = document.getElementById("generalClientDropdownToggle");
+  elements.generalClientDropdownLabel = document.getElementById("generalClientDropdownLabel");
+  elements.generalClientDropdownPanel = document.getElementById("generalClientDropdownPanel");
+  elements.generalClientDropdownList = document.getElementById("generalClientDropdownList");
   elements.btnSaveGeneralSettings =
     elements.formGeneralSettings?.querySelector('button[type="submit"]') ?? null;
-  elements.snapshotClientSelector = document.getElementById("snapshotClientSelector");
+  elements.snapshotClientDropdown = document.getElementById("snapshotClientDropdown");
+  elements.snapshotClientDropdownToggle = document.getElementById("snapshotClientDropdownToggle");
+  elements.snapshotClientDropdownLabel = document.getElementById("snapshotClientDropdownLabel");
+  elements.snapshotClientDropdownPanel = document.getElementById("snapshotClientDropdownPanel");
+  elements.snapshotClientDropdownList = document.getElementById("snapshotClientDropdownList");
   elements.snapshotTable = document.getElementById("snapshotTable");
   elements.emptyStateSnapshot = document.getElementById("emptyStateSnapshot");
   elements.snapshotEmptyMessage = document.getElementById("snapshotEmptyMessage");
@@ -247,16 +296,8 @@ const bindEvents = () => {
       closeSettingsDropdown();
     }
   });
-  elements.generalClientSelector?.addEventListener("change", (event) => {
-    const select = event.target;
-    const clientId = select?.value ?? "";
-    handleClientSelectionChange(clientId);
-  });
-  elements.snapshotClientSelector?.addEventListener("change", (event) => {
-    const select = event.target;
-    const clientId = select?.value ?? "";
-    handleClientSelectionChange(clientId);
-  });
+  bindGeneralClientDropdownEvents();
+  bindSnapshotClientDropdownEvents();
   elements.btnRefreshSnapshots?.addEventListener("click", () => {
     if (!state.snapshotClientId) {
       showToast(t("toast.noClientsAvailable", "No clients available"), "warning");
@@ -288,9 +329,345 @@ const bindEvents = () => {
     if (event.key === "Escape") {
       closePromptModal();
       closeClientModal();
+      closeGeneralClientDropdown();
+      closeSnapshotClientDropdown();
       closeSettingsDropdown();
     }
   });
+};
+
+const bindGeneralClientDropdownEvents = () => {
+  elements.generalClientDropdownToggle?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleGeneralClientDropdown();
+  });
+  elements.generalClientDropdownToggle?.addEventListener(
+    "keydown",
+    handleGeneralClientToggleKeydown
+  );
+  elements.generalClientDropdownPanel?.addEventListener(
+    "keydown",
+    handleGeneralClientPanelKeydown
+  );
+  document.addEventListener("click", handleGeneralClientDocumentClick);
+};
+
+const handleGeneralClientDocumentClick = (event) => {
+  if (!state.generalClientDropdownOpen) return;
+  const dropdown = elements.generalClientDropdown;
+  if (!dropdown) return;
+  if (dropdown.contains(event.target)) {
+    return;
+  }
+  closeGeneralClientDropdown();
+};
+
+const handleGeneralClientToggleKeydown = (event) => {
+  const toggle = elements.generalClientDropdownToggle;
+  if (!toggle || toggle.disabled) return;
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    openGeneralClientDropdown();
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    openGeneralClientDropdown();
+    const options = getGeneralClientDropdownOptions();
+    if (options.length) {
+      focusGeneralClientDropdownOption(options.length - 1);
+    }
+  } else if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+    event.preventDefault();
+    toggleGeneralClientDropdown();
+  }
+};
+
+const handleGeneralClientPanelKeydown = (event) => {
+  if (!state.generalClientDropdownOpen) return;
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    moveGeneralClientDropdownFocus(1);
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    moveGeneralClientDropdownFocus(-1);
+  } else if (event.key === "Home") {
+    event.preventDefault();
+    focusGeneralClientDropdownOption(0);
+  } else if (event.key === "End") {
+    event.preventDefault();
+    const options = getGeneralClientDropdownOptions();
+    if (options.length) {
+      focusGeneralClientDropdownOption(options.length - 1);
+    }
+  } else if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+    event.preventDefault();
+    activateFocusedGeneralClientOption();
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    closeGeneralClientDropdown();
+  }
+};
+
+const toggleGeneralClientDropdown = (forceState) => {
+  const toggle = elements.generalClientDropdownToggle;
+  if (!toggle || toggle.disabled) return;
+  const shouldOpen =
+    typeof forceState === "boolean" ? forceState : !state.generalClientDropdownOpen;
+  if (shouldOpen) {
+    openGeneralClientDropdown();
+  } else {
+    closeGeneralClientDropdown();
+  }
+};
+
+const openGeneralClientDropdown = () => {
+  const toggle = elements.generalClientDropdownToggle;
+  const panel = elements.generalClientDropdownPanel;
+  if (!toggle || !panel || toggle.disabled) return;
+  state.generalClientDropdownOpen = true;
+  panel.setAttribute("aria-hidden", "false");
+  toggle.setAttribute("aria-expanded", "true");
+  const options = getGeneralClientDropdownOptions();
+  if (options.length) {
+    const selectedIndex = options.findIndex(
+      (option) => option.getAttribute("aria-selected") === "true"
+    );
+    const targetIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    focusGeneralClientDropdownOption(targetIndex);
+  }
+};
+
+const closeGeneralClientDropdown = () => {
+  const toggle = elements.generalClientDropdownToggle;
+  const panel = elements.generalClientDropdownPanel;
+  if (!toggle || !panel) {
+    state.generalClientDropdownOpen = false;
+    state.generalClientDropdownFocusIndex = -1;
+    return;
+  }
+  const wasOpen = state.generalClientDropdownOpen;
+  state.generalClientDropdownOpen = false;
+  state.generalClientDropdownFocusIndex = -1;
+  panel.setAttribute("aria-hidden", "true");
+  toggle.setAttribute("aria-expanded", "false");
+  getGeneralClientDropdownOptions().forEach((option) => {
+    option.tabIndex = -1;
+  });
+  if (
+    wasOpen &&
+    document.activeElement &&
+    panel.contains(document.activeElement) &&
+    typeof toggle.focus === "function"
+  ) {
+    toggle.focus();
+  }
+};
+
+const getGeneralClientDropdownOptions = () => {
+  const list = elements.generalClientDropdownList;
+  if (!list) return [];
+  return Array.from(list.querySelectorAll("[data-client-id]"));
+};
+
+const focusGeneralClientDropdownOption = (index) => {
+  const options = getGeneralClientDropdownOptions();
+  if (!options.length) return;
+  const clampedIndex = Math.max(0, Math.min(index, options.length - 1));
+  state.generalClientDropdownFocusIndex = clampedIndex;
+  options.forEach((option, optionIndex) => {
+    option.tabIndex = optionIndex === clampedIndex ? 0 : -1;
+  });
+  const target = options[clampedIndex];
+  if (target) {
+    target.focus({ preventScroll: true });
+  }
+};
+
+const moveGeneralClientDropdownFocus = (delta) => {
+  const options = getGeneralClientDropdownOptions();
+  if (!options.length) return;
+  const currentIndex = state.generalClientDropdownFocusIndex;
+  const nextIndex =
+    currentIndex < 0
+      ? delta > 0
+        ? 0
+        : options.length - 1
+      : (currentIndex + delta + options.length) % options.length;
+  focusGeneralClientDropdownOption(nextIndex);
+};
+
+const activateFocusedGeneralClientOption = () => {
+  const options = getGeneralClientDropdownOptions();
+  const target = options[state.generalClientDropdownFocusIndex] || null;
+  if (target) {
+    target.click();
+  }
+};
+
+const bindSnapshotClientDropdownEvents = () => {
+  elements.snapshotClientDropdownToggle?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleSnapshotClientDropdown();
+  });
+  elements.snapshotClientDropdownToggle?.addEventListener(
+    "keydown",
+    handleSnapshotClientToggleKeydown
+  );
+  elements.snapshotClientDropdownPanel?.addEventListener(
+    "keydown",
+    handleSnapshotClientPanelKeydown
+  );
+  document.addEventListener("click", handleSnapshotClientDocumentClick);
+};
+
+const handleSnapshotClientDocumentClick = (event) => {
+  if (!state.snapshotClientDropdownOpen) return;
+  const dropdown = elements.snapshotClientDropdown;
+  if (!dropdown) return;
+  if (dropdown.contains(event.target)) {
+    return;
+  }
+  closeSnapshotClientDropdown();
+};
+
+const handleSnapshotClientToggleKeydown = (event) => {
+  const toggle = elements.snapshotClientDropdownToggle;
+  if (!toggle || toggle.disabled) return;
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    openSnapshotClientDropdown();
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    openSnapshotClientDropdown();
+    const options = getSnapshotClientDropdownOptions();
+    if (options.length) {
+      focusSnapshotClientDropdownOption(options.length - 1);
+    }
+  } else if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+    event.preventDefault();
+    toggleSnapshotClientDropdown();
+  }
+};
+
+const handleSnapshotClientPanelKeydown = (event) => {
+  if (!state.snapshotClientDropdownOpen) return;
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    moveSnapshotClientDropdownFocus(1);
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    moveSnapshotClientDropdownFocus(-1);
+  } else if (event.key === "Home") {
+    event.preventDefault();
+    focusSnapshotClientDropdownOption(0);
+  } else if (event.key === "End") {
+    event.preventDefault();
+    const options = getSnapshotClientDropdownOptions();
+    if (options.length) {
+      focusSnapshotClientDropdownOption(options.length - 1);
+    }
+  } else if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+    event.preventDefault();
+    activateFocusedSnapshotClientOption();
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    closeSnapshotClientDropdown();
+  }
+};
+
+const toggleSnapshotClientDropdown = (forceState) => {
+  const toggle = elements.snapshotClientDropdownToggle;
+  if (!toggle || toggle.disabled) return;
+  const shouldOpen =
+    typeof forceState === "boolean" ? forceState : !state.snapshotClientDropdownOpen;
+  if (shouldOpen) {
+    openSnapshotClientDropdown();
+  } else {
+    closeSnapshotClientDropdown();
+  }
+};
+
+const openSnapshotClientDropdown = () => {
+  const toggle = elements.snapshotClientDropdownToggle;
+  const panel = elements.snapshotClientDropdownPanel;
+  if (!toggle || !panel || toggle.disabled) return;
+  state.snapshotClientDropdownOpen = true;
+  panel.setAttribute("aria-hidden", "false");
+  toggle.setAttribute("aria-expanded", "true");
+  const options = getSnapshotClientDropdownOptions();
+  if (options.length) {
+    const selectedIndex = options.findIndex(
+      (option) => option.getAttribute("aria-selected") === "true"
+    );
+    const targetIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    focusSnapshotClientDropdownOption(targetIndex);
+  }
+};
+
+const closeSnapshotClientDropdown = () => {
+  const toggle = elements.snapshotClientDropdownToggle;
+  const panel = elements.snapshotClientDropdownPanel;
+  if (!toggle || !panel) {
+    state.snapshotClientDropdownOpen = false;
+    state.snapshotClientDropdownFocusIndex = -1;
+    return;
+  }
+  const wasOpen = state.snapshotClientDropdownOpen;
+  state.snapshotClientDropdownOpen = false;
+  state.snapshotClientDropdownFocusIndex = -1;
+  panel.setAttribute("aria-hidden", "true");
+  toggle.setAttribute("aria-expanded", "false");
+  getSnapshotClientDropdownOptions().forEach((option) => {
+    option.tabIndex = -1;
+  });
+  if (
+    wasOpen &&
+    document.activeElement &&
+    panel.contains(document.activeElement) &&
+    typeof toggle.focus === "function"
+  ) {
+    toggle.focus();
+  }
+};
+
+const getSnapshotClientDropdownOptions = () => {
+  const list = elements.snapshotClientDropdownList;
+  if (!list) return [];
+  return Array.from(list.querySelectorAll("[data-client-id]"));
+};
+
+const focusSnapshotClientDropdownOption = (index) => {
+  const options = getSnapshotClientDropdownOptions();
+  if (!options.length) return;
+  const clampedIndex = Math.max(0, Math.min(index, options.length - 1));
+  state.snapshotClientDropdownFocusIndex = clampedIndex;
+  options.forEach((option, optionIndex) => {
+    option.tabIndex = optionIndex === clampedIndex ? 0 : -1;
+  });
+  const target = options[clampedIndex];
+  if (target) {
+    target.focus({ preventScroll: true });
+  }
+};
+
+const moveSnapshotClientDropdownFocus = (delta) => {
+  const options = getSnapshotClientDropdownOptions();
+  if (!options.length) return;
+  const currentIndex = state.snapshotClientDropdownFocusIndex;
+  const nextIndex =
+    currentIndex < 0
+      ? delta > 0
+        ? 0
+        : options.length - 1
+      : (currentIndex + delta + options.length) % options.length;
+  focusSnapshotClientDropdownOption(nextIndex);
+};
+
+const activateFocusedSnapshotClientOption = () => {
+  const options = getSnapshotClientDropdownOptions();
+  const target = options[state.snapshotClientDropdownFocusIndex] || null;
+  if (target) {
+    target.click();
+  }
 };
 
 const updateLanguageRadios = (selected = getCurrentLanguage()) => {
@@ -548,6 +925,8 @@ const initSettings = async () => {
     updateLanguageRadios();
     renderPromptTable();
     renderClientTable();
+    renderGeneralClientDropdown(state.clients.length > 0);
+    renderSnapshotClientDropdown(state.clients.length > 0);
     const cachedSnapshots = state.snapshotCache[state.snapshotClientId]?.snapshots ?? [];
     renderSnapshotTable(cachedSnapshots);
     updateSettingsDropdownLabel(state.activeTabId);
@@ -772,7 +1151,13 @@ const renderClientTable = () => {
 
     const pathCell = document.createElement("td");
     pathCell.className = "px-4 py-3 text-sm text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 font-mono text-xs";
-    pathCell.textContent = client.config_file_path;
+    const configPaths = normalizeClientPaths(client);
+    const displayPath = resolveClientActivePath(client, configPaths);
+    pathCell.textContent = displayPath || "—";
+    if (configPaths.length > 1) {
+      pathCell.title = configPaths.join("\n");
+      pathCell.classList.add("cursor-help");
+    }
 
     const autoTagCell = document.createElement("td");
     autoTagCell.className = "px-4 py-3 text-sm text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700";
@@ -833,10 +1218,9 @@ const renderClientTable = () => {
 
 const loadSnapshotClients = async () => {
   const hasClients = state.clients.length > 0;
-  populateClientSelector(elements.generalClientSelector, hasClients);
-  populateClientSelector(elements.snapshotClientSelector, hasClients);
 
   if (!hasClients) {
+    renderSnapshotClientDropdown(false);
     state.snapshotClientId = null;
     state.generalSettingsClientId = null;
     state.generalMaxAutoSnapshots = DEFAULT_MAX_AUTO_SNAPSHOTS;
@@ -853,48 +1237,178 @@ const loadSnapshotClients = async () => {
     return;
   }
 
-  elements.btnRefreshSnapshots?.removeAttribute("disabled");
-  setGeneralSettingsDisabled(false);
-
-  if (!state.snapshotClientId || !state.clients.some((client) => client.id === state.snapshotClientId)) {
+  if (
+    !state.snapshotClientId ||
+    !state.clients.some((client) => client.id === state.snapshotClientId)
+  ) {
     state.snapshotClientId = state.currentClientId ?? state.clients[0].id;
   }
   state.generalSettingsClientId = state.snapshotClientId;
+
+  renderSnapshotClientDropdown(true);
+  elements.btnRefreshSnapshots?.removeAttribute("disabled");
+  setGeneralSettingsDisabled(false);
   syncClientSelectors();
 
   await loadSnapshotsTable(state.snapshotClientId, { silent: true });
   await loadGeneralSettings(state.snapshotClientId);
 };
 
-const populateClientSelector = (selector, hasClients) => {
-  if (!selector) return;
-  selector.innerHTML = "";
+const renderGeneralClientDropdown = (hasClients = state.clients.length > 0) => {
+  const list = elements.generalClientDropdownList;
+  const toggle = elements.generalClientDropdownToggle;
+  if (!list || !toggle) return;
+
+  list.innerHTML = "";
+  state.generalClientDropdownFocusIndex = -1;
+  const shouldDisable = !hasClients || state.generalSettingsDisabled;
+  toggle.disabled = shouldDisable;
+  toggle.setAttribute("aria-disabled", String(shouldDisable));
+  toggle.classList.toggle("is-disabled", shouldDisable);
+
+  if (shouldDisable) {
+    closeGeneralClientDropdown();
+  }
+
   if (!hasClients) {
-    const option = document.createElement("option");
-    option.value = "";
-    option.textContent = t("settings.noClientsOption", "No clients available");
-    selector.appendChild(option);
-    selector.setAttribute("disabled", "true");
+    const empty = document.createElement("div");
+    empty.className = "client-dropdown__empty px-3 py-2 text-sm text-gray-500 dark:text-gray-400";
+    empty.textContent = t("settings.noClientsOption", "No clients available");
+    list.appendChild(empty);
+    updateGeneralClientDropdownLabel();
     return;
   }
+
+  const fragment = document.createDocumentFragment();
   state.clients.forEach((client) => {
-    const option = document.createElement("option");
-    option.value = client.id;
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "client-dropdown__option";
     option.textContent = client.name;
-    selector.appendChild(option);
+    option.dataset.clientId = client.id;
+    option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", String(client.id === state.snapshotClientId));
+    option.tabIndex = -1;
+    option.addEventListener("click", () => {
+      if (client.id !== state.snapshotClientId) {
+        handleClientSelectionChange(client.id);
+      }
+      closeGeneralClientDropdown();
+    });
+    fragment.appendChild(option);
   });
-  selector.removeAttribute("disabled");
+  list.appendChild(fragment);
+  updateGeneralClientDropdownLabel();
+  updateGeneralClientDropdownSelection();
+};
+
+const updateGeneralClientDropdownLabel = () => {
+  const label = elements.generalClientDropdownLabel;
+  if (!label) return;
+  if (!state.clients.length) {
+    label.textContent = t("settings.noClientsOption", "No clients available");
+    return;
+  }
+  const client = state.clients.find((item) => item.id === state.snapshotClientId) ?? null;
+  if (client) {
+    label.textContent = client.name;
+  } else {
+    label.textContent = t("settings.selectClientPlaceholder", "Select Client");
+  }
+};
+
+const updateGeneralClientDropdownSelection = () => {
+  const options = getGeneralClientDropdownOptions();
+  if (!options.length) return;
+  options.forEach((option, index) => {
+    const isSelected = option.dataset.clientId === state.snapshotClientId;
+    option.setAttribute("aria-selected", String(isSelected));
+    if (!state.generalClientDropdownOpen) {
+      option.tabIndex = -1;
+    } else {
+      option.tabIndex = index === state.generalClientDropdownFocusIndex ? 0 : -1;
+    }
+  });
+};
+
+const renderSnapshotClientDropdown = (hasClients = state.clients.length > 0) => {
+  const list = elements.snapshotClientDropdownList;
+  const toggle = elements.snapshotClientDropdownToggle;
+  if (!list || !toggle) return;
+
+  list.innerHTML = "";
+  state.snapshotClientDropdownFocusIndex = -1;
+  toggle.disabled = !hasClients;
+  toggle.setAttribute("aria-disabled", String(!hasClients));
+  toggle.classList.toggle("is-disabled", !hasClients);
+
+  if (!hasClients) {
+    closeSnapshotClientDropdown();
+    const empty = document.createElement("div");
+    empty.className = "client-dropdown__empty px-3 py-2 text-sm text-gray-500 dark:text-gray-400";
+    empty.textContent = t("settings.noClientsOption", "No clients available");
+    list.appendChild(empty);
+    updateSnapshotClientDropdownLabel();
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  state.clients.forEach((client) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "client-dropdown__option";
+    option.textContent = client.name;
+    option.dataset.clientId = client.id;
+    option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", String(client.id === state.snapshotClientId));
+    option.tabIndex = -1;
+    option.addEventListener("click", () => {
+      if (client.id !== state.snapshotClientId) {
+        handleClientSelectionChange(client.id);
+      }
+      closeSnapshotClientDropdown();
+    });
+    fragment.appendChild(option);
+  });
+  list.appendChild(fragment);
+  updateSnapshotClientDropdownLabel();
+  updateSnapshotClientDropdownSelection();
+};
+
+const updateSnapshotClientDropdownLabel = () => {
+  const label = elements.snapshotClientDropdownLabel;
+  if (!label) return;
+  if (!state.clients.length) {
+    label.textContent = t("settings.noClientsOption", "No clients available");
+    return;
+  }
+  const client = state.clients.find((item) => item.id === state.snapshotClientId) ?? null;
+  if (client) {
+    label.textContent = client.name;
+  } else {
+    label.textContent = t("settings.selectClientPlaceholder", "Select Client");
+  }
+};
+
+const updateSnapshotClientDropdownSelection = () => {
+  const options = getSnapshotClientDropdownOptions();
+  if (!options.length) return;
+  options.forEach((option, index) => {
+    const isSelected = option.dataset.clientId === state.snapshotClientId;
+    option.setAttribute("aria-selected", String(isSelected));
+    if (!state.snapshotClientDropdownOpen) {
+      option.tabIndex = -1;
+    } else {
+      option.tabIndex = index === state.snapshotClientDropdownFocusIndex ? 0 : -1;
+    }
+  });
 };
 
 const syncClientSelectors = () => {
-  [elements.generalClientSelector, elements.snapshotClientSelector].forEach((selector) => {
-    if (!selector) return;
-    if (!state.snapshotClientId) {
-      selector.value = "";
-    } else {
-      selector.value = state.snapshotClientId;
-    }
-  });
+  updateGeneralClientDropdownLabel();
+  updateGeneralClientDropdownSelection();
+  updateSnapshotClientDropdownLabel();
+  updateSnapshotClientDropdownSelection();
 };
 
 const showPromptModal = (promptId = null, mode = null, prefillData = null) => {
@@ -961,7 +1475,8 @@ const showClientModal = (clientId = null) => {
     }
     elements.inputClientId.value = client.id;
     elements.inputClientName.value = client.name;
-    elements.inputClientPath.value = client.config_file_path;
+    const configPaths = normalizeClientPaths(client);
+    elements.inputClientPath.value = configPaths.join("\n");
     elements.inputClientAutoTag.checked = Boolean(client.auto_tag);
   }
   toggleModal(elements.modalClient, true);
@@ -1035,20 +1550,27 @@ const handleClientSubmit = async (event) => {
   event.preventDefault();
   const id = elements.inputClientId.value.trim();
   const name = elements.inputClientName.value.trim();
-  const path = elements.inputClientPath.value.trim();
-  if (!id || !name || !path) {
+  if (!id || !name) {
     showToast(t("toast.clientMissingFields", "Please complete all client information"), "warning");
+    return;
+  }
+  const configFilePaths = (elements.inputClientPath.value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (!configFilePaths.length) {
+    showToast(t("toast.invalidConfigPath", "Invalid config path"), "warning");
     return;
   }
   const autoTag = elements.inputClientAutoTag.checked;
   try {
     await withLoading(async () => {
       if (state.editingClientId) {
-        await ClientAPI.update(id, name, path, autoTag);
+        await ClientAPI.update(id, name, configFilePaths, undefined, autoTag);
       } else {
-        await ClientAPI.add(id, name, path);
+        await ClientAPI.add(id, name, configFilePaths);
         if (autoTag) {
-          await ClientAPI.update(id, undefined, undefined, autoTag);
+          await ClientAPI.update(id, undefined, undefined, undefined, autoTag);
         }
       }
       await loadClients();
@@ -1439,10 +1961,10 @@ const updateGeneralSettingsInput = (payload = {}) => {
 };
 
 const setGeneralSettingsDisabled = (disabled) => {
+  state.generalSettingsDisabled = Boolean(disabled);
   [
     elements.inputMaxAutoSnapshots,
     elements.inputMaxManualSnapshots,
-    elements.generalClientSelector,
     elements.btnSaveGeneralSettings,
   ].forEach((control) => {
     if (!control) return;
@@ -1455,6 +1977,7 @@ const setGeneralSettingsDisabled = (disabled) => {
   if (elements.formGeneralSettings) {
     elements.formGeneralSettings.classList.toggle("opacity-60", disabled);
   }
+  renderGeneralClientDropdown(state.clients.length > 0);
 };
 
 const loadGeneralSettings = async (clientId) => {

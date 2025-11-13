@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,6 +13,8 @@ pub struct Snapshot {
     pub is_auto: bool,
     #[serde(default)]
     pub content_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub multi_file_contents: Option<HashMap<String, String>>,
 }
 
 impl Snapshot {
@@ -21,6 +24,7 @@ impl Snapshot {
         content: impl Into<String>,
         is_auto: bool,
         content_hash: impl Into<String>,
+        multi_file_contents: Option<HashMap<String, String>>,
     ) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
@@ -30,7 +34,24 @@ impl Snapshot {
             created_at: Utc::now(),
             is_auto,
             content_hash: content_hash.into(),
+            multi_file_contents,
         }
+    }
+
+    pub fn is_multi_file(&self) -> bool {
+        self.multi_file_contents.is_some()
+    }
+
+    pub fn get_file_contents(&self) -> HashMap<String, String> {
+        if let Some(ref contents) = self.multi_file_contents {
+            return contents.clone();
+        }
+
+        let mut map = HashMap::new();
+        if !self.content.is_empty() {
+            map.insert("legacy".to_string(), self.content.clone());
+        }
+        map
     }
 }
 

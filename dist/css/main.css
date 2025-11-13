@@ -116,9 +116,13 @@ a {
   color: var(--color-text-secondary, #9ca3af);
 }
 
-.client-dropdown__toggle:hover {
+.client-dropdown__toggle:hover:not(:disabled) {
   background: var(--color-surface-hover, rgba(59, 130, 246, 0.1));
   color: var(--color-primary, #3b82f6);
+}
+
+.client-dropdown__toggle:disabled {
+  opacity: 1;
 }
 
 .client-dropdown__icon {

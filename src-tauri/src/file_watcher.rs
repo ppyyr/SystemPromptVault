@@ -16,6 +16,10 @@ impl ConfigFileWatcher {
         }
     }
 
+    pub fn current_path(&self) -> Option<PathBuf> {
+        self.watched_path.clone()
+    }
+
     pub fn watch_file<R: Runtime>(
         &mut self,
         path: PathBuf,

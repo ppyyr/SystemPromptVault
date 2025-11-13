@@ -212,15 +212,34 @@
           </div>
 
           <div class="flex items-center gap-2 flex-wrap hidden" id="snapshotActions">
-            <label class="text-sm text-gray-700 dark:text-gray-300" for="snapshotClientSelector" data-i18n="settings.selectClientLabel">Select Client:</label>
-            <select
-              id="snapshotClientSelector"
-              class="form-select w-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
-              aria-label="Select Client"
-              data-i18n-aria="settings.selectClient"
-            >
-              <option value="" data-i18n="settings.noClientsOption">No clients available</option>
-            </select>
+            <span class="text-sm text-gray-700 dark:text-gray-300" data-i18n="settings.selectClientLabel">Select Client:</span>
+            <div class="client-dropdown" id="snapshotClientDropdown">
+              <button
+                type="button"
+                class="client-dropdown__toggle"
+                id="snapshotClientDropdownToggle"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-controls="snapshotClientDropdownPanel"
+                aria-label="Select Client"
+                data-i18n-aria="settings.selectClient"
+              >
+                <span class="client-dropdown__label" id="snapshotClientDropdownLabel" data-i18n="settings.noClientsOption">No clients available</span>
+                <svg class="client-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path>
+                </svg>
+              </button>
+              <div
+                class="client-dropdown__panel"
+                id="snapshotClientDropdownPanel"
+                role="listbox"
+                aria-label="Client List"
+                data-i18n-aria="settings.clientList"
+                aria-hidden="true"
+              >
+                <div class="client-dropdown__list" id="snapshotClientDropdownList"></div>
+              </div>
+            </div>
             <button
               id="btnRefreshSnapshots"
               class="btn-icon btn-icon-primary"
@@ -298,13 +317,34 @@
         <section class="flex flex-col gap-4 flex-1 hidden overflow-y-auto" style="min-height: 0;" id="tabGeneral" role="tabpanel" aria-labelledby="settingsDropdownToggle">
           <form id="formGeneralSettings" class="flex flex-col gap-4">
             <div class="form-group flex flex-col gap-2">
-              <label for="generalClientSelector" class="text-sm font-medium text-gray-700 dark:text-gray-300" data-i18n="settings.selectClientLabel">Select Client</label>
-              <select
-                id="generalClientSelector"
-                class="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="" data-i18n="settings.noClientsOption">No clients available</option>
-              </select>
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300" data-i18n="settings.selectClientLabel">Select Client</label>
+              <div class="client-dropdown" id="generalClientDropdown">
+                <button
+                  type="button"
+                  class="client-dropdown__toggle w-full"
+                  id="generalClientDropdownToggle"
+                  aria-haspopup="listbox"
+                  aria-expanded="false"
+                  aria-controls="generalClientDropdownPanel"
+                  aria-label="Select Client"
+                  data-i18n-aria="settings.selectClient"
+                >
+                  <span class="client-dropdown__label" id="generalClientDropdownLabel" data-i18n="settings.noClientsOption">No clients available</span>
+                  <svg class="client-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path>
+                  </svg>
+                </button>
+                <div
+                  class="client-dropdown__panel"
+                  id="generalClientDropdownPanel"
+                  role="listbox"
+                  aria-label="Client List"
+                  data-i18n-aria="settings.clientList"
+                  aria-hidden="true"
+                >
+                  <div class="client-dropdown__list" id="generalClientDropdownList"></div>
+                </div>
+              </div>
             </div>
             <div class="form-group flex flex-col gap-2">
               <label for="inputMaxAutoSnapshots" class="text-sm font-medium text-gray-700 dark:text-gray-300" data-i18n="settings.maxAutoSnapshots">Max Auto Snapshots</label>
@@ -535,15 +575,16 @@
             />
           </label>
           <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
-            <span data-i18n="settings.clientPath">Config Path</span>
-            <input
-              type="text"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            <span data-i18n="settings.clientPaths">Config Paths (one per line)</span>
+            <textarea
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent min-h-[80px] font-mono text-sm resize-y"
               id="inputClientPath"
-              placeholder="~/.client/CONFIG.md"
-              data-i18n-placeholder="settings.clientPathPlaceholder"
+              placeholder="~/.client/CONFIG1.md
+~/.client/CONFIG2.md"
+              data-i18n-placeholder="settings.clientPathsPlaceholder"
+              rows="3"
               required
-            />
+            ></textarea>
           </label>
           <label class="flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-200">
             <input type="checkbox" class="w-4 h-4" id="inputClientAutoTag" />

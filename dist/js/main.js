@@ -28,7 +28,10 @@ const state = {
   recentTags: [],
   tagDropdownOpen: false,
   tagSearchQuery: "",
+  configFileDropdownOpen: false,
+  configFileDropdownFocusIndex: -1,
   configContent: "",
+  currentConfigPath: null,
   splitRatio: 0.5,
   editorMode: "edit",
   monacoEditor: null,
@@ -258,15 +261,14 @@ const formatSnapshotName = (prefix) => {
   return `${label} ${formatted}`;
 };
 
-const createAutoSnapshot = async (clientId, content = "", prefix = null) => {
+const createAutoSnapshot = async (clientId, prefix = null) => {
   if (!clientId) {
     throw new Error(t("errors.missingClientId", "Missing client ID, cannot create snapshot"));
   }
-  const snapshotContent = typeof content === "string" ? content : content ?? "";
   const name = formatSnapshotName(prefix);
 
   try {
-    await SnapshotAPI.create(clientId, name, snapshotContent, true);
+    await SnapshotAPI.create(clientId, name, true, "");
     await SnapshotAPI.refreshTrayMenu();
     console.log(`[Snapshot] 已创建快照: ${name} (客户端: ${clientId})`);
     return name;
@@ -293,7 +295,12 @@ const cacheElements = () => {
   elements.clientDropdownLabel = document.getElementById("clientDropdownLabel");
   elements.clientDropdownPanel = document.getElementById("clientDropdownPanel");
   elements.clientDropdownList = document.getElementById("clientDropdownList");
-  elements.configFileName = document.getElementById("configFileName");
+  elements.configFileSelectContainer = document.getElementById("configFileSelectContainer");
+  elements.configFileDropdown = document.getElementById("configFileDropdown");
+  elements.configFileDropdownToggle = document.getElementById("configFileDropdownToggle");
+  elements.configFileDropdownLabel = document.getElementById("configFileDropdownLabel");
+  elements.configFileDropdownPanel = document.getElementById("configFileDropdownPanel");
+  elements.configFileDropdownList = document.getElementById("configFileDropdownList");
   elements.configEditor = document.getElementById("configEditor");
   elements.monacoEditorContainer = document.getElementById("monacoEditorContainer");
   elements.markdownPreview = document.getElementById("markdownPreview");
@@ -335,10 +342,13 @@ const bindEvents = () => {
     toggleClientDropdown();
   });
   document.addEventListener("click", (event) => {
-    const dropdown = elements.clientDropdown;
-    if (!dropdown) return;
-    if (!dropdown.contains(event.target)) {
+    const clientDropdown = elements.clientDropdown;
+    if (clientDropdown && !clientDropdown.contains(event.target)) {
       closeClientDropdown();
+    }
+    const configDropdown = elements.configFileDropdown;
+    if (configDropdown && !configDropdown.contains(event.target)) {
+      closeConfigFileDropdown();
     }
   });
   document.addEventListener("keydown", (event) => {
@@ -349,6 +359,7 @@ const bindEvents = () => {
         return;
       }
       closeClientDropdown();
+      closeConfigFileDropdown();
       return;
     }
     const loweredKey = typeof event.key === "string" ? event.key.toLowerCase() : "";
@@ -401,6 +412,7 @@ const bindEvents = () => {
       scheduleTooltipHide();
     }
   });
+  bindConfigFileDropdownEvents();
   bindTagDropdownEvents();
 };
 
@@ -808,6 +820,158 @@ const toggleEditorMode = (mode) => {
   setModeToggleState();
 };
 
+const bindConfigFileDropdownEvents = () => {
+  elements.configFileDropdownToggle?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleConfigFileDropdown();
+  });
+  elements.configFileDropdownToggle?.addEventListener("keydown", handleConfigFileToggleKeydown);
+  elements.configFileDropdownPanel?.addEventListener("keydown", handleConfigFilePanelKeydown);
+};
+
+const handleConfigFileToggleKeydown = (event) => {
+  const toggle = elements.configFileDropdownToggle;
+  if (!toggle || toggle.disabled) return;
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    openConfigFileDropdown();
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    openConfigFileDropdown();
+    const options = getConfigFileDropdownOptions();
+    if (options.length) {
+      focusConfigFileDropdownOption(options.length - 1);
+    }
+  } else if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+    event.preventDefault();
+    toggleConfigFileDropdown();
+  }
+};
+
+const handleConfigFilePanelKeydown = (event) => {
+  if (!state.configFileDropdownOpen) return;
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    moveConfigFileDropdownFocus(1);
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    moveConfigFileDropdownFocus(-1);
+  } else if (event.key === "Home") {
+    event.preventDefault();
+    focusConfigFileDropdownOption(0);
+  } else if (event.key === "End") {
+    event.preventDefault();
+    const options = getConfigFileDropdownOptions();
+    if (options.length) {
+      focusConfigFileDropdownOption(options.length - 1);
+    }
+  } else if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+    event.preventDefault();
+    activateFocusedConfigFileOption();
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    closeConfigFileDropdown();
+  }
+};
+
+const toggleConfigFileDropdown = (forceState) => {
+  const toggle = elements.configFileDropdownToggle;
+  if (!toggle || toggle.disabled) return;
+  const shouldOpen =
+    typeof forceState === "boolean" ? forceState : !state.configFileDropdownOpen;
+  if (shouldOpen) {
+    openConfigFileDropdown();
+  } else {
+    closeConfigFileDropdown();
+  }
+};
+
+const openConfigFileDropdown = () => {
+  const toggle = elements.configFileDropdownToggle;
+  const panel = elements.configFileDropdownPanel;
+  if (!toggle || !panel || toggle.disabled) return;
+  state.configFileDropdownOpen = true;
+  panel.setAttribute("aria-hidden", "false");
+  toggle.setAttribute("aria-expanded", "true");
+  const options = getConfigFileDropdownOptions();
+  if (options.length) {
+    const selectedIndex = options.findIndex(
+      (option) => option.getAttribute("aria-selected") === "true"
+    );
+    const targetIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    focusConfigFileDropdownOption(targetIndex);
+  }
+};
+
+const closeConfigFileDropdown = () => {
+  const toggle = elements.configFileDropdownToggle;
+  const panel = elements.configFileDropdownPanel;
+  if (!toggle || !panel) return;
+  const wasOpen = state.configFileDropdownOpen;
+  state.configFileDropdownOpen = false;
+  state.configFileDropdownFocusIndex = -1;
+  panel.setAttribute("aria-hidden", "true");
+  toggle.setAttribute("aria-expanded", "false");
+  getConfigFileDropdownOptions().forEach((option) => {
+    option.tabIndex = -1;
+  });
+  if (
+    wasOpen &&
+    document.activeElement &&
+    panel.contains(document.activeElement) &&
+    typeof toggle.focus === "function"
+  ) {
+    toggle.focus();
+  }
+};
+
+const getConfigFileDropdownOptions = () => {
+  const list = elements.configFileDropdownList;
+  if (!list) return [];
+  return Array.from(list.querySelectorAll("[data-config-path]"));
+};
+
+const focusConfigFileDropdownOption = (index) => {
+  const options = getConfigFileDropdownOptions();
+  if (!options.length) return;
+  const clampedIndex = Math.max(0, Math.min(index, options.length - 1));
+  state.configFileDropdownFocusIndex = clampedIndex;
+  options.forEach((option, optionIndex) => {
+    option.tabIndex = optionIndex === clampedIndex ? 0 : -1;
+  });
+  const target = options[clampedIndex];
+  if (target) {
+    target.focus({ preventScroll: true });
+  }
+};
+
+const moveConfigFileDropdownFocus = (delta) => {
+  const options = getConfigFileDropdownOptions();
+  if (!options.length) return;
+  const currentIndex = state.configFileDropdownFocusIndex;
+  const nextIndex =
+    currentIndex < 0
+      ? delta > 0
+        ? 0
+        : options.length - 1
+      : (currentIndex + delta + options.length) % options.length;
+  focusConfigFileDropdownOption(nextIndex);
+};
+
+const activateFocusedConfigFileOption = () => {
+  const options = getConfigFileDropdownOptions();
+  const target = options[state.configFileDropdownFocusIndex] || null;
+  if (target) {
+    target.click();
+  }
+};
+
+const selectConfigFilePath = (path) => {
+  if (!path) return;
+  closeConfigFileDropdown();
+  switchConfigFile(path);
+};
+
 const bindTagDropdownEvents = () => {
   elements.tagDropdownToggle?.addEventListener("click", () => toggleTagDropdown());
   elements.tagDropdownSearch?.addEventListener("input", handleTagSearchInput);
@@ -1139,17 +1303,16 @@ const initApp = async () => {
       await loadClients();
       await hydrateAppState();
       await loadPrompts();
-      await loadConfigFile(state.currentClientId);
+      const currentClient = getCurrentClient();
+      await loadConfigFile(state.currentClientId, currentClient?.active_config_path || null);
     });
     renderClientDropdown();
     renderTagFilter();
     renderPromptList();
     if (state.currentClientId) {
       try {
-        const content = await ConfigFileAPI.read(state.currentClientId);
         await createAutoSnapshot(
           state.currentClientId,
-          content ?? "",
           t("snapshots.startupPrefix", "Startup Snapshot")
         );
       } catch (error) {
@@ -1297,14 +1460,15 @@ const loadPrompts = async () => {
   }
 };
 
-const loadConfigFile = async (clientId) => {
+const loadConfigFile = async (clientId, configPath = null) => {
   if (!clientId) return false;
   let success = true;
   try {
-    console.log(`[LoadConfig] Reading config for client: ${clientId}`);
-    const content = await ConfigFileAPI.read(clientId);
+    console.log(`[LoadConfig] Reading config for client: ${clientId}, path: ${configPath ?? "default"}`);
+    const content = await ConfigFileAPI.read(clientId, configPath);
     state.configContent = content ?? "";
     console.log(`[LoadConfig] Content loaded, length: ${state.configContent.length}`);
+    state.currentConfigPath = configPath;
   } catch (error) {
     success = false;
     state.configContent = "";
@@ -1361,7 +1525,7 @@ const reloadConfigFile = async () => {
     console.warn("[Reload] No current client ID");
     return;
   }
-  const success = await loadConfigFile(state.currentClientId);
+  const success = await loadConfigFile(state.currentClientId, state.currentConfigPath || null);
   if (success) {
     dismissFileChangeToast();
     console.log("[Reload] Config reloaded successfully");
@@ -1378,7 +1542,7 @@ const reloadConfigSilently = async () => {
     console.warn("[ReloadSilent] No current client ID");
     return;
   }
-  const success = await loadConfigFile(state.currentClientId);
+  const success = await loadConfigFile(state.currentClientId, state.currentConfigPath || null);
   if (success) {
     dismissFileChangeToast();
     console.log("[ReloadSilent] Config reloaded silently");
@@ -1527,7 +1691,7 @@ const saveConfigFile = async ({ silent = false, createSnapshot = false } = {}) =
       const trimmedName = name?.trim();
       if (trimmedName) {
         try {
-          await SnapshotAPI.create(state.currentClientId, trimmedName, content ?? "", false);
+          await SnapshotAPI.create(state.currentClientId, trimmedName, false, "");
           await SnapshotAPI.refreshTrayMenu();
           console.info(`[Snapshot] 手动快照已创建：${trimmedName} (client: ${state.currentClientId})`);
           const messageTemplate = t("toast.snapshotCreated", 'Snapshot "{value}" created');
@@ -1554,10 +1718,8 @@ const switchClient = async (clientId) => {
   const previousClientId = state.currentClientId;
   if (previousClientId) {
     try {
-      const currentContent = getEditorContent();
       await createAutoSnapshot(
         previousClientId,
-        currentContent,
         t("snapshots.autoSavePrefix", "Auto Save")
       );
     } catch (error) {
@@ -1573,11 +1735,12 @@ const switchClient = async (clientId) => {
   renderClientDropdown();
   renderTagFilter();
   renderPromptList();
+  const client = getCurrentClient();
   try {
     await stopFileWatcher();
     await withLoading(async () => {
       await AppStateAPI.setCurrentClient(clientId);
-      await loadConfigFile(clientId);
+      await loadConfigFile(clientId, client?.active_config_path || null);
     });
     await startFileWatcher(clientId);
   } catch (error) {
@@ -1585,6 +1748,150 @@ const switchClient = async (clientId) => {
       getErrorMessage(error) || t("toast.switchClientFailed", "Failed to switch client"),
       "error"
     );
+  }
+};
+
+const switchConfigFile = async (configPath) => {
+  if (!state.currentClientId) return;
+  if (configPath === state.currentConfigPath) return;
+
+  const client = getCurrentClient();
+  if (!client || !client.config_file_paths?.includes(configPath)) {
+    showToast(t("toast.invalidConfigPath", "Invalid config path"), "error");
+    return;
+  }
+
+  try {
+    await withLoading(async () => {
+      if (state.editorDirty) {
+        await saveConfigFile();
+      }
+
+      await ClientAPI.update(
+        state.currentClientId,
+        undefined,
+        undefined,
+        configPath,
+        undefined
+      );
+
+      await loadConfigFile(state.currentClientId, configPath);
+
+      await loadClients();
+
+      renderClientDropdown();
+      renderConfigFileDropdown();
+    });
+
+    showToast(t("toast.configSwitched", "Config file switched"), "success");
+  } catch (error) {
+    showToast(
+      getErrorMessage(error) || t("toast.switchConfigFailed", "Failed to switch config"),
+      "error"
+    );
+  }
+};
+
+const getConfigFileDisplayName = (path, fallbackLabel = "") => {
+  if (typeof path !== "string" || !path.length) {
+    return fallbackLabel;
+  }
+  const fileName = path.split(/[/\\]/).filter(Boolean).pop();
+  return fileName || path || fallbackLabel;
+};
+
+const renderConfigFileDropdown = () => {
+  const client = getCurrentClient();
+  const container = elements.configFileSelectContainer;
+  const label = elements.configFileDropdownLabel;
+  const toggle = elements.configFileDropdownToggle;
+  const list = elements.configFileDropdownList;
+  const noClientLabel = t("clients.noClientSelected", "No Client Selected");
+
+  const configPaths = client?.config_file_paths ?? [];
+
+  // 始终显示容器
+  container?.classList.remove("hidden");
+
+  if (!client || configPaths.length === 0) {
+    closeConfigFileDropdown();
+    if (label) {
+      label.textContent = noClientLabel;
+    }
+    if (list) {
+      list.innerHTML = "";
+    }
+    if (toggle) {
+      toggle.disabled = true;
+      toggle.setAttribute("aria-disabled", "true");
+      toggle.style.cursor = "default";
+      // 隐藏下拉图标
+      const icon = toggle.querySelector(".client-dropdown__icon");
+      if (icon) icon.style.display = "none";
+    }
+    return;
+  }
+
+  let activePath =
+    state.currentConfigPath || client.active_config_path || configPaths[0];
+  if (!configPaths.includes(activePath)) {
+    activePath = configPaths[0];
+  }
+  const activeLabel = getConfigFileDisplayName(activePath, client.name || noClientLabel);
+  if (label) {
+    label.textContent = activeLabel;
+  }
+
+  if (configPaths.length === 1) {
+    closeConfigFileDropdown();
+    if (list) {
+      list.innerHTML = "";
+    }
+    if (toggle) {
+      toggle.disabled = true;
+      toggle.setAttribute("aria-disabled", "true");
+      toggle.style.cursor = "default";
+      // 隐藏下拉图标
+      const icon = toggle.querySelector(".client-dropdown__icon");
+      if (icon) icon.style.display = "none";
+    }
+    return;
+  }
+
+  // 多文件情况，启用下拉菜单
+  if (toggle) {
+    toggle.disabled = false;
+    toggle.setAttribute("aria-disabled", "false");
+    toggle.style.cursor = "pointer";
+    // 显示下拉图标
+    const icon = toggle.querySelector(".client-dropdown__icon");
+    if (icon) icon.style.display = "";
+  }
+  if (!list) return;
+
+  list.innerHTML = "";
+  const fragment = document.createDocumentFragment();
+  configPaths.forEach((path) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "client-dropdown__option";
+    option.textContent = getConfigFileDisplayName(path, client.name || path);
+    option.dataset.configPath = path;
+    option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", String(path === activePath));
+    option.tabIndex = -1;
+    option.addEventListener("click", () => selectConfigFilePath(path));
+    fragment.appendChild(option);
+  });
+  list.appendChild(fragment);
+
+  if (state.configFileDropdownOpen) {
+    const selectedIndex = configPaths.indexOf(activePath);
+    if (selectedIndex >= 0) {
+      focusConfigFileDropdownOption(selectedIndex);
+    }
+  } else {
+    state.configFileDropdownFocusIndex = -1;
   }
 };
 
@@ -2504,15 +2811,7 @@ const syncEditor = () => {
 };
 
 const updateConfigFileName = () => {
-  if (!elements.configFileName) return;
-  const client = getCurrentClient();
-  if (!client) {
-    elements.configFileName.textContent = t("clients.noClientSelected", "No Client Selected");
-    return;
-  }
-  const filePath = client.config_file_path || "";
-  const fileName = filePath.split(/[/\\]/).filter(Boolean).pop();
-  elements.configFileName.textContent = fileName || filePath || client.name;
+  renderConfigFileDropdown();
 };
 
 const updateEditorAvailability = () => {

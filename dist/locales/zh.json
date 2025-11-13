@@ -24,6 +24,9 @@
     "editAction": "编辑客户端",
     "deleteAction": "删除客户端"
   },
+  "config": {
+    "selectFile": "选择配置文件"
+  },
   "prompts": {
     "sectionTitle": "提示词",
     "pinTooltip": "固定提示词",
@@ -78,8 +81,8 @@
     "clientIdPlaceholder": "claude",
     "clientName": "名称",
     "clientNamePlaceholder": "客户端名称",
-    "clientPath": "配置路径",
-    "clientPathPlaceholder": "~/.client/CONFIG.md",
+    "clientPaths": "配置文件路径（每行一个）",
+    "clientPathsPlaceholder": "~/.client/CONFIG1.md\n~/.client/CONFIG2.md",
     "clientAutoTag": "自动标签",
     "clientAutoTagHint": "按客户端 ID 自动筛选标签",
     "clientBuiltin": "内置",
@@ -218,6 +221,7 @@
     "importMixed": "成功导入 {total} 个提示词（新增 {added} 个，更新 {updated} 个）",
     "importPromptsFailed": "导入提示词失败",
     "clientMissingFields": "请填写完整客户端信息",
+    "invalidConfigPath": "无效的配置路径",
     "clientCreated": "客户端已创建",
     "clientUpdated": "客户端已更新",
     "saveClientFailed": "保存客户端失败",
@@ -233,6 +237,8 @@
     "saveSettingsFailed": "保存设置失败",
     "languageUpdated": "语言已更新",
     "languageUpdateFailed": "语言切换失败",
-    "switchClientFailed": "切换客户端失败"
+    "switchClientFailed": "切换客户端失败",
+    "configSwitched": "配置文件已切换",
+    "switchConfigFailed": "切换配置失败"
   }
 }

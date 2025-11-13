@@ -1,6 +1,7 @@
 use crate::models::{Snapshot, SnapshotConfig};
 use crate::utils::file_ops::atomic_write;
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -22,6 +23,7 @@ impl SnapshotRepository {
         client_id: &str,
         name: String,
         content: String,
+        multi_file_contents: Option<HashMap<String, String>>,
         is_auto: bool,
     ) -> Result<Snapshot, String> {
         let client_id = Self::normalize_client_id(client_id)?;
@@ -30,14 +32,20 @@ impl SnapshotRepository {
             return Err("快照名称不能为空".to_string());
         }
         let mut config = self.load_config(&client_id)?;
-        let content_hash = Self::calculate_content_hash(&content);
-        if let Some(latest) = config
-            .snapshots
-            .iter()
-            .max_by(|a, b| a.created_at.cmp(&b.created_at))
-        {
-            if latest.content_hash == content_hash {
-                return Err("内容未变化,跳过快照创建".to_string());
+        let content_hash = if let Some(ref contents) = multi_file_contents {
+            Self::calculate_multi_content_hash(contents)
+        } else {
+            Self::calculate_content_hash(&content)
+        };
+        if is_auto {
+            if let Some(latest) = config
+                .snapshots
+                .iter()
+                .max_by(|a, b| a.created_at.cmp(&b.created_at))
+            {
+                if latest.content_hash == content_hash {
+                    return Err("内容未变化,跳过快照创建".to_string());
+                }
             }
         }
         let snapshot = Snapshot::new(
@@ -46,6 +54,7 @@ impl SnapshotRepository {
             content,
             is_auto,
             content_hash,
+            multi_file_contents,
         );
         config.snapshots.push(snapshot.clone());
         Self::enforce_limit(&mut config);
@@ -70,7 +79,7 @@ impl SnapshotRepository {
         Ok(config)
     }
 
-    pub fn restore_snapshot(&self, client_id: &str, snapshot_id: &str) -> Result<String, String> {
+    pub fn restore_snapshot(&self, client_id: &str, snapshot_id: &str) -> Result<Snapshot, String> {
         let client_id = Self::normalize_client_id(client_id)?;
         let snapshot_id = Self::normalize_snapshot_id(snapshot_id)?;
         let config = self.load_config(&client_id)?;
@@ -79,7 +88,7 @@ impl SnapshotRepository {
             .iter()
             .find(|s| s.id == snapshot_id)
             .ok_or_else(|| "未找到指定快照".to_string())?;
-        Ok(snapshot.content.clone())
+        Ok(snapshot.clone())
     }
 
     pub fn delete_snapshot(&self, client_id: &str, snapshot_id: &str) -> Result<(), String> {
@@ -249,6 +258,20 @@ impl SnapshotRepository {
     fn calculate_content_hash(content: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
+        format!("{:x}", hasher.finalize())
+    }
+
+    fn calculate_multi_content_hash(contents: &HashMap<String, String>) -> String {
+        let mut entries: Vec<_> = contents.iter().collect();
+        entries.sort_by(|a, b| a.0.cmp(b.0));
+
+        let mut hasher = Sha256::new();
+        for (path, content) in entries {
+            hasher.update(path.as_bytes());
+            hasher.update(b"\n");
+            hasher.update(content.as_bytes());
+            hasher.update(b"\n");
+        }
         format!("{:x}", hasher.finalize())
     }
 

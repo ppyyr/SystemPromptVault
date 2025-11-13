@@ -33,7 +33,7 @@ pub fn add_custom_client(
     repository: State<'_, Arc<Mutex<ClientRepository>>>,
     id: String,
     name: String,
-    config_file_path: String,
+    config_file_paths: Vec<String>,
 ) -> Result<ClientConfig, String> {
     if id.trim().is_empty() {
         return Err("客户端 ID 不能为空".to_string());
@@ -41,16 +41,15 @@ pub fn add_custom_client(
     if name.trim().is_empty() {
         return Err("客户端名称不能为空".to_string());
     }
-    if config_file_path.trim().is_empty() {
-        return Err("配置文件路径不能为空".to_string());
-    }
+
+    let sanitized_paths = sanitize_config_paths(config_file_paths)?;
 
     let mut repo = lock_repo(&repository)?;
     if repo.get_by_id(&id)?.is_some() {
         return Err("客户端 ID 已存在".to_string());
     }
 
-    let client = ClientConfig::new_custom(id, name, config_file_path, false);
+    let client = ClientConfig::new_custom(id, name, sanitized_paths, false);
     let created = client.clone();
     repo.save(client)?;
     Ok(created)
@@ -61,7 +60,8 @@ pub fn update_client(
     repository: State<'_, Arc<Mutex<ClientRepository>>>,
     id: String,
     name: Option<String>,
-    config_file_path: Option<String>,
+    config_file_paths: Option<Vec<String>>,
+    active_config_path: Option<String>,
     auto_tag: Option<bool>,
 ) -> Result<ClientConfig, String> {
     let mut repo = lock_repo(&repository)?;
@@ -76,11 +76,26 @@ pub fn update_client(
         client.name = new_name;
     }
 
-    if let Some(new_path) = config_file_path {
-        if new_path.trim().is_empty() {
-            return Err("配置文件路径不能为空".to_string());
+    let sanitized_active = sanitize_optional_path(active_config_path)?;
+
+    if let Some(paths) = config_file_paths {
+        let sanitized_paths = sanitize_config_paths(paths)?;
+        client.config_file_paths = sanitized_paths;
+
+        if let Some(active) = client.active_config_path.clone() {
+            if !client.has_config_path(&active) {
+                client.active_config_path = client.config_file_paths.first().cloned();
+            }
+        } else {
+            client.active_config_path = client.config_file_paths.first().cloned();
         }
-        client.config_file_path = new_path;
+    }
+
+    if let Some(active_path) = sanitized_active {
+        if !client.has_config_path(&active_path) {
+            return Err("激活的配置文件路径必须包含在路径列表中".to_string());
+        }
+        client.active_config_path = Some(active_path);
     }
 
     if let Some(auto_tag) = auto_tag {
@@ -105,4 +120,35 @@ pub fn delete_client(
     }
 
     repo.delete(&id)
+}
+
+fn sanitize_config_paths(paths: Vec<String>) -> Result<Vec<String>, String> {
+    let paths: Vec<String> = paths
+        .into_iter()
+        .map(|path| path.trim().to_string())
+        .collect();
+
+    if paths.is_empty() {
+        return Err("配置文件路径列表不能为空".to_string());
+    }
+
+    if paths.iter().any(|path| path.is_empty()) {
+        return Err("配置文件路径不能为空".to_string());
+    }
+
+    Ok(paths)
+}
+
+fn sanitize_optional_path(path: Option<String>) -> Result<Option<String>, String> {
+    match path {
+        Some(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                Err("配置文件路径不能为空".to_string())
+            } else {
+                Ok(Some(trimmed.to_string()))
+            }
+        }
+        None => Ok(None),
+    }
 }

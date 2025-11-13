@@ -17,12 +17,17 @@ fn lock_repo<'a>(
 pub fn read_config_file(
     repository: State<'_, Arc<Mutex<ClientRepository>>>,
     client_id: String,
+    config_path: Option<String>,
 ) -> Result<String, String> {
     let repo = lock_repo(&repository)?;
     let client = repo
         .get_by_id(&client_id)?
         .ok_or_else(|| "未找到指定客户端".to_string())?;
-    let path = expand_tilde(&client.config_file_path);
+    let sanitized_path = sanitize_requested_path(config_path)?;
+    let resolved = client
+        .resolve_config_path(sanitized_path.as_deref())
+        .map_err(|err| format!("{}", err))?;
+    let path = expand_tilde(&resolved);
     match fs::read_to_string(&path) {
         Ok(content) => Ok(content),
         Err(err) if err.kind() == ErrorKind::NotFound => Ok(String::new()),
@@ -34,13 +39,18 @@ pub fn read_config_file(
 pub fn write_config_file(
     repository: State<'_, Arc<Mutex<ClientRepository>>>,
     client_id: String,
+    config_path: Option<String>,
     content: String,
 ) -> Result<(), String> {
     let repo = lock_repo(&repository)?;
     let client = repo
         .get_by_id(&client_id)?
         .ok_or_else(|| "未找到指定客户端".to_string())?;
-    let path = expand_tilde(&client.config_file_path);
+    let sanitized_path = sanitize_requested_path(config_path)?;
+    let resolved = client
+        .resolve_config_path(sanitized_path.as_deref())
+        .map_err(|err| format!("{}", err))?;
+    let path = expand_tilde(&resolved);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {}", e))?;
     }
@@ -60,4 +70,18 @@ pub(crate) fn expand_tilde(path: &str) -> PathBuf {
         }
     }
     Path::new(path).to_path_buf()
+}
+
+fn sanitize_requested_path(path: Option<String>) -> Result<Option<String>, String> {
+    match path {
+        Some(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                Err("配置文件路径不能为空".to_string())
+            } else {
+                Ok(Some(trimmed.to_string()))
+            }
+        }
+        None => Ok(None),
+    }
 }

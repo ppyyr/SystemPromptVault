@@ -23,15 +23,34 @@ export const PromptAPI = {
 export const ClientAPI = {
   getAll: () => call("get_all_clients"),
   getById: (id) => call("get_client_by_id", { id }),
-  add: (id, name, configFilePath) => call("add_custom_client", { id, name, configFilePath }),
-  update: (id, name, configFilePath, autoTag) =>
-    call("update_client", { id, name, configFilePath, autoTag }),
+  add: (id, name, configFilePaths) =>
+    call("add_custom_client", { id, name, configFilePaths }),
+  update: (id, name, configFilePaths, activeConfigPath, autoTag) => {
+    const params = { id };
+    if (name !== undefined) params.name = name;
+    if (configFilePaths !== undefined) params.configFilePaths = configFilePaths;
+    if (activeConfigPath !== undefined) params.activeConfigPath = activeConfigPath;
+    if (autoTag !== undefined) params.autoTag = autoTag;
+    return call("update_client", params);
+  },
   delete: (id) => call("delete_client", { id }),
 };
 
 export const ConfigFileAPI = {
-  read: (clientId) => call("read_config_file", { clientId }),
-  write: (clientId, content) => call("write_config_file", { clientId, content }),
+  read: (clientId, configPath = null) => {
+    const params = { clientId };
+    if (configPath !== null && configPath !== undefined) {
+      params.configPath = configPath;
+    }
+    return call("read_config_file", params);
+  },
+  write: (clientId, content, configPath = null) => {
+    const params = { clientId, content };
+    if (configPath !== null && configPath !== undefined) {
+      params.configPath = configPath;
+    }
+    return call("write_config_file", params);
+  },
 };
 
 export const AppStateAPI = {
@@ -46,8 +65,20 @@ export const AppStateAPI = {
 };
 
 export const SnapshotAPI = {
-  create: (clientId, name, content, isAuto) =>
-    call("create_snapshot", { clientId, name, content, isAuto }),
+  create: (clientId, name, isAuto = false, content = "") => {
+    // Accept legacy string values ("Auto"/"Manual") while preferring boolean input.
+    const normalizedIsAuto =
+      typeof isAuto === "string"
+        ? isAuto.toLowerCase() === "auto"
+        : Boolean(isAuto);
+    const safeContent = typeof content === "string" ? content : "";
+    return call("create_snapshot", {
+      clientId,
+      name,
+      content: safeContent,
+      isAuto: normalizedIsAuto,
+    });
+  },
   getAll: (clientId) => call("get_snapshots", { clientId }),
   restore: (clientId, snapshotId) => call("restore_snapshot", { clientId, snapshotId }),
   delete: (clientId, snapshotId) => call("delete_snapshot", { clientId, snapshotId }),

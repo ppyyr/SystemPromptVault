@@ -24,6 +24,9 @@
     "editAction": "Edit client",
     "deleteAction": "Delete client"
   },
+  "config": {
+    "selectFile": "Select config file"
+  },
   "prompts": {
     "sectionTitle": "Prompts",
     "pinTooltip": "Pin prompt",
@@ -78,8 +81,8 @@
     "clientIdPlaceholder": "claude",
     "clientName": "Name",
     "clientNamePlaceholder": "Client name",
-    "clientPath": "Config Path",
-    "clientPathPlaceholder": "~/.client/CONFIG.md",
+    "clientPaths": "Config Paths (one per line)",
+    "clientPathsPlaceholder": "~/.client/CONFIG1.md\n~/.client/CONFIG2.md",
     "clientAutoTag": "Auto Tag",
     "clientAutoTagHint": "Auto-filter tags by client ID",
     "clientBuiltin": "Built-in",
@@ -218,6 +221,7 @@
     "importMixed": "Imported {total} prompts ({added} new, {updated} updated)",
     "importPromptsFailed": "Failed to import prompts",
     "clientMissingFields": "Please complete all client information",
+    "invalidConfigPath": "Invalid config path",
     "clientCreated": "Client created",
     "clientUpdated": "Client updated",
     "saveClientFailed": "Failed to save client",
@@ -233,6 +237,8 @@
     "saveSettingsFailed": "Failed to save settings",
     "languageUpdated": "Language updated",
     "languageUpdateFailed": "Failed to update language",
-    "switchClientFailed": "Failed to switch client"
+    "switchClientFailed": "Failed to switch client",
+    "configSwitched": "Config file switched",
+    "switchConfigFailed": "Failed to switch config"
   }
 }

@@ -74,13 +74,36 @@
                 <div class="client-dropdown__list" id="clientDropdownList"></div>
               </div>
             </div>
-            <span
-              id="configFileName"
-              class="text-sm text-gray-600 dark:text-gray-400 text-center"
-              data-i18n="clients.noClientSelected"
-            >
-              No Client Selected
-            </span>
+            <div class="flex items-center gap-2">
+              <div id="configFileSelectContainer">
+                <div class="client-dropdown" id="configFileDropdown">
+                  <button
+                    type="button"
+                    class="client-dropdown__toggle"
+                    id="configFileDropdownToggle"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-controls="configFileDropdownPanel"
+                    aria-label="Select config file"
+                    data-i18n-aria="config.selectFile"
+                  >
+                    <span class="client-dropdown__label" id="configFileDropdownLabel">Select File</span>
+                    <svg class="client-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path>
+                    </svg>
+                  </button>
+                  <div
+                    class="client-dropdown__panel"
+                    id="configFileDropdownPanel"
+                    role="listbox"
+                    aria-label="Config File List"
+                    aria-hidden="true"
+                  >
+                    <div class="client-dropdown__list" id="configFileDropdownList"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="flex items-center gap-2 justify-end">
               <button
                 class="btn-icon btn-icon-primary"

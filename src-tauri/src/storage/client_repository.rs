@@ -1,6 +1,7 @@
 use crate::models::{default_clients, ClientConfig};
 use crate::utils::file_ops::atomic_write;
 use indexmap::IndexMap;
+use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -16,7 +17,7 @@ impl ClientRepository {
         fs::create_dir_all(&data_dir).map_err(|e| format!("创建数据目录失败: {}", e))?;
         let path = data_dir.join(CLIENTS_FILE_NAME);
         let (clients, should_persist) = if path.exists() {
-            (Self::load_clients(&path)?, false)
+            Self::load_clients(&path)?
         } else {
             (
                 default_clients()
@@ -55,11 +56,24 @@ impl ClientRepository {
         Ok(removed)
     }
 
-    fn load_clients(path: &Path) -> Result<IndexMap<String, ClientConfig>, String> {
+    fn load_clients(path: &Path) -> Result<(IndexMap<String, ClientConfig>, bool), String> {
         let raw = fs::read_to_string(path).map_err(|e| format!("读取客户端配置失败: {}", e))?;
-        let clients: Vec<ClientConfig> =
+        let entries: Vec<Value> =
             serde_json::from_str(&raw).map_err(|e| format!("解析客户端配置失败: {}", e))?;
-        Ok(clients.into_iter().map(|c| (c.id.clone(), c)).collect())
+
+        let mut migrated = false;
+        let mut clients = IndexMap::new();
+
+        for entry in entries {
+            if entry.get("config_file_paths").is_none() && entry.get("config_file_path").is_some() {
+                migrated = true;
+            }
+            let client: ClientConfig =
+                serde_json::from_value(entry).map_err(|e| format!("解析客户端配置失败: {}", e))?;
+            clients.insert(client.id.clone(), client);
+        }
+
+        Ok((clients, migrated))
     }
 
     fn persist(&self) -> Result<(), String> {
