@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import legacy from '@vitejs/plugin-legacy';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { resolve } from 'node:path';
 
 const rootDir = resolve(__dirname, 'dist');
@@ -7,7 +8,15 @@ const rootDir = resolve(__dirname, 'dist');
 export default defineConfig({
   root: rootDir,
   plugins: [
-    legacy()
+    legacy(),
+    viteStaticCopy({
+      targets: [
+        {
+          src: 'locales',
+          dest: '.'
+        }
+      ]
+    })
   ],
   server: {
     port: 1420,

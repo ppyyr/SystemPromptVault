@@ -91,11 +91,16 @@
     "snapshotType": "Type",
     "snapshotEmpty": "No snapshots",
     "languageDescription": "Choose your preferred interface language. Changes apply immediately and sync across windows.",
+    "languageSectionTitle": "Interface Language",
     "languageEnglish": "English",
     "languageEnglishDesc": "Use English for the entire interface.",
     "languageChinese": "中文 (Chinese)",
     "languageChineseDesc": "Use the interface in Chinese.",
-    "languageNote": "The application remembers your selection and keeps it in sync across windows."
+    "languageNote": "The application remembers your selection and keeps it in sync across windows.",
+    "windowCloseBehavior": "Close Button Behavior",
+    "windowCloseBehaviorHelp": "Choose what happens when you click Close. This only affects the window controls, not quitting from the menu.",
+    "windowCloseExit": "Exit the app completely",
+    "windowCloseTray": "Hide window and stay in system tray (default)"
   },
   "snapshots": {
     "autoPrefix": "Auto Snapshot",

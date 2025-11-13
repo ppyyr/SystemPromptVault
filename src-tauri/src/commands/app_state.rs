@@ -1,4 +1,4 @@
-use crate::models::{AppState, WindowState};
+use crate::models::{app_state::WindowBehavior, AppState, WindowState};
 use crate::utils::file_ops::atomic_write;
 use chrono::Utc;
 use std::fs;
@@ -48,6 +48,26 @@ pub fn save_window_state(x: i32, y: i32, width: u32, height: u32) -> Result<(), 
 #[tauri::command]
 pub fn get_window_state() -> Result<Option<WindowState>, String> {
     Ok(load_state()?.and_then(|state| state.window_state))
+}
+
+#[tauri::command]
+pub fn set_window_behavior(close_behavior: String) -> Result<(), String> {
+    let close = close_behavior.trim();
+    if close.is_empty() {
+        return Err("关闭行为不能为空".to_string());
+    }
+
+    let mut state = load_state()?.unwrap_or_default();
+    state.window_behavior = Some(WindowBehavior {
+        close_behavior: close.to_string(),
+    });
+    state.last_updated_at = Utc::now();
+    save_state(&state)
+}
+
+#[tauri::command]
+pub fn get_window_behavior() -> Result<Option<WindowBehavior>, String> {
+    Ok(load_state()?.and_then(|state| state.window_behavior))
 }
 
 fn load_state() -> Result<Option<AppState>, String> {

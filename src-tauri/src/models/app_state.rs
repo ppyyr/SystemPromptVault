@@ -8,6 +8,8 @@ pub struct AppState {
     pub last_updated_at: DateTime<Utc>,
     #[serde(default)]
     pub window_state: Option<WindowState>,
+    #[serde(default)]
+    pub window_behavior: Option<WindowBehavior>,
 }
 
 /// 主窗口位置与尺寸
@@ -19,12 +21,19 @@ pub struct WindowState {
     pub height: u32,
 }
 
+/// 主窗口关闭行为偏好
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WindowBehavior {
+    pub close_behavior: String,
+}
+
 impl Default for AppState {
     fn default() -> Self {
         Self {
             current_client_id: "claude".to_string(),
             last_updated_at: Utc::now(),
             window_state: None,
+            window_behavior: None,
         }
     }
 }

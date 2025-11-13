@@ -91,11 +91,16 @@
     "snapshotType": "类型",
     "snapshotEmpty": "暂无快照",
     "languageDescription": "选择界面使用的语言，修改后立即生效并在各窗口同步。",
+    "languageSectionTitle": "界面语言",
     "languageEnglish": "English (英文)",
     "languageEnglishDesc": "以英文显示全部界面。",
     "languageChinese": "中文",
     "languageChineseDesc": "以中文显示全部界面。",
-    "languageNote": "应用会记住你的选择，并在所有窗口保持同步。"
+    "languageNote": "应用会记住你的选择，并在所有窗口保持同步。",
+    "windowCloseBehavior": "关闭按钮行为",
+    "windowCloseBehaviorHelp": "选择点击关闭按钮时的动作，仅影响窗口控制，不影响菜单退出。",
+    "windowCloseExit": "完全退出应用",
+    "windowCloseTray": "隐藏窗口并驻留托盘（默认）"
   },
   "snapshots": {
     "autoPrefix": "自动快照",

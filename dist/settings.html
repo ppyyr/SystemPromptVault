@@ -103,16 +103,6 @@
                   class="client-dropdown__option"
                   role="option"
                   aria-selected="false"
-                  data-target="tabLanguage"
-                  data-i18n="settings.languageTab"
-                >
-                  Language Settings
-                </button>
-                <button
-                  type="button"
-                  class="client-dropdown__option"
-                  role="option"
-                  aria-selected="false"
                   data-target="tabSnapshots"
                   data-i18n="settings.snapshotTab"
                 >
@@ -288,55 +278,67 @@
                 Manual snapshots (Shift+Save) exceeding this limit will be automatically deleted (default: 10)
               </p>
             </div>
+            <div class="form-group flex flex-col gap-3">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300" data-i18n="settings.languageSectionTitle">Interface Language</label>
+              <p class="text-sm text-gray-600 dark:text-gray-300" data-i18n="settings.languageDescription">
+                Choose your preferred interface language. Changes apply immediately and sync across windows.
+              </p>
+              <div class="grid gap-4 md:grid-cols-2" id="languageOptions">
+                <label
+                  class="language-card flex items-start gap-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 cursor-pointer hover:border-primary transition-colors"
+                  data-language="en"
+                >
+                  <input
+                    type="radio"
+                    name="languageSetting"
+                    value="en"
+                    class="language-radio mt-1 text-primary focus:ring-primary"
+                  />
+                  <div class="language-card-body flex flex-col gap-1">
+                    <span class="language-name font-semibold" data-i18n="settings.languageEnglish">English</span>
+                    <p class="language-desc text-sm text-gray-600 dark:text-gray-300" data-i18n="settings.languageEnglishDesc">
+                      Use English for the entire interface.
+                    </p>
+                  </div>
+                </label>
+                <label
+                  class="language-card flex items-start gap-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 cursor-pointer hover:border-primary transition-colors"
+                  data-language="zh"
+                >
+                  <input
+                    type="radio"
+                    name="languageSetting"
+                    value="zh"
+                    class="language-radio mt-1 text-primary focus:ring-primary"
+                  />
+                  <div class="language-card-body flex flex-col gap-1">
+                    <span class="language-name font-semibold" data-i18n="settings.languageChinese">中文</span>
+                    <p class="language-desc text-sm text-gray-600 dark:text-gray-300" data-i18n="settings.languageChineseDesc">
+                      使用中文界面体验所有功能。
+                    </p>
+                  </div>
+                </label>
+              </div>
+              <p class="text-xs text-gray-500 dark:text-gray-400" data-i18n="settings.languageNote">
+                The application remembers your selection and keeps it in sync across windows.
+              </p>
+            </div>
+            <div class="form-group flex flex-col gap-3">
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300" data-i18n="settings.windowCloseBehavior">Close Button Behavior</span>
+              <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="settings.windowCloseBehaviorHelp">Choose what happens when you press the close button.</p>
+              <div class="flex flex-col gap-2">
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                  <input type="radio" name="closeBehavior" value="exit" class="text-primary focus:ring-primary" />
+                  <span data-i18n="settings.windowCloseExit">Exit the application</span>
+                </label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                  <input type="radio" name="closeBehavior" value="tray" class="text-primary focus:ring-primary" checked />
+                  <span data-i18n="settings.windowCloseTray">Minimize to tray (default)</span>
+                </label>
+              </div>
+            </div>
             <button type="submit" class="btn-primary self-start px-4 py-2 rounded-md text-white" data-i18n="settings.saveGeneral">Save Settings</button>
           </form>
-        </section>
-
-        <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabLanguage" role="tabpanel" aria-labelledby="settingsDropdownToggle">
-          <div class="flex flex-col gap-4">
-            <p class="text-sm text-gray-600 dark:text-gray-300" data-i18n="settings.languageDescription">
-              Choose your preferred interface language. Changes apply immediately and sync across windows.
-            </p>
-            <div class="grid gap-4 md:grid-cols-2" id="languageOptions">
-              <label
-                class="language-card flex items-start gap-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 cursor-pointer hover:border-primary transition-colors"
-                data-language="en"
-              >
-                <input
-                  type="radio"
-                  name="languageSetting"
-                  value="en"
-                  class="language-radio mt-1 text-primary focus:ring-primary"
-                />
-                <div class="language-card-body flex flex-col gap-1">
-                  <span class="language-name font-semibold" data-i18n="settings.languageEnglish">English</span>
-                  <p class="language-desc text-sm text-gray-600 dark:text-gray-300" data-i18n="settings.languageEnglishDesc">
-                    Use English for the entire interface.
-                  </p>
-                </div>
-              </label>
-              <label
-                class="language-card flex items-start gap-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 cursor-pointer hover:border-primary transition-colors"
-                data-language="zh"
-              >
-                <input
-                  type="radio"
-                  name="languageSetting"
-                  value="zh"
-                  class="language-radio mt-1 text-primary focus:ring-primary"
-                />
-                <div class="language-card-body flex flex-col gap-1">
-                  <span class="language-name font-semibold" data-i18n="settings.languageChinese">中文</span>
-                  <p class="language-desc text-sm text-gray-600 dark:text-gray-300" data-i18n="settings.languageChineseDesc">
-                    使用中文界面体验所有功能。
-                  </p>
-                </div>
-              </label>
-            </div>
-            <p class="text-xs text-gray-500 dark:text-gray-400" data-i18n="settings.languageNote">
-              The application remembers your selection and keeps it in sync across windows.
-            </p>
-          </div>
         </section>
 
         <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabSnapshots" role="tabpanel" aria-labelledby="settingsDropdownToggle">

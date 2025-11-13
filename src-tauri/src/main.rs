@@ -76,6 +76,8 @@ fn main() {
             commands::app_state::set_current_client,
             commands::app_state::save_window_state,
             commands::app_state::get_window_state,
+            commands::app_state::set_window_behavior,
+            commands::app_state::get_window_behavior,
             commands::snapshot::create_snapshot,
             commands::snapshot::get_snapshots,
             commands::snapshot::restore_snapshot,

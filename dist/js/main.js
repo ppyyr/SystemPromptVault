@@ -14,6 +14,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { initI18n, t, applyTranslations, onLanguageChange } from "./i18n.js";
 
 const appWindow = getCurrentWindow();
+const WINDOW_BEHAVIOR_STORAGE_KEY = "spv.windowBehavior";
+const WINDOW_BEHAVIOR_EVENT = "window-behavior-updated";
+const DEFAULT_WINDOW_BEHAVIOR = Object.freeze({
+  closeBehavior: "tray",
+});
 
 const state = {
   clients: [],
@@ -32,7 +37,9 @@ const state = {
   suppressEditorChange: false,
   fileChangeUnlisten: null,
   silentReloadUnlisten: null,
+  windowBehaviorUnlisten: null,
   isSavingInternally: false,
+  windowBehavior: { ...DEFAULT_WINDOW_BEHAVIOR },
 };
 
 const elements = {};
@@ -123,6 +130,77 @@ let monacoThemesDefined = false;
 let previewRenderTimer = null;
 let fallbackEditorListener = null;
 let markedConfigured = false;
+
+const sanitizeWindowBehaviorValue = (value, allowedValues, fallback) => {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  return allowedValues.includes(value) ? value : fallback;
+};
+
+const resolveWindowBehavior = (behavior) => {
+  if (!behavior || typeof behavior !== "object") {
+    return { ...DEFAULT_WINDOW_BEHAVIOR };
+  }
+  const closeSource = behavior.closeBehavior ?? behavior.close_behavior;
+  return {
+    closeBehavior: sanitizeWindowBehaviorValue(
+      closeSource,
+      ["exit", "tray"],
+      DEFAULT_WINDOW_BEHAVIOR.closeBehavior
+    ),
+  };
+};
+
+const loadWindowBehavior = () => {
+  let resolvedBehavior = { ...DEFAULT_WINDOW_BEHAVIOR };
+  try {
+    const stored = window.localStorage?.getItem(WINDOW_BEHAVIOR_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      resolvedBehavior = resolveWindowBehavior(parsed);
+      console.log(
+        `[WindowBehavior] Loaded from storage: close=${resolvedBehavior.closeBehavior}`
+      );
+    } else {
+      console.log("[WindowBehavior] No stored window behavior, using defaults");
+    }
+  } catch (error) {
+    console.warn("[WindowBehavior] Failed to read behavior from storage, using defaults:", error);
+  }
+  return { ...resolvedBehavior };
+};
+
+const handleWindowBehaviorStorageEvent = (event) => {
+  if (!event || event.key !== WINDOW_BEHAVIOR_STORAGE_KEY) {
+    return;
+  }
+
+  let updatedBehavior = { ...DEFAULT_WINDOW_BEHAVIOR };
+  if (event.newValue) {
+    try {
+      updatedBehavior = resolveWindowBehavior(JSON.parse(event.newValue));
+    } catch (error) {
+      console.warn("[WindowBehavior] Failed to parse storage payload, falling back to defaults:", error);
+    }
+  } else {
+    console.log("[WindowBehavior] Storage key removed, falling back to defaults");
+  }
+
+  const previousBehavior = state.windowBehavior?.closeBehavior;
+  state.windowBehavior = { ...updatedBehavior };
+  if (previousBehavior !== state.windowBehavior.closeBehavior) {
+    console.log(
+      `[WindowBehavior] Storage event update: close=${state.windowBehavior.closeBehavior}`
+    );
+  } else {
+    console.log("[WindowBehavior] Storage event received but behavior unchanged");
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", handleWindowBehaviorStorageEvent);
+}
 
 const createDebounced = (fn, delay) => {
   let timerId = null;
@@ -1049,7 +1127,12 @@ const initApp = async () => {
   bindEvents();
   toggleEditorMode(state.editorMode);
   initResizer();
+  state.windowBehavior = loadWindowBehavior();
+  console.log(
+    `[WindowBehavior] Initialized: close=${state.windowBehavior.closeBehavior}`
+  );
   await registerWindowStatePersistence();
+  await subscribeWindowBehaviorEvents();
   try {
     await withLoading(async () => {
       await initMonacoEditor();
@@ -1137,21 +1220,71 @@ const registerWindowStatePersistence = async () => {
       event.preventDefault();
       console.log("[WindowState] 已阻止默认关闭行为");
 
+      const behavior = loadWindowBehavior();
+      state.windowBehavior = behavior;
+      console.log(`[WindowState] Using latest closeBehavior=${behavior.closeBehavior}`);
+
       console.log("[WindowState] 开始保存窗口状态...");
       await persistWindowState();
       console.log("[WindowState] 窗口状态保存完成");
 
-      console.log("[WindowState] 开始销毁窗口...");
+      if (behavior.closeBehavior === "tray") {
+        console.log("[WindowState] 采用托盘模式，尝试隐藏窗口");
+        try {
+          await appWindow.hide();
+          console.log("[WindowState] 窗口已隐藏到托盘");
+        } catch (error) {
+          console.error("[WindowState] 隐藏到托盘失败，尝试直接销毁:", error);
+          try {
+            await appWindow.destroy();
+            console.log("[WindowState] 托盘失败后窗口销毁成功");
+          } catch (destroyError) {
+            console.error("[WindowState] 托盘失败后的销毁操作也失败:", destroyError);
+          }
+        }
+        return;
+      }
+
+      console.log("[WindowState] 采用退出模式，开始销毁窗口...");
       try {
         await appWindow.destroy();
         console.log("[WindowState] 窗口销毁成功");
       } catch (error) {
-        console.error("[WindowState] 关闭窗口失败:", error);
+        console.error("[WindowState] 退出模式下关闭窗口失败:", error);
       }
     });
     console.log("[WindowState] 窗口关闭事件监听器注册成功");
   } catch (error) {
     console.error("[WindowState] 注册窗口关闭事件失败:", error);
+  }
+};
+
+const subscribeWindowBehaviorEvents = async () => {
+  if (typeof state.windowBehaviorUnlisten === "function") {
+    return;
+  }
+  try {
+    state.windowBehaviorUnlisten = await listen(WINDOW_BEHAVIOR_EVENT, (event) => {
+      const payload = event?.payload ?? null;
+      const resolved = resolveWindowBehavior(payload);
+      const previousBehavior = state.windowBehavior?.closeBehavior;
+      state.windowBehavior = resolved;
+      if (previousBehavior !== resolved.closeBehavior) {
+        console.log(
+          `[WindowBehavior] Event bus update: close=${resolved.closeBehavior}`
+        );
+      }
+    });
+    console.log("[WindowBehavior] Subscribed to cross-window updates");
+  } catch (error) {
+    console.warn("[WindowBehavior] Failed to subscribe to event bus updates:", error);
+  }
+};
+
+const cleanupWindowBehaviorListener = () => {
+  if (typeof state.windowBehaviorUnlisten === "function") {
+    state.windowBehaviorUnlisten();
+    state.windowBehaviorUnlisten = null;
   }
 };
 
@@ -2401,6 +2534,7 @@ window.addEventListener("beforeunload", () => {
   persistWindowState();
   stopFileWatcher();
   cleanupFileChangeListener();
+  cleanupWindowBehaviorListener();
 });
 
 document.addEventListener("DOMContentLoaded", initApp);

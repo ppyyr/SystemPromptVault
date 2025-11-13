@@ -2,6 +2,7 @@ import { PromptAPI, ClientAPI, SnapshotAPI, AppStateAPI } from "./api.js";
 import { showToast, showConfirm, showLoading, hideLoading, showPrompt } from "./utils.js";
 import { initTheme, createThemeToggleButton, updateThemeIcon } from "./theme.js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { emit } from "@tauri-apps/api/event";
 import { initI18n, t, setLanguage, getCurrentLanguage, applyTranslations, onLanguageChange } from "./i18n.js";
 
 const SNAPSHOT_LOAD_DEBOUNCE = 300;
@@ -11,8 +12,45 @@ const TAB_LABEL_MAP = {
   tabPrompts: () => t("settings.promptTab", "Prompt Management"),
   tabClients: () => t("settings.clientTab", "Client Management"),
   tabGeneral: () => t("settings.generalTab", "General Settings"),
-  tabLanguage: () => t("settings.languageTab", "Language Settings"),
   tabSnapshots: () => t("settings.snapshotTab", "Snapshot Management"),
+};
+
+const WINDOW_BEHAVIOR_STORAGE_KEY = "spv.windowBehavior";
+const WINDOW_BEHAVIOR_EVENT = "window-behavior-updated";
+const DEFAULT_WINDOW_BEHAVIOR = Object.freeze({
+  closeBehavior: "tray",
+});
+
+const normalizeWindowBehavior = (behavior) => {
+  if (!behavior || typeof behavior !== "object") {
+    return null;
+  }
+  const normalized = {};
+  const closeBehavior =
+    typeof behavior.closeBehavior === "string"
+      ? behavior.closeBehavior
+      : typeof behavior.close_behavior === "string"
+        ? behavior.close_behavior
+        : null;
+
+  if (closeBehavior) {
+    normalized.closeBehavior = closeBehavior;
+  }
+
+  return Object.keys(normalized).length ? normalized : null;
+};
+
+const resolveWindowBehavior = (behavior) => {
+  const normalized = normalizeWindowBehavior(behavior) ?? {};
+  return {
+    closeBehavior: normalized.closeBehavior ?? DEFAULT_WINDOW_BEHAVIOR.closeBehavior,
+  };
+};
+
+const areWindowBehaviorsEqual = (first, second) => {
+  const resolvedFirst = resolveWindowBehavior(first);
+  const resolvedSecond = resolveWindowBehavior(second);
+  return resolvedFirst.closeBehavior === resolvedSecond.closeBehavior;
 };
 
 const appWindow = getCurrentWindow();
@@ -32,6 +70,7 @@ const state = {
   generalMaxAutoSnapshots: DEFAULT_MAX_AUTO_SNAPSHOTS,
   generalMaxManualSnapshots: DEFAULT_MAX_MANUAL_SNAPSHOTS,
   activeTabId: "tabPrompts",
+  windowBehavior: { ...DEFAULT_WINDOW_BEHAVIOR },
 };
 
 const elements = {
@@ -77,6 +116,7 @@ const elements = {
   btnRefreshSnapshots: null,
   languageOptions: null,
   languageRadios: [],
+  closeBehaviorRadios: [],
 };
 
 const withLoading = async (task) => {
@@ -98,8 +138,29 @@ const setupWindowCloseHandler = async () => {
     await appWindow.onCloseRequested(async (event) => {
       console.log("[SettingsWindow] 关闭请求触发");
       event.preventDefault();
-      console.log("[SettingsWindow] 已阻止默认关闭行为，开始销毁窗口");
+      console.log("[SettingsWindow] 已阻止默认关闭行为");
 
+      const behavior = resolveWindowBehavior(state.windowBehavior);
+      console.log(`[SettingsWindow] closeBehavior=${behavior.closeBehavior}`);
+
+      if (behavior.closeBehavior === "tray") {
+        console.log("[SettingsWindow] 采用托盘模式，尝试隐藏窗口");
+        try {
+          await appWindow.hide();
+          console.log("[SettingsWindow] 窗口已隐藏到托盘");
+        } catch (error) {
+          console.error("[SettingsWindow] 隐藏到托盘失败，尝试销毁窗口:", error);
+          try {
+            await appWindow.destroy();
+            console.log("[SettingsWindow] 托盘失败后窗口销毁成功");
+          } catch (destroyError) {
+            console.error("[SettingsWindow] 托盘失败后的销毁操作也失败:", destroyError);
+          }
+        }
+        return;
+      }
+
+      console.log("[SettingsWindow] 采用退出模式，尝试销毁窗口");
       try {
         await appWindow.destroy();
         console.log("[SettingsWindow] 窗口销毁成功");
@@ -157,6 +218,9 @@ const cacheElements = () => {
   elements.btnRefreshSnapshots = document.getElementById("btnRefreshSnapshots");
   elements.languageOptions = document.getElementById("languageOptions");
   elements.languageRadios = Array.from(document.querySelectorAll(".language-radio"));
+  elements.closeBehaviorRadios = Array.from(
+    document.querySelectorAll('input[name="closeBehavior"]')
+  );
 };
 
 const bindEvents = () => {
@@ -268,6 +332,107 @@ const handleLanguageSelectionChange = async (event) => {
   }
 };
 
+const readStoredWindowBehavior = () => {
+  try {
+    const payload = window.localStorage?.getItem(WINDOW_BEHAVIOR_STORAGE_KEY);
+    if (!payload) return {};
+    const parsed = JSON.parse(payload);
+    return normalizeWindowBehavior(parsed) ?? {};
+  } catch (error) {
+    console.warn("[Settings] Failed to read window behavior settings:", error);
+    return {};
+  }
+};
+
+const setRadioGroupValue = (radios, value, fallback) => {
+  if (!Array.isArray(radios) || radios.length === 0) return;
+  const targetValue = value ?? fallback;
+  let hasMatch = false;
+  radios.forEach((radio) => {
+    if (!(radio instanceof HTMLInputElement)) return;
+    const shouldCheck = radio.value === targetValue;
+    radio.checked = shouldCheck;
+    if (shouldCheck) {
+      hasMatch = true;
+    }
+  });
+  if (!hasMatch) {
+    const fallbackRadio = radios.find((radio) => radio instanceof HTMLInputElement);
+    if (fallbackRadio) {
+      fallbackRadio.checked = true;
+    }
+  }
+};
+
+const getRadioGroupValue = (radios, fallback) => {
+  if (!Array.isArray(radios) || radios.length === 0) return fallback;
+  const active = radios.find(
+    (radio) => radio instanceof HTMLInputElement && radio.checked && radio.value
+  );
+  return active?.value ?? fallback;
+};
+
+const updateWindowBehaviorInputs = () => {
+  const closeValue = state.windowBehavior.closeBehavior ?? DEFAULT_WINDOW_BEHAVIOR.closeBehavior;
+  setRadioGroupValue(elements.closeBehaviorRadios, closeValue, DEFAULT_WINDOW_BEHAVIOR.closeBehavior);
+};
+
+const persistWindowBehaviorSettings = () => {
+  try {
+    window.localStorage?.setItem(
+      WINDOW_BEHAVIOR_STORAGE_KEY,
+      JSON.stringify(state.windowBehavior)
+    );
+  } catch (error) {
+    console.warn("[Settings] Failed to persist window behavior settings:", error);
+  }
+};
+
+const loadWindowBehaviorSettings = async () => {
+  state.windowBehavior = resolveWindowBehavior(readStoredWindowBehavior());
+  updateWindowBehaviorInputs();
+
+  try {
+    const backendBehavior = await AppStateAPI.getWindowBehavior();
+    const normalizedBackend = normalizeWindowBehavior(backendBehavior);
+    if (!normalizedBackend) {
+      return;
+    }
+    const mergedBehavior = resolveWindowBehavior(normalizedBackend);
+    if (areWindowBehaviorsEqual(state.windowBehavior, mergedBehavior)) {
+      return;
+    }
+    state.windowBehavior = mergedBehavior;
+    persistWindowBehaviorSettings();
+    updateWindowBehaviorInputs();
+  } catch (error) {
+    console.warn("[Settings] Failed to load window behavior from backend:", error);
+  }
+};
+
+const syncWindowBehaviorWithBackend = async (behavior) => {
+  if (!behavior) return;
+  const resolved = resolveWindowBehavior(behavior);
+  try {
+    await AppStateAPI.setWindowBehavior(resolved.closeBehavior);
+    try {
+      await emit(WINDOW_BEHAVIOR_EVENT, resolved);
+      console.log(
+        `[Settings] Emitted window behavior update: close=${resolved.closeBehavior}`
+      );
+    } catch (emitError) {
+      console.warn("[Settings] Failed to emit window behavior update:", emitError);
+    }
+  } catch (error) {
+    console.warn("[Settings] Failed to sync window behavior:", error);
+    showToast(
+      getErrorMessage(error) ||
+        t("toast.windowBehaviorSyncFailed", "Failed to sync window behavior"),
+      "warning"
+    );
+  }
+};
+
 const initButtonTooltips = () => {
   const tooltip = document.getElementById("buttonTooltip");
   if (!tooltip) return;
@@ -368,8 +533,9 @@ const initSettings = async () => {
     updateThemeIcon();
   }
 
-  await setupWindowCloseHandler();
   cacheElements();
+  await loadWindowBehaviorSettings();
+  await setupWindowCloseHandler();
   bindEvents();
   updateLanguageRadios();
   switchTab(state.activeTabId);
@@ -1385,6 +1551,19 @@ const saveGeneralSettings = async (event) => {
   maxManual = clampNumber(maxManual, 1, 20);
   updateGeneralSettingsInput({ auto: maxAuto, manual: maxManual });
 
+  const pendingWindowBehavior = {
+    closeBehavior:
+      getRadioGroupValue(
+        elements.closeBehaviorRadios,
+        state.windowBehavior.closeBehavior ?? DEFAULT_WINDOW_BEHAVIOR.closeBehavior
+      ) || DEFAULT_WINDOW_BEHAVIOR.closeBehavior,
+  };
+
+  const shouldSyncWindowBehavior = !areWindowBehaviorsEqual(
+    state.windowBehavior,
+    pendingWindowBehavior
+  );
+
   try {
     await withLoading(async () => {
       await Promise.all([
@@ -1392,6 +1571,9 @@ const saveGeneralSettings = async (event) => {
         SnapshotAPI.setMaxManualSnapshots(state.generalSettingsClientId, maxManual),
       ]);
       await SnapshotAPI.refreshTrayMenu();
+      if (shouldSyncWindowBehavior) {
+        await syncWindowBehaviorWithBackend(pendingWindowBehavior);
+      }
     });
 
     state.generalMaxAutoSnapshots = maxAuto;
@@ -1406,6 +1588,11 @@ const saveGeneralSettings = async (event) => {
         maxAutoSnapshots: maxAuto,
         maxManualSnapshots: maxManual,
       };
+    }
+
+    if (shouldSyncWindowBehavior) {
+      state.windowBehavior = pendingWindowBehavior;
+      persistWindowBehaviorSettings();
     }
 
     showToast(t("toast.settingsSaved", "Settings saved"), "success");

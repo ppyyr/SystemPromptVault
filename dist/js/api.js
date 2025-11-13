@@ -40,6 +40,9 @@ export const AppStateAPI = {
   saveWindowState: (x, y, width, height) =>
     call("save_window_state", { x, y, width, height }),
   getWindowState: () => call("get_window_state"),
+  setWindowBehavior: (closeBehavior) =>
+    call("set_window_behavior", { closeBehavior }),
+  getWindowBehavior: () => call("get_window_behavior"),
 };
 
 export const SnapshotAPI = {
