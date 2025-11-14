@@ -497,11 +497,259 @@ const listenToFileChanges = async () => {
 };
 ```
 
-#### 2.4.3 多路径文件变化处理逻辑
+#### 2.4.3 Toast文件名显示与路径处理
+
+##### 2.4.3.1 问题背景
+
+之前的Toast提示只显示通用消息"配置文件已更新"，用户体验不够明确。用户无法知道具体是哪个配置文件发生了变化，特别是在多配置文件管理场景下。
+
+##### 2.4.3.2 解决方案架构
+
+新增了完整的路径处理和显示系统，包含以下核心组件：
+
+1. **用户主目录获取命令**：
+```rust
+// src-tauri/src/commands/config_file.rs
+#[tauri::command]
+pub fn get_user_home_dir() -> Result<String, String> {
+    dirs::home_dir()
+        .and_then(|path| path.to_str().map(|s| s.to_string()))
+        .ok_or_else(|| "无法获取用户主目录".to_string())
+}
+```
+
+2. **路径格式化工具函数**：
+```javascript
+// dist/js/utils.js - 路径格式化: 绝对路径 → ~ 格式
+export const formatPathForDisplay = (fullPath, userHomeDir) => {
+  if (!fullPath || typeof fullPath !== "string") return "";
+  if (userHomeDir && fullPath.startsWith(userHomeDir)) {
+    return fullPath.replace(userHomeDir, "~");
+  }
+  return fullPath;
+};
+
+// 跨平台文件名提取
+export const extractFileName = (path) => {
+  if (!path || typeof path !== "string") return "";
+  if (path.includes("/")) {
+    const unixName = path.split("/").pop();
+    if (unixName) return unixName;
+  }
+  if (path.includes("\\")) {
+    const windowsName = path.split("\\").pop();
+    if (windowsName) return windowsName;
+  }
+  return path;
+};
+```
+
+3. **智能多文件显示处理**：
+```javascript
+// dist/js/utils.js - 多文件路径格式化
+export const formatFilePathsForToast = (filePaths, userHomeDir) => {
+  if (!Array.isArray(filePaths) || filePaths.length === 0) {
+    return "配置文件";
+  }
+
+  const displayPaths = filePaths
+    .filter((path) => path && typeof path === "string")
+    .map((path) => formatPathForDisplay(path, userHomeDir));
+
+  if (displayPaths.length === 0) {
+    return "配置文件";
+  }
+
+  const fileNames = displayPaths.map(extractFileName);
+  const hasDuplicateNames = fileNames.length !== new Set(fileNames).size;
+
+  const finalPaths = hasDuplicateNames ? displayPaths : fileNames;
+
+  if (finalPaths.length === 1) {
+    return finalPaths[0];
+  } else if (finalPaths.length <= 3) {
+    return finalPaths.join(", ");
+  } else {
+    return `${finalPaths.slice(0, 3).join(", ")} 等${finalPaths.length}个文件`;
+  }
+};
+```
+
+##### 2.4.3.3 用户主目录缓存机制
+
+为了避免重复的API调用，实现了用户主目录缓存：
+
+```javascript
+// dist/js/main.js - 用户主目录缓存
+const state = {
+    userHomeDir: null,           // 缓存的用户主目录
+    userHomeDirFetched: false,   // 是否已获取过
+};
+
+const ensureUserHomeDir = async () => {
+  if (state.userHomeDirFetched && state.userHomeDir) {
+    return state.userHomeDir;
+  }
+
+  try {
+    const homeDir = await invoke("get_user_home_dir");
+    state.userHomeDir = typeof homeDir === "string" ? homeDir : null;
+  } catch (error) {
+    console.warn("[FileChange] Failed to get user home dir:", error);
+    state.userHomeDir = null;
+  } finally {
+    state.userHomeDirFetched = true;
+  }
+  return state.userHomeDir;
+};
+```
+
+##### 2.4.3.4 Toast消息构建系统
+
+新增了专门的消息构建函数，支持国际化和模板化：
+
+```javascript
+// dist/js/main.js - Toast消息构建
+const buildConfigUpdatedToastMessage = async (changedPathsInput) => {
+  const normalizedPaths = normalizeChangedPaths(changedPathsInput);
+  const defaultMessage = t("toast.configUpdated", "Config file updated");
+  if (normalizedPaths.length === 0) {
+    return defaultMessage;
+  }
+
+  const applyTemplate = (label) => {
+    if (!label) return defaultMessage;
+    const template = t("toast.configUpdatedWithFile", "{file} updated");
+    if (template.includes("{file}")) {
+      return template.replace("{file}", label);
+    }
+    return `${label} ${t("toast.updated", "updated")}`;
+  };
+
+  const userHomeDir = await ensureUserHomeDir();
+  let fileDisplayLabel = formatFilePathsForToast(normalizedPaths, userHomeDir);
+
+  // 多层fallback机制
+  if (!fileDisplayLabel || fileDisplayLabel === "配置文件") {
+    try {
+      fileDisplayLabel = formatFilePathsForToast(normalizedPaths, null);
+    } catch (error) {
+      console.warn("[FileChange] Failed to build fallback file label:", error);
+      fileDisplayLabel = normalizedPaths.map((path) => extractFileName(path)).filter(Boolean).join(", ");
+    }
+  }
+
+  if (!fileDisplayLabel || fileDisplayLabel === "配置文件") {
+    return defaultMessage;
+  }
+
+  return applyTemplate(fileDisplayLabel);
+};
+```
+
+##### 2.4.3.5 事件监听器数据流修复
+
+修复了事件监听器中的关键数据流问题，确保文件路径信息不丢失：
+
+```javascript
+// dist/js/main.js - 修复前 vs 修复后
+// 修复前：事件监听器丢失了path信息
+await listen("config-file-changed", async (event) => {
+    console.log("[FileWatcher] Config file changed:", event.payload);
+    await handleConfigFileChanged(); // 没有传递文件路径！
+});
+
+// 修复后：正确提取和传递文件路径
+await listen("config-file-changed", async (event) => {
+    const payload = event?.payload;
+
+    // 处理新旧事件格式
+    const eventClientId = payload?.client_id || payload;
+    const eventPath = payload?.path || payload;
+
+    // 客户端ID隔离验证
+    if (eventClientId && eventClientId !== state.currentClientId && eventClientId !== "__legacy_config_client__") {
+        console.log(`[FileWatcher] Ignoring event for different client: ${eventClientId}`);
+        return;
+    }
+
+    const normalizedPaths = normalizeChangedPaths(eventPath);
+    await handleConfigFileChanged(normalizedPaths.length ? normalizedPaths : null);
+});
+```
+
+##### 2.4.3.6 国际化支持
+
+新增了支持文件名模板的国际化消息：
+
+```json
+// dist/locales/zh.json
+{
+  "toast": {
+    "configUpdatedWithFile": "{file} 已更新",
+    "configUpdated": "配置文件已更新"
+  }
+}
+
+// dist/locales/en.json
+{
+  "toast": {
+    "configUpdatedWithFile": "{file} updated",
+    "configUpdated": "Config file updated"
+  }
+}
+```
+
+##### 2.4.3.7 智能显示逻辑
+
+实现了针对不同场景的智能显示逻辑：
+
+**场景1：单文件变化**
+- 输入：`["/Users/user/.config/claude/prompt.md"]`
+- 显示：`prompt.md 已更新`
+
+**场景2：少量多文件变化（≤3个）**
+- 输入：`["/Users/user/.config/claude/prompt.md", "/Users/user/.config/claude/system.md"]`
+- 显示：`prompt.md, system.md 已更新`
+
+**场景3：大量多文件变化（>3个）**
+- 输入：`["prompt.md", "system.md", "config.json", "settings.yaml", "rules.txt"]`
+- 显示：`prompt.md, system.md, config.json 等5个文件 已更新`
+
+**场景4：同名文件不同路径**
+- 输入：`["/Users/user/app1/config.json", "/Users/user/app2/config.json"]`
+- 显示：`~/app1/config.json, ~/app2/config.json 已更新`
+
+**场景5：用户主目录路径简化**
+- 输入：`["/Users/user/.config/claude/prompt.md"]`
+- 显示：`~/.config/claude/prompt.md 已更新` (同名文件场景)
+- 或显示：`prompt.md 已更新` (唯一文件场景)
+
+##### 2.4.3.8 性能优化和容错机制
+
+1. **缓存优化**：
+   - 用户主目录只获取一次并缓存
+   - 避免重复的Tauri API调用
+
+2. **多层容错**：
+   - 路径格式化失败时回退到原始路径
+   - 文件名提取失败时回退到完整路径
+   - 国际化模板失败时回退到默认消息
+
+3. **输入验证**：
+   - 严格的路径类型检查
+   - 空值和null值安全处理
+   - 数组和字符串类型的兼容处理
+
+4. **跨平台兼容**：
+   - 同时支持Unix (`/`) 和Windows (`\`) 路径分隔符
+   - 统一的文件名提取逻辑
+
+#### 2.4.4 多路径文件变化处理逻辑（保持原有实现）
 
 ```javascript
 // dist/js/main.js - 处理配置文件变化
-const handleConfigFileChanged = async (changedPath = null) => {
+const handleConfigFileChanged = async (changedPaths = null) => {
     // 移除现有的文件变化Toast
     if (state.fileChangeToast) {
         state.fileChangeToast.remove();
@@ -524,12 +772,12 @@ const handleConfigFileChanged = async (changedPath = null) => {
             }
         );
     } else {
-        // 无未保存修改 - 显示普通Toast
-        const fileDisplayName = changedPath ?
-            changedPath.split('/').pop() : '配置文件';
+        // 无未保存修改 - 显示具体文件名Toast
+        const toastMessage = await buildConfigUpdatedToastMessage(changedPaths);
+        const decoratedMessage = toastMessage.startsWith("📝") ? toastMessage : `📝 ${toastMessage}`;
 
         state.fileChangeToast = showActionToast(
-            `📝 ${fileDisplayName} 已更新`,
+            decoratedMessage,
             "重新加载",
             async () => {
                 await reloadConfigFile();
@@ -863,14 +1111,16 @@ export const showActionToast = (message, actionLabel, onAction) => {
 
 ### 后端核心模块
 - `src-tauri/src/file_watcher.rs`: ConfigFileWatcher核心实现，支持泛型Runtime和临时停止功能
-- `src-tauri/src/commands/file_watcher.rs`: 文件监听Tauri命令接口
+- `src-tauri/src/commands/file_watcher.rs`: 文件监听Tauri命令接口，支持多客户端多路径监听
+- `src-tauri/src/commands/config_file.rs`: 配置文件读写命令，包含新增的`get_user_home_dir()`命令
 - `src-tauri/src/tray.rs`: 托盘恢复快照的文件监听器控制和静默事件发送
 - `src-tauri/src/main.rs`: 应用启动时的状态初始化和命令注册
 
 ### 前端核心模块
-- `dist/js/main.js`: 文件监听管理、编辑器脏状态跟踪、双事件处理逻辑、静默重新加载处理
-- `dist/js/utils.js`: showActionToast函数实现
+- `dist/js/main.js`: 文件监听管理、编辑器脏状态跟踪、双事件处理逻辑、Toast文件名显示、用户主目录缓存
+- `dist/js/utils.js`: 路径格式化工具函数、文件名提取、多文件显示处理、`formatPathForDisplay()`、`extractFileName()`、`formatFilePathsForToast()`
 - `dist/css/components.css`: ActionToast样式定义
+- `dist/locales/zh.json` & `dist/locales/en.json`: 国际化消息模板，包含`configUpdatedWithFile`模板
 
 ### 依赖配置
 - `src-tauri/Cargo.toml`: notify依赖配置
@@ -881,15 +1131,22 @@ export const showActionToast = (message, actionLabel, onAction) => {
 ### 功能注意事项
 
 1. **文件监听范围**：仅监听应用管理的配置文件，不监听其他目录
-2. **多路径支持**：支持单个客户端监听多个配置文件路径，实现更灵活的配置管理
-3. **客户端隔离**：不同客户端的文件监听事件相互隔离，避免交叉干扰
-4. **事件去重**：短时间内多次文件变化可能触发多个事件，前端需要处理
-5. **错误恢复**：文件监听失败时自动重试机制
-6. **托盘恢复优化**：托盘恢复快照时临时停止文件监听器，避免重复事件
-7. **静默事件处理**：使用`config-reload-silent`事件进行静默更新，不显示Toast
-8. **资源清理**：切换客户端时自动停止旧监听，启动新监听
-9. **向后兼容**：支持旧版单路径API和事件格式，确保平滑升级
-10. **路径验证**：自动去除重复路径，验证文件存在性和可访问性
+2. **Toast文件名显示**：现在显示具体的文件名而非通用消息，提升用户体验
+3. **多路径支持**：支持单个客户端监听多个配置文件路径，实现更灵活的配置管理
+4. **客户端隔离**：不同客户端的文件监听事件相互隔离，避免交叉干扰
+5. **路径格式化**：自动将用户主目录路径转换为`~`格式，提高可读性
+6. **同名文件处理**：智能检测同名文件并显示完整路径进行区分
+7. **多文件智能显示**：根据文件数量采用不同的显示策略（单文件、≤3个、>3个）
+8. **事件去重**：短时间内多次文件变化可能触发多个事件，前端需要处理
+9. **错误恢复**：文件监听失败时自动重试机制
+10. **托盘恢复优化**：托盘恢复快照时临时停止文件监听器，避免重复事件
+11. **静默事件处理**：使用`config-reload-silent`事件进行静默更新，不显示Toast
+12. **资源清理**：切换客户端时自动停止旧监听，启动新监听
+13. **向后兼容**：支持旧版单路径API和事件格式，确保平滑升级
+14. **路径验证**：自动去除重复路径，验证文件存在性和可访问性
+15. **用户主目录缓存**：避免重复API调用，提升性能
+16. **跨平台兼容**：同时支持Unix和Windows路径格式
+17. **多层容错机制**：路径处理、文件名提取、国际化模板的多层fallback
 
 ### 性能注意事项
 
@@ -952,6 +1209,11 @@ export const showActionToast = (message, actionLabel, onAction) => {
 - [ ] 多客户端各自监听独立的配置文件路径
 - [ ] 任何一个配置文件变化都能触发Toast提示
 - [ ] Toast显示具体的文件名（而非泛指"配置文件"）
+- [ ] 单文件变化显示文件名：`prompt.md 已更新`
+- [ ] 多文件变化（≤3个）显示逗号分隔：`prompt.md, system.md 已更新`
+- [ ] 多文件变化（>3个）显示省略格式：`prompt.md, system.md 等5个文件 已更新`
+- [ ] 同名文件显示完整路径区分：`~/app1/config.json, ~/app2/config.json 已更新`
+- [ ] 用户主目录路径格式化：`/Users/user/.config/app.md` → `~/.config/app.md`
 - [ ] 客户端ID隔离：只处理当前客户端的文件变化事件
 - [ ] 忽略其他客户端的文件变化事件
 - [ ] 支持legacy客户端（无client_id）的事件处理
@@ -975,10 +1237,25 @@ export const showActionToast = (message, actionLabel, onAction) => {
 - [ ] 网络文件系统监听（如果支持）
 - [ ] 文件权限不足时的错误处理
 
-### 5.6 性能和资源测试
+### 5.6 Toast文件名显示功能专项测试
+
+- [ ] 用户主目录获取API调用正常：`get_user_home_dir()`
+- [ ] 用户主目录缓存机制：只调用一次API，后续使用缓存
+- [ ] 路径格式化功能：`formatPathForDisplay()` 正确转换绝对路径为`~`格式
+- [ ] 文件名提取功能：`extractFileName()` 支持Unix和Windows路径
+- [ ] 多文件路径格式化：`formatFilePathsForToast()` 智能处理不同文件数量
+- [ ] Toast消息构建：`buildConfigUpdatedToastMessage()` 正确使用国际化模板
+- [ ] 事件监听器数据流：文件路径信息正确传递到Toast显示
+- [ ] 国际化模板替换：`{file}` 占位符正确替换为文件显示名
+- [ ] 容错机制：路径处理失败时的fallback处理
+- [ ] 性能测试：大量文件变化时Toast构建性能
+
+### 5.7 性能和资源测试
 
 - [ ] 单个Watcher实例监听多个文件（资源优化）
 - [ ] 内存占用：多路径监听不显著增加内存使用
 - [ ] CPU占用：文件变化检测响应时间<100ms
+- [ ] Toast消息构建性能：复杂路径处理<10ms
+- [ ] 用户主目录缓存效果：避免重复API调用
 - [ ] 大量文件监听的性能表现
 - [ ] 长时间运行稳定性测试

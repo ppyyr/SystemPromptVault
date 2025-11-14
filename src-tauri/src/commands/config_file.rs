@@ -14,6 +14,13 @@ fn lock_repo<'a>(
 }
 
 #[tauri::command]
+pub fn get_user_home_dir() -> Result<String, String> {
+    dirs::home_dir()
+        .and_then(|path| path.to_str().map(|s| s.to_string()))
+        .ok_or_else(|| "无法获取用户主目录".to_string())
+}
+
+#[tauri::command]
 pub fn read_config_file(
     repository: State<'_, Arc<Mutex<ClientRepository>>>,
     client_id: String,

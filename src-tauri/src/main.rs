@@ -72,6 +72,7 @@ fn main() {
             commands::client::import_clients,
             commands::config_file::read_config_file,
             commands::config_file::write_config_file,
+            commands::config_file::get_user_home_dir,
             commands::file_watcher::start_watching_config,
             commands::file_watcher::stop_watching_config,
             commands::app_state::get_app_state,
