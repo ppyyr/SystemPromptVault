@@ -1026,8 +1026,8 @@ cargo update -p <crate-name>
 
 ## 联系方式
 
-- **项目维护者**: [维护者名称]
-- **问题反馈**: [GitHub Issues 链接]
+- **项目维护者**: Saul <p@sora.im>
+- **问题反馈**: https://github.com/ppyyr/SystemPromptVault/issues
 - **文档更新**: 请更新 `llmdoc/` 目录下的相关文档
 
 ---

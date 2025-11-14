@@ -97,7 +97,7 @@ bun --version
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-username/SystemPromptVault.git
+git clone https://github.com/ppyyr/SystemPromptVault.git
 cd SystemPromptVault
 
 # 使用 Bun 安装依赖（2-10x 速度提升）

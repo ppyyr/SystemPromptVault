@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/v2.0.0/tooling/cli/schema.json",
   "productName": "SystemPromptVault",
   "version": "0.1.0",
-  "identifier": "com.example.systemprompt-vault",
+  "identifier": "im.sora.systemprompt-vault",
   "build": {
     "beforeBuildCommand": "bun run build",
     "beforeDevCommand": "bun run dev",
