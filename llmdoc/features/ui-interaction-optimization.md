@@ -1233,11 +1233,407 @@ Grid 布局改善了内容的逻辑顺序和无障碍体验：
 3. **语义标记**: 每个交互元素都有明确的 `aria-label`
 4. **视觉反馈**: 按钮状态变化时提供适当的视觉和屏幕阅读器反馈
 
-### 2.12 编辑器模式按钮的状态管理
+### 2.12 语言选择下拉组件
+
+语言选择器采用单选按钮卡片式设计，提供清晰的语言切换体验。
+
+#### 2.12.1 组件架构
+
+```mermaid
+graph TB
+    subgraph "语言下拉组件"
+        Dropdown[下拉容器]
+        Current[当前语言显示]
+        Panel[选择面板]
+        RadioGroup[单选按钮组]
+    end
+
+    subgraph "交互状态"
+        Open[面板展开]
+        Close[面板收起]
+        Selection[语言选择]
+    end
+
+    subgraph "视觉反馈"
+        Indicator[选中指示器]
+        Hover[悬停效果]
+        Focus[焦点样式]
+    end
+
+    Dropdown --> Current
+    Dropdown --> Panel
+    Panel --> RadioGroup
+    RadioGroup --> Indicator
+    Open --> Panel
+    Close --> Panel
+    Selection --> Current
+```
+
+#### 2.12.2 HTML 结构
+
+**DOM 结构** (`dist/index.html` 或相关模板):
+
+```html
+<div class="client-dropdown client-dropdown--language" id="languageDropdown">
+  <details class="client-dropdown__details">
+    <summary class="client-dropdown__toggle">
+      <div class="language-dropdown__label">
+        <span class="language-dropdown__current" data-language-code="en">English</span>
+        <span class="language-dropdown__current" data-language-code="zh">中文</span>
+      </div>
+    </summary>
+
+    <div class="client-dropdown__panel">
+      <div class="client-dropdown__list">
+        <!-- English 选项 -->
+        <div class="language-card">
+          <input type="radio" name="language" value="en" id="languageOptionEn" class="language-radio">
+          <label for="languageOptionEn" class="language-option-label">
+            <span class="language-option-indicator"></span>
+            <span>English</span>
+          </label>
+        </div>
+
+        <!-- 中文选项 -->
+        <div class="language-card">
+          <input type="radio" name="language" value="zh" id="languageOptionZh" class="language-radio">
+          <label for="languageOptionZh" class="language-option-label">
+            <span class="language-option-indicator"></span>
+            <span>中文</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </details>
+</div>
+```
+
+#### 2.12.3 CSS 样式实现
+
+**下拉容器样式**:
+
+```css
+.client-dropdown--language {
+  display: block;
+}
+
+.client-dropdown--language summary {
+  list-style: none;
+}
+
+.client-dropdown--language summary::-webkit-details-marker {
+  display: none;
+}
+
+.client-dropdown--language[open] .client-dropdown__panel {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+```
+
+**当前语言显示**:
+
+```css
+.language-dropdown__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--color-text, #1f2937);
+}
+
+.dark .language-dropdown__label {
+  color: var(--color-text, #f3f4f6);
+}
+
+.language-dropdown__current {
+  display: none;
+}
+
+.language-dropdown__current[data-language-code="en"] {
+  display: inline-flex;
+}
+
+/* CSS :has() 选择器动态切换显示 */
+#languageDropdown:has(#languageOptionZh:checked) .language-dropdown__current[data-language-code="en"] {
+  display: none;
+}
+
+#languageDropdown:has(#languageOptionZh:checked) .language-dropdown__current[data-language-code="zh"] {
+  display: inline-flex;
+}
+```
+
+**单选按钮指示器**:
+
+```css
+.language-option-indicator {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  border: 2px solid var(--color-border, #e5e7eb);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.language-option-indicator::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-top: 0;
+  border-left: 0;
+  transform: translate(-50%, -55%) rotate(45deg);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.dark .language-option-indicator {
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+.language-card .language-radio:checked + .language-option-indicator {
+  background: var(--color-primary, #3b82f6);
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+.language-card .language-radio:checked + .language-option-indicator::after {
+  opacity: 1;
+}
+```
+
+#### 2.12.4 交互特性
+
+**CSS :has() 选择器应用**:
+- 使用现代CSS `:has()` 选择器实现父元素状态驱动的显示控制
+- 通过单选按钮的 `:checked` 状态动态切换当前语言显示
+- 避免了JavaScript监听，提升性能
+
+**视觉反馈**:
+- **未选中状态**: 圆形边框指示器
+- **选中状态**: 蓝色填充 + 白色勾选标记 + 阴影效果
+- **悬停效果**: 选项卡片背景变化
+- **焦点样式**: 键盘导航时的焦点指示
+
+### 2.13 Toggle Switch 开关组件
+
+Toggle Switch 提供iOS风格的开关交互体验，适用于二值状态切换场景。
+
+#### 2.13.1 组件结构
+
+```html
+<div class="toggle-switch">
+  <input type="radio" class="toggle-switch__input" name="toggle" value="off">
+  <div class="toggle-switch__track">
+    <div class="toggle-switch__thumb"></div>
+  </div>
+  <div class="toggle-switch__hit-area"></div>
+
+  <input type="radio" class="toggle-switch__input" name="toggle" value="tray" checked>
+  <div class="toggle-switch__track">
+    <div class="toggle-switch__thumb"></div>
+  </div>
+  <div class="toggle-switch__hit-area"></div>
+</div>
+```
+
+#### 2.13.2 CSS 样式实现
+
+**轨道和滑块**:
+
+```css
+.toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+}
+
+.toggle-switch__input {
+  position: absolute;
+  opacity: 0;
+}
+
+.toggle-switch__track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--color-border, #d1d5db);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark .toggle-switch__track {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+.toggle-switch__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.dark .toggle-switch__thumb {
+  background: rgba(255, 255, 255, 0.9);
+}
+```
+
+**激活状态**:
+
+```css
+.toggle-switch__input[value="tray"]:checked ~ .toggle-switch__track {
+  background: var(--color-primary, #3b82f6);
+}
+
+.toggle-switch__input[value="tray"]:checked ~ .toggle-switch__track .toggle-switch__thumb {
+  transform: translateX(16px);
+}
+```
+
+**点击区域和焦点**:
+
+```css
+.toggle-switch__hit-area {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  cursor: pointer;
+  display: block;
+  z-index: 2;
+}
+
+.toggle-switch__hit-area:first-of-type {
+  left: 0;
+}
+
+.toggle-switch__hit-area:last-of-type {
+  right: 0;
+}
+
+.toggle-switch__input:focus-visible ~ .toggle-switch__track {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+}
+```
+
+#### 2.13.3 交互特性
+
+**双单选按钮设计**:
+- 使用两个隐藏的单选按钮实现两段式切换
+- 每个按钮控制一个点击区域，提供精确的点击控制
+- 避免了传统checkbox的单向切换限制
+
+**无障碍支持**:
+- 键盘Tab键可在两个状态间导航
+- 焦点时显示明显的视觉反馈
+- 屏幕阅读器可正确识别状态变化
+
+**状态动画**:
+- 平滑的滑块移动动画 (0.2s ease)
+- 背景色渐变过渡
+- 激活状态的阴影效果
+
+### 2.14 提示词搜索框组件
+
+提示词搜索框提供简洁的文本输入体验，支持实时筛选和图标装饰。
+
+#### 2.14.1 组件结构
+
+```html
+<div class="prompt-search">
+  <input
+    type="text"
+    class="prompt-search__input"
+    placeholder="Search prompts..."
+    aria-label="Search prompts"
+  />
+</div>
+```
+
+#### 2.14.2 CSS 样式实现
+
+```css
+.prompt-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-md, 10px);
+  border: none;
+  background: transparent;
+  width: 200px;
+  flex-shrink: 1;
+  min-width: 150px;
+}
+
+.prompt-search__input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.prompt-search__input::placeholder {
+  color: var(--color-muted);
+}
+
+.prompt-search__input:focus {
+  outline: none;
+}
+```
+
+#### 2.14.3 响应式设计
+
+**布局适配**:
+- 设置页面的标签筛选器移除默认的 `width: 100%`
+- 支持自适应宽度收缩
+- 最小宽度保证可用性
+
+```css
+/* 设置页面的标签筛选器 - 移除默认的 width: 100% */
+#promptActions .tag-filter,
+#promptActions .tag-dropdown {
+  width: auto;
+  justify-content: flex-start;
+  flex-shrink: 0;
+}
+```
+
+### 2.15 主题切换按钮样式优化
+
+主题切换按钮移除了边框，提供更简洁的视觉体验。
+
+```css
+/* 去掉主题切换按钮和右边按钮的边框 */
+#themeToggleContainer .theme-toggle-btn,
+#themeToggleContainer + a {
+  border: none !important;
+}
+```
+
+**设计决策**：
+- **视觉简化**: 移除边框减少视觉噪音
+- **焦点突出**: 通过颜色和背景变化突出状态
+- **一致性**: 与其他无边框按钮保持设计一致性
+
+### 2.16 编辑器模式按钮的状态管理
 
 模式切换按钮集成了状态指示功能，通过图标和颜色变化提供即时反馈。
 
-#### 2.12.1 按钮状态系统
+#### 2.16.1 按钮状态系统
 
 ```mermaid
 stateDiagram-v2
@@ -1282,7 +1678,7 @@ const setModeToggleState = () => {
 };
 ```
 
-#### 2.12.2 视觉状态设计
+#### 2.16.2 视觉状态设计
 
 **按钮样式层次** (`dist/css/components.css:247-283`):
 
@@ -1339,20 +1735,22 @@ const setModeToggleState = () => {
 ### 核心交互模块
 - `dist/js/main.js`: 主要交互逻辑,包含双重 tooltip 系统、下拉菜单、防抖实现、事件处理 (第 1-850 行)
 - `dist/js/settings.js`: 设置页面交互逻辑,包含设置下拉菜单、按钮 tooltip 系统 (第 1-350 行)
-- `dist/css/main.css`: UI 样式定义,包含 tooltip 样式、下拉菜单样式、按钮图标化样式 (第 1-1610 行)
+- `dist/css/main.css`: UI 样式定义,包含 tooltip 样式、下拉菜单样式、按钮图标化样式、语言选择组件、Toggle Switch组件、提示词搜索框组件 (第 1-1916 行)
 - `dist/css/components.css`: 组件样式,包含按钮、列表项、模态框样式
 
 ### 辅助工具模块
 - `dist/js/utils.js`: 工具函数,包含防抖、节流、DOM 操作等
 
 ### HTML 结构
-- `dist/index.html`: 主页面 HTML 结构,包含提示词 tooltip、按钮 tooltip、客户端下拉菜单、标签下拉菜单 (第 3-160 行)
-- `dist/settings.html`: 设置页面 HTML 结构,包含设置下拉菜单、按钮 tooltip (第 3-145 行)
+- `dist/index.html`: 主页面 HTML 结构,包含提示词 tooltip、按钮 tooltip、客户端下拉菜单、标签下拉菜单、语言选择下拉菜单 (第 3-160 行)
+- `dist/settings.html`: 设置页面 HTML 结构,包含设置下拉菜单、按钮 tooltip、Toggle Switch组件 (第 3-145 行)
 
 ### 无障碍支持
 - 所有下拉菜单使用 `aria-haspopup`、`aria-expanded`、`aria-controls`、`aria-hidden` 属性
 - 所有 tooltip 使用 `aria-hidden`、`aria-label` 属性
 - 图标按钮使用 `aria-label` 和 `data-tooltip` 属性
+- 语言选择单选按钮使用原生HTML单选按钮语义
+- Toggle Switch 使用 `focus-visible` 提供键盘导航反馈
 
 ## 4. Attention
 
@@ -1403,9 +1801,32 @@ const setModeToggleState = () => {
 4. **焦点管理**: 正确管理焦点状态,避免焦点陷阱
 5. **状态同步**: `aria-expanded` 和 `aria-hidden` 属性与 UI 状态同步
 
+### UI组件设计注意事项
+
+1. **语言选择组件**：
+   - 使用CSS `:has()` 选择器实现声明式状态控制，需要现代浏览器支持
+   - 单选按钮语义确保无障碍，但需注意键盘导航体验
+   - 选中指示器使用伪元素，避免额外DOM节点
+
+2. **Toggle Switch 组件**：
+   - 双单选按钮设计提供精确的点击控制
+   - 使用 `transform` 实现滑块动画，避免触发重排
+   - 点击区域(hit-area)必须覆盖整个开关，提升可操作性
+
+3. **提示词搜索框**：
+   - 透明背景设计需要确保父容器有合适的背景色
+   - `flex-shrink: 1` 允许在空间不足时收缩
+   - 最小宽度保证输入框始终可用
+
+4. **主题切换按钮**：
+   - 使用 `!important` 强制覆盖边框样式，需谨慎使用
+   - 无边框设计依赖背景色和颜色变化提供视觉反馈
+
 ### 浏览器兼容性注意事项
 
 1. **事件监听**: 注意捕获阶段和冒泡阶段的兼容性 (事件委托使用捕获阶段)
-2. **CSS 支持**: 确保使用的 CSS 属性在目标浏览器中支持 (backdrop-filter、transform)
+2. **CSS 支持**:
+   - CSS `:has()` 选择器需要 Chrome 105+, Safari 15.4+, Firefox 121+
+   - `backdrop-filter`、`transform` 需要检查目标浏览器支持
 3. **触摸事件**: 考虑不同设备的触摸事件行为差异
 4. **性能考虑**: 在低端设备上适当调整动画和延迟参数

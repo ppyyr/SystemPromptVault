@@ -220,8 +220,8 @@ if (!hasAntiFouc) {
 ## 3. Relevant Code Modules
 
 ### 核心防闪烁模块
-- `dist/js/i18n-antifouc.js`: 语言检测模块（22行），极简实现语言偏好检测
-- `dist/css/i18n-antifouc.css`: CSS自动应用模块（42行），属性选择器和伪元素实现
+- `dist/public/i18n-antifouc.js`: 语言检测模块（22行），极简实现语言偏好检测
+- `dist/public/i18n-antifouc.css`: CSS自动应用模块（43行），属性选择器和伪元素实现
 
 ### i18n 模块协调
 - `dist/js/i18n.js:94-97`: `translateElement` 函数中的防重复检测逻辑
@@ -231,6 +231,9 @@ if (!hasAntiFouc) {
 - `dist/index.html:17-19`: 防闪烁模块引用（2行）
 - `dist/index.html:37-40`: 设置按钮防闪烁实现示例
 - `dist/settings.html:28,35`: 设置页面防闪烁实现示例
+
+### 构建配置
+- `vite.config.js:11-32`: Vite静态资源复制配置，确保防闪烁模块被正确复制到构建目录
 
 ### 翻译资源
 - `dist/locales/en.json`: 英文翻译资源
