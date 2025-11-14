@@ -678,6 +678,46 @@ const focusAdjacentTagOption = (direction = 1) => {
 };
 ```
 
+#### 2.9.4 标签选择交互优化
+
+为提升多选体验，标签选择器进行了以下交互优化：
+
+**连续多选支持**：
+- 点击标签选项后面板保持打开状态，支持连续选择多个标签
+- 移除了点击标签后自动关闭面板的行为，保留其他关闭方式（点击外部、Escape 键、点击切换按钮）
+- 用户可以通过点击标签选项快速切换选中状态，无需重复打开面板
+
+**事件处理优化** (`dist/js/main.js:1034-1056`):
+
+```javascript
+const handleDocumentClickForDropdown = (event) => {
+  if (!state.tagDropdownOpen || !elements.tagFilter) return;
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+
+  // 优化逻辑：首先检查是否在面板内部点击
+  if (elements.tagFilter.contains(target)) {
+    return; // 面板内部点击不关闭
+  }
+
+  // 兼容处理：检查 composedPath 是否包含面板
+  if (typeof event.composedPath === "function") {
+    const path = event.composedPath();
+    if (Array.isArray(path) && path.includes(elements.tagFilter)) {
+      return; // 仍然在面板内部，不关闭
+    }
+  }
+
+  closeTagDropdown(); // 真正的外部点击才关闭
+};
+```
+
+**设计原理**：
+- **增强可发现性**：用户可以一次打开面板，尝试多个标签组合
+- **减少操作成本**：无需重复点击切换按钮来选择多个标签
+- **保持一致性**：清空按钮也保持面板开启，提供一致的操作体验
+- **边界控制**：保留原有的关闭方式，确保用户能正常关闭面板
+
 **点击外部关闭**:
 
 ```javascript
@@ -698,7 +738,85 @@ const handleDocumentKeydownForDropdown = (event) => {
 };
 ```
 
-#### 2.9.5 CSS 样式实现
+#### 2.9.5 清空已选标签按钮
+
+为了提升用户体验，标签下拉面板新增了"清空已选标签"按钮，允许用户一键清除所有手动选择的标签。
+
+**设计决策**：
+- **选择性清空**：仅清空手动选择的标签（`state.selectedTags`），不影响客户端自动标签
+- **条件显示**：只在有手动选择标签时显示按钮（`state.selectedTags.length > 0`）
+- **位置优化**：与搜索框并排显示，形成完整的标签操作区域
+
+**HTML 结构** (`dist/index.html:228-247`):
+
+```html
+<div class="tag-dropdown__search flex items-center gap-2">
+  <!-- 搜索框 -->
+  <input
+    type="text"
+    id="tagDropdownSearch"
+    class="tag-dropdown__search-input flex-1"
+    placeholder="Search tags..."
+    aria-label="Search Tags"
+  />
+
+  <!-- 清空按钮 -->
+  <button
+    type="button"
+    id="tagDropdownClear"
+    class="tag-dropdown__clear hidden flex-shrink-0 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2"
+    aria-label="Clear all selected tags"
+    aria-disabled="true"
+  >
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M6 6l12 12M6 18L18 6"></path>
+    </svg>
+    <span data-i18n="tags.clearAll">Clear All</span>
+  </button>
+</div>
+```
+
+**核心实现** (`dist/js/main.js:1086-1097`):
+
+```javascript
+const handleClearSelectedTags = (event) => {
+  event?.preventDefault();
+  event?.stopPropagation();
+  clearSelectedTags();
+};
+
+const clearSelectedTags = () => {
+  if (!state.selectedTags.length) {
+    return;
+  }
+  state.selectedTags = [];
+  renderTagFilter();
+  renderPromptList();
+};
+```
+
+**显示逻辑** (`dist/js/main.js:2221-2227`):
+
+```javascript
+// 渲染标签过滤器时控制清空按钮的显示状态
+if (elements.tagDropdownClear) {
+  const hasSelection = state.selectedTags.length > 0;
+  elements.tagDropdownClear.classList.toggle("hidden", !hasSelection);
+  elements.tagDropdownClear.disabled = !hasSelection;
+  elements.tagDropdownClear.setAttribute("aria-disabled", String(!hasSelection));
+}
+```
+
+**交互优化**：
+- **面板保持开启**：点击清空按钮后标签面板保持打开状态，用户可以继续选择其他标签
+- **状态同步**：清空操作后立即更新提示词列表显示
+- **无障碍支持**：使用 `aria-disabled` 属性正确反映按钮状态，屏幕阅读器可识别
+
+**国际化支持**:
+- `tags.clearAll`: "Clear All" / "清空已选"
+- `tags.clearAllAria`: "Clear all selected tags" / "清空所有选中的标签"
+
+#### 2.9.6 CSS 样式实现
 
 **下拉面板样式**:
 
@@ -904,9 +1022,13 @@ elements.settingsDropdownList?.addEventListener("click", (event) => {
   cursor: pointer;
 }
 
-.client-dropdown__toggle:hover {
+.client-dropdown__toggle:hover:not(:disabled) {
   background: var(--color-surface-hover, rgba(59, 130, 246, 0.1));
   color: var(--color-primary, #3b82f6);
+}
+
+.client-dropdown__toggle:disabled {
+  opacity: 1;
 }
 ```
 

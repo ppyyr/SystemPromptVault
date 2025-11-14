@@ -171,6 +171,19 @@ fn restore_snapshot_from_menu<R: Runtime>(
 fn build_tray_menu<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Menu<R>> {
     let menu = Menu::new(app_handle).map_err(TrayError::from)?;
 
+    let show_item = MenuItem::with_id(
+        app_handle,
+        SHOW_MAIN_WINDOW_MENU_ID,
+        "Open",
+        true,
+        None::<&str>,
+    )
+    .map_err(TrayError::from)?;
+    menu.append(&show_item).map_err(TrayError::from)?;
+
+    let first_separator = PredefinedMenuItem::separator(app_handle).map_err(TrayError::from)?;
+    menu.append(&first_separator).map_err(TrayError::from)?;
+
     let client_submenus = build_client_submenus(app_handle)?;
     if client_submenus.is_empty() {
         let placeholder = MenuItem::new(app_handle, "暂无可用快照", false, None::<&str>)
@@ -182,18 +195,8 @@ fn build_tray_menu<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Menu<R>>
         }
     }
 
-    let separator = PredefinedMenuItem::separator(app_handle).map_err(TrayError::from)?;
-    menu.append(&separator).map_err(TrayError::from)?;
-
-    let show_item = MenuItem::with_id(
-        app_handle,
-        SHOW_MAIN_WINDOW_MENU_ID,
-        "Open",
-        true,
-        None::<&str>,
-    )
-    .map_err(TrayError::from)?;
-    menu.append(&show_item).map_err(TrayError::from)?;
+    let second_separator = PredefinedMenuItem::separator(app_handle).map_err(TrayError::from)?;
+    menu.append(&second_separator).map_err(TrayError::from)?;
 
     let quit_item = MenuItem::with_id(app_handle, QUIT_MENU_ID, "Quit", true, None::<&str>)
         .map_err(TrayError::from)?;

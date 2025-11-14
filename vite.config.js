@@ -7,6 +7,7 @@ const rootDir = resolve(__dirname, 'dist');
 
 export default defineConfig({
   root: rootDir,
+  publicDir: resolve(rootDir, 'public'),
   plugins: [
     legacy(),
     viteStaticCopy({
@@ -14,6 +15,18 @@ export default defineConfig({
         {
           src: 'locales',
           dest: '.'
+        },
+        {
+          src: 'js',
+          dest: '.'
+        },
+        {
+          src: 'css/i18n-antifouc.css',
+          dest: 'css'
+        },
+        {
+          src: resolve(__dirname, 'src-tauri/icons/*'),
+          dest: 'icons'
         }
       ]
     })

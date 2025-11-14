@@ -6,6 +6,7 @@ import { emit } from "@tauri-apps/api/event";
 import { initI18n, t, setLanguage, getCurrentLanguage, applyTranslations, onLanguageChange } from "./i18n.js";
 
 const SNAPSHOT_LOAD_DEBOUNCE = 300;
+const PROMPT_SEARCH_DEBOUNCE = 300;
 const DEFAULT_MAX_AUTO_SNAPSHOTS = 3;
 const DEFAULT_MAX_MANUAL_SNAPSHOTS = 10;
 const TAB_LABEL_MAP = {
@@ -55,10 +56,32 @@ const areWindowBehaviorsEqual = (first, second) => {
 
 const appWindow = getCurrentWindow();
 const clampNumber = (value, min, max) => Math.min(max, Math.max(min, value));
+const RECENT_TAGS_KEY = "tagFilterRecentTags";
+const MAX_RECENT_TAGS = 5;
+const TAG_OPTION_SELECTOR = "[data-tag-option]";
+
+const debounce = (fn, delay = 300) => {
+  let timerId = null;
+  return (...args) => {
+    if (timerId) {
+      clearTimeout(timerId);
+    }
+    timerId = setTimeout(() => {
+      timerId = null;
+      fn(...args);
+    }, delay);
+  };
+};
 
 const state = {
   prompts: [],
   clients: [],
+  selectedTags: [],
+  promptSearchQuery: "",
+  clientSearchQuery: "",
+  recentTags: [],
+  tagDropdownOpen: false,
+  tagSearchQuery: "",
   editingPromptId: null,
   sourcePromptId: null,
   editingClientId: null,
@@ -76,6 +99,12 @@ const state = {
   generalMaxManualSnapshots: DEFAULT_MAX_MANUAL_SNAPSHOTS,
   activeTabId: "tabPrompts",
   windowBehavior: { ...DEFAULT_WINDOW_BEHAVIOR },
+  importClientsModal: {
+    content: "",
+    duplicates: [],
+    selectedIds: new Set(),
+    hasNewClients: false,
+  },
 };
 
 const elements = {
@@ -87,6 +116,7 @@ const elements = {
   modalClient: null,
   modalPromptTitle: null,
   modalClientTitle: null,
+  modalImportClients: null,
   formPrompt: null,
   formClient: null,
   inputPromptName: null,
@@ -100,7 +130,13 @@ const elements = {
   btnExportPrompts: null,
   btnImportPrompts: null,
   inputImportPrompts: null,
+  btnExportClients: null,
+  btnImportClients: null,
+  inputImportClients: null,
+  btnImportClientsSelectAll: null,
+  btnConfirmImportClients: null,
   btnNewClient: null,
+  importClientsList: null,
   tagSuggestions: null,
   settingsDropdown: null,
   settingsDropdownToggle: null,
@@ -108,7 +144,18 @@ const elements = {
   settingsDropdownPanel: null,
   settingsDropdownList: null,
   promptActions: null,
+  promptSearchInput: null,
+  tagFilter: null,
+  tagDropdownToggle: null,
+  tagDropdownBadge: null,
+  tagDropdownPanel: null,
+  tagDropdownSearch: null,
+  tagDropdownRecent: null,
+  tagDropdownList: null,
+  tagDropdownCount: null,
+  tagDropdownClear: null,
   clientActions: null,
+  clientSearchInput: null,
   snapshotActions: null,
   formGeneralSettings: null,
   inputMaxAutoSnapshots: null,
@@ -225,6 +272,7 @@ const cacheElements = () => {
   elements.modalClient = document.getElementById("modalClient");
   elements.modalPromptTitle = document.getElementById("modalPromptTitle");
   elements.modalClientTitle = document.getElementById("modalClientTitle");
+  elements.modalImportClients = document.getElementById("modalImportClients");
   elements.formPrompt = document.getElementById("formPrompt");
   elements.formClient = document.getElementById("formClient");
   elements.inputPromptName = document.getElementById("inputPromptName");
@@ -238,7 +286,13 @@ const cacheElements = () => {
   elements.btnExportPrompts = document.getElementById("btnExportPrompts");
   elements.btnImportPrompts = document.getElementById("btnImportPrompts");
   elements.inputImportPrompts = document.getElementById("inputImportPrompts");
+  elements.btnExportClients = document.getElementById("btnExportClients");
+  elements.btnImportClients = document.getElementById("btnImportClients");
+  elements.inputImportClients = document.getElementById("inputImportClients");
+  elements.btnImportClientsSelectAll = document.getElementById("btnImportClientsSelectAll");
+  elements.btnConfirmImportClients = document.getElementById("btnConfirmImportClients");
   elements.btnNewClient = document.getElementById("btnNewClient");
+  elements.importClientsList = document.getElementById("importClientsList");
   elements.tagSuggestions = document.getElementById("tagSuggestions");
   elements.settingsDropdown = document.getElementById("settingsDropdown");
   elements.settingsDropdownToggle = document.getElementById("settingsDropdownToggle");
@@ -246,7 +300,24 @@ const cacheElements = () => {
   elements.settingsDropdownPanel = document.getElementById("settingsDropdownPanel");
   elements.settingsDropdownList = document.getElementById("settingsDropdownList");
   elements.promptActions = document.getElementById("promptActions");
+  elements.promptSearchInput = document.getElementById("inputPromptSearch");
+  if (elements.promptSearchInput) {
+    elements.promptSearchInput.value = state.promptSearchQuery;
+  }
+  elements.tagFilter = document.getElementById("tagFilterSettings");
+  elements.tagDropdownToggle = document.getElementById("tagDropdownToggleSettings");
+  elements.tagDropdownBadge = document.getElementById("tagDropdownBadgeSettings");
+  elements.tagDropdownPanel = document.getElementById("tagDropdownPanelSettings");
+  elements.tagDropdownSearch = document.getElementById("tagDropdownSearchSettings");
+  elements.tagDropdownRecent = document.getElementById("tagDropdownRecentSettings");
+  elements.tagDropdownList = document.getElementById("tagDropdownListSettings");
+  elements.tagDropdownCount = document.getElementById("tagDropdownCountSettings");
+  elements.tagDropdownClear = document.getElementById("tagDropdownClearSettings");
   elements.clientActions = document.getElementById("clientActions");
+  elements.clientSearchInput = document.getElementById("inputClientSearch");
+  if (elements.clientSearchInput) {
+    elements.clientSearchInput.value = state.clientSearchQuery;
+  }
   elements.snapshotActions = document.getElementById("snapshotActions");
   elements.formGeneralSettings = document.getElementById("formGeneralSettings");
   elements.inputMaxAutoSnapshots = document.getElementById("inputMaxAutoSnapshots");
@@ -274,6 +345,48 @@ const cacheElements = () => {
   );
 };
 
+const sanitizePromptSearchValue = (value) => (typeof value === "string" ? value : "");
+
+const applyPromptSearchQuery = (value) => {
+  const sanitized = sanitizePromptSearchValue(value);
+  if (elements.promptSearchInput && elements.promptSearchInput.value !== sanitized) {
+    elements.promptSearchInput.value = sanitized;
+  }
+  if (state.promptSearchQuery === sanitized) {
+    return;
+  }
+  state.promptSearchQuery = sanitized;
+  renderPromptTable();
+};
+
+const debouncedPromptSearchChange = debounce(applyPromptSearchQuery, PROMPT_SEARCH_DEBOUNCE);
+
+const handlePromptSearchInput = (event) => {
+  const value = event?.target?.value ?? "";
+  debouncedPromptSearchChange(value);
+};
+
+const sanitizeClientSearchValue = (value) => (typeof value === "string" ? value : "");
+
+const applyClientSearchQuery = (value) => {
+  const sanitized = sanitizeClientSearchValue(value);
+  if (elements.clientSearchInput && elements.clientSearchInput.value !== sanitized) {
+    elements.clientSearchInput.value = sanitized;
+  }
+  if (state.clientSearchQuery === sanitized) {
+    return;
+  }
+  state.clientSearchQuery = sanitized;
+  renderClientTable();
+};
+
+const debouncedClientSearchChange = debounce(applyClientSearchQuery, PROMPT_SEARCH_DEBOUNCE);
+
+const handleClientSearchInput = (event) => {
+  const value = event?.target?.value ?? "";
+  debouncedClientSearchChange(value);
+};
+
 const bindEvents = () => {
   elements.btnNewPrompt?.addEventListener("click", () => showPromptModal());
   elements.btnExportPrompts?.addEventListener("click", handleExportPrompts);
@@ -281,10 +394,31 @@ const bindEvents = () => {
     elements.inputImportPrompts?.click()
   );
   elements.inputImportPrompts?.addEventListener("change", handleImportFileChange);
+  elements.promptSearchInput?.addEventListener("input", handlePromptSearchInput);
+  elements.clientSearchInput?.addEventListener("input", handleClientSearchInput);
+  elements.btnExportClients?.addEventListener("click", handleExportClients);
+  elements.btnImportClients?.addEventListener("click", () =>
+    elements.inputImportClients?.click()
+  );
+  elements.inputImportClients?.addEventListener("change", handleImportClientsFileChange);
+  elements.btnImportClientsSelectAll?.addEventListener("click", handleSelectAllImportClients);
+  elements.btnConfirmImportClients?.addEventListener("click", handleConfirmImportClients);
   elements.btnNewClient?.addEventListener("click", () => showClientModal());
   elements.formPrompt?.addEventListener("submit", handlePromptSubmit);
   elements.formClient?.addEventListener("submit", handleClientSubmit);
-  elements.formGeneralSettings?.addEventListener("submit", saveGeneralSettings);
+  elements.formGeneralSettings?.addEventListener("submit", (e) => {
+    e.preventDefault(); // 阻止表单提交，因为所有设置都是立即生效的
+  });
+
+  // 快照设置立即生效
+  elements.inputMaxAutoSnapshots?.addEventListener("change", saveSnapshotSettings);
+  elements.inputMaxManualSnapshots?.addEventListener("change", saveSnapshotSettings);
+
+  // 关闭行为立即生效
+  elements.closeBehaviorRadios.forEach((radio) => {
+    radio.addEventListener("change", saveWindowBehavior);
+  });
+
   elements.settingsDropdownToggle?.addEventListener("click", toggleSettingsDropdown);
   elements.settingsDropdownList?.addEventListener("click", (event) => {
     const option =
@@ -298,6 +432,7 @@ const bindEvents = () => {
   });
   bindGeneralClientDropdownEvents();
   bindSnapshotClientDropdownEvents();
+  bindTagDropdownEvents();
   elements.btnRefreshSnapshots?.addEventListener("click", () => {
     if (!state.snapshotClientId) {
       showToast(t("toast.noClientsAvailable", "No clients available"), "warning");
@@ -320,15 +455,19 @@ const bindEvents = () => {
         closePromptModal();
       } else if (modal === elements.modalClient) {
         closeClientModal();
+      } else if (modal === elements.modalImportClients) {
+        closeImportClientsModal();
       }
     });
   });
   registerModalDismiss(elements.modalPrompt, closePromptModal);
   registerModalDismiss(elements.modalClient, closeClientModal);
+  registerModalDismiss(elements.modalImportClients, closeImportClientsModal);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closePromptModal();
       closeClientModal();
+      closeImportClientsModal();
       closeGeneralClientDropdown();
       closeSnapshotClientDropdown();
       closeSettingsDropdown();
@@ -670,6 +809,344 @@ const activateFocusedSnapshotClientOption = () => {
   }
 };
 
+const bindTagDropdownEvents = () => {
+  if (!elements.tagFilter) return;
+  elements.tagDropdownToggle?.addEventListener("click", () => toggleTagDropdown());
+  elements.tagDropdownSearch?.addEventListener("input", handleTagSearchInput);
+  elements.tagDropdownSearch?.addEventListener("keydown", handleTagSearchKeyNavigation);
+  elements.tagDropdownPanel?.addEventListener("click", handleTagOptionClick);
+  elements.tagDropdownPanel?.addEventListener("keydown", handleTagPanelKeydown);
+  elements.tagDropdownClear?.addEventListener("click", handleClearSelectedTags);
+  document.addEventListener("click", handleDocumentClickForDropdown);
+  document.addEventListener("keydown", handleDocumentKeydownForDropdown);
+};
+
+const toggleTagDropdown = (forceState) => {
+  const toggle = elements.tagDropdownToggle;
+  const panel = elements.tagDropdownPanel;
+  if (!toggle || !panel || toggle.disabled) {
+    return;
+  }
+  const shouldOpen = typeof forceState === "boolean" ? forceState : !state.tagDropdownOpen;
+  if (shouldOpen === state.tagDropdownOpen) {
+    return;
+  }
+  state.tagDropdownOpen = shouldOpen;
+  updateTagDropdownVisibility();
+};
+
+const closeTagDropdown = () => {
+  if (!state.tagDropdownOpen) return;
+  state.tagDropdownOpen = false;
+  updateTagDropdownVisibility();
+};
+
+const updateTagDropdownVisibility = () => {
+  const panel = elements.tagDropdownPanel;
+  const toggle = elements.tagDropdownToggle;
+  if (!panel || !toggle) return;
+  const isOpen = Boolean(state.tagDropdownOpen) && !toggle.disabled;
+  panel.classList.toggle("is-open", isOpen);
+  panel.setAttribute("aria-hidden", String(!isOpen));
+  toggle.setAttribute("aria-expanded", String(isOpen));
+  if (isOpen) {
+    window.requestAnimationFrame(() => {
+      if (elements.tagDropdownSearch && !elements.tagDropdownSearch.disabled) {
+        elements.tagDropdownSearch.focus({ preventScroll: true });
+      }
+    });
+    return;
+  }
+  const activeElement = document.activeElement;
+  if (panel.contains(activeElement) && typeof toggle.focus === "function") {
+    toggle.focus();
+  }
+};
+
+const handleDocumentClickForDropdown = (event) => {
+  if (!state.tagDropdownOpen || !elements.tagFilter) return;
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  if (elements.tagFilter.contains(target)) {
+    return;
+  }
+  if (typeof event.composedPath === "function") {
+    const path = event.composedPath();
+    if (Array.isArray(path) && path.includes(elements.tagFilter)) {
+      return;
+    }
+  }
+  closeTagDropdown();
+};
+
+const handleDocumentKeydownForDropdown = (event) => {
+  if (event.key === "Escape" && state.tagDropdownOpen) {
+    event.preventDefault();
+    closeTagDropdown();
+  }
+};
+
+const handleTagSearchInput = (event) => {
+  state.tagSearchQuery = event?.target?.value ?? "";
+  renderTagFilter();
+};
+
+const handleTagSearchKeyNavigation = (event) => {
+  if (!state.tagDropdownOpen) return;
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    focusAdjacentTagOption(1);
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    focusAdjacentTagOption(-1);
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    closeTagDropdown();
+  }
+};
+
+const handleTagOptionClick = (event) => {
+  const origin = event.target;
+  if (!(origin instanceof Element)) return;
+  const option = origin.closest(TAG_OPTION_SELECTOR);
+  if (!option) return;
+  if (option.getAttribute("aria-disabled") === "true" || option.disabled) {
+    return;
+  }
+  const tag = option.dataset.tagOption;
+  if (tag) {
+    toggleTagFilter(tag);
+  }
+};
+
+const handleClearSelectedTags = (event) => {
+  event?.preventDefault();
+  event?.stopPropagation();
+  clearSelectedTags();
+};
+
+const clearSelectedTags = () => {
+  if (!state.selectedTags.length) return;
+  state.selectedTags = [];
+  renderTagFilter();
+  renderPromptTable();
+};
+
+const handleTagPanelKeydown = (event) => {
+  if (!state.tagDropdownOpen) return;
+  if (elements.tagDropdownSearch?.contains(event.target)) {
+    return;
+  }
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    focusAdjacentTagOption(1);
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    focusAdjacentTagOption(-1);
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    closeTagDropdown();
+  }
+};
+
+const getFocusableTagOptions = () => {
+  if (!elements.tagDropdownPanel) return [];
+  return Array.from(
+    elements.tagDropdownPanel.querySelectorAll(".tag-dropdown__option:not([disabled])")
+  );
+};
+
+const focusAdjacentTagOption = (direction = 1) => {
+  const options = getFocusableTagOptions();
+  if (!options.length) return;
+  const activeElement = document.activeElement;
+  let currentIndex = options.indexOf(activeElement);
+  if (currentIndex === -1) {
+    currentIndex = direction > 0 ? -1 : options.length;
+  }
+  const nextIndex = (currentIndex + direction + options.length) % options.length;
+  const nextOption = options[nextIndex];
+  if (nextOption) {
+    nextOption.focus();
+  }
+};
+
+const toggleTagFilter = (tag) => {
+  if (!tag) return;
+  const index = state.selectedTags.indexOf(tag);
+  const wasSelected = index >= 0;
+  if (wasSelected) {
+    state.selectedTags.splice(index, 1);
+  } else {
+    state.selectedTags.push(tag);
+    updateRecentTags(tag);
+  }
+  renderTagFilter();
+  renderPromptTable();
+};
+
+const updateRecentTags = (tag) => {
+  if (typeof tag !== "string" || !tag.trim()) return;
+  const normalized = tag.trim();
+  const nextRecent = [normalized, ...state.recentTags.filter((item) => item !== normalized)];
+  state.recentTags = nextRecent.slice(0, MAX_RECENT_TAGS);
+  persistRecentTags();
+};
+
+const renderTagFilter = () => {
+  const toggle = elements.tagDropdownToggle;
+  const panel = elements.tagDropdownPanel;
+  if (!toggle || !panel) return;
+
+  const tags = getAllPromptTags();
+  const hasTags = tags.length > 0;
+  const selectedTagSet = new Set(state.selectedTags);
+  let hasSearchQuery = Boolean(state.tagSearchQuery?.trim());
+  const noTagsAvailable = t("tags.noAvailable", "No tags available");
+  const searchPlaceholder = t("tags.searchPlaceholder", "Search tags...");
+  const noTagsLabel = t("tags.noTags", "No tags");
+  const noMatchLabel = t("tags.noMatch", "No matching tags");
+  const noRecentLabel = t("tags.noRecent", "No recent tags");
+  const noRecentMatchLabel = t("tags.noRecentMatch", "No matching tags in recent");
+
+  toggle.disabled = !hasTags;
+  toggle.setAttribute("aria-disabled", String(!hasTags));
+  toggle.classList.toggle("is-disabled", !hasTags);
+  if (!hasTags) {
+    toggle.title = noTagsAvailable;
+    state.tagSearchQuery = "";
+    closeTagDropdown();
+    hasSearchQuery = false;
+  } else {
+    toggle.removeAttribute("title");
+  }
+
+  if (elements.tagDropdownSearch) {
+    elements.tagDropdownSearch.disabled = !hasTags;
+    if (elements.tagDropdownSearch.value !== state.tagSearchQuery) {
+      elements.tagDropdownSearch.value = state.tagSearchQuery;
+    }
+    elements.tagDropdownSearch.placeholder = hasTags ? searchPlaceholder : noTagsAvailable;
+  }
+
+  if (elements.tagDropdownBadge) {
+    const count = state.selectedTags.length;
+    elements.tagDropdownBadge.textContent = String(count);
+    elements.tagDropdownBadge.classList.toggle("hidden", count === 0);
+  }
+
+  if (elements.tagDropdownClear) {
+    const hasSelection = state.selectedTags.length > 0;
+    elements.tagDropdownClear.classList.toggle("hidden", !hasSelection);
+    elements.tagDropdownClear.disabled = !hasSelection;
+    elements.tagDropdownClear.setAttribute("aria-disabled", String(!hasSelection));
+  }
+
+  const filteredTags = hasTags ? filterTagsByQuery(tags, state.tagSearchQuery) : [];
+  const recentTags = hasTags ? state.recentTags.filter((tag) => tags.includes(tag)) : [];
+  if (hasTags && recentTags.length !== state.recentTags.length) {
+    state.recentTags = recentTags;
+    persistRecentTags();
+  }
+  const filteredRecent = filterTagsByQuery(recentTags, state.tagSearchQuery);
+
+  renderTagList(elements.tagDropdownList, filteredTags, {
+    selectedTagSet,
+    emptyLabel: hasTags ? (hasSearchQuery ? noMatchLabel : noTagsLabel) : noTagsLabel,
+  });
+  renderTagList(elements.tagDropdownRecent, filteredRecent, {
+    selectedTagSet,
+    emptyLabel: hasSearchQuery ? noRecentMatchLabel : noRecentLabel,
+  });
+
+  if (elements.tagDropdownCount) {
+    if (!hasTags) {
+      elements.tagDropdownCount.textContent = "";
+    } else if (hasSearchQuery) {
+      const template = t("tags.countMatched", "{matched} / {total} matched");
+      elements.tagDropdownCount.textContent = template
+        .replace("{matched}", String(filteredTags.length))
+        .replace("{total}", String(tags.length));
+    } else {
+      const template = t("tags.countTotal", "{total} tags total");
+      elements.tagDropdownCount.textContent = template.replace(
+        "{total}",
+        String(tags.length)
+      );
+    }
+  }
+
+  updateTagDropdownVisibility();
+};
+
+const renderTagList = (container, tags, { selectedTagSet, emptyLabel }) => {
+  if (!container) return;
+  container.innerHTML = "";
+  if (!tags.length) {
+    if (emptyLabel) {
+      const empty = document.createElement("p");
+      empty.className = "tag-dropdown__empty";
+      empty.textContent = emptyLabel;
+      container.appendChild(empty);
+    }
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  tags.forEach((tag) => {
+    fragment.appendChild(createTagDropdownOption(tag, selectedTagSet.has(tag)));
+  });
+  container.appendChild(fragment);
+};
+
+const createTagDropdownOption = (tag, isActive) => {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "tag-dropdown__option";
+  button.dataset.tagOption = tag;
+  button.setAttribute("role", "option");
+  button.setAttribute("aria-selected", String(Boolean(isActive)));
+  if (isActive) {
+    button.classList.add("is-active");
+  }
+
+  const label = document.createElement("span");
+  label.className = "tag-dropdown__option-label";
+  label.textContent = tag;
+  button.appendChild(label);
+  return button;
+};
+
+const filterTagsByQuery = (tags, query) => {
+  if (!Array.isArray(tags) || !tags.length) return [];
+  const normalized = query?.trim()?.toLowerCase();
+  if (!normalized) return [...tags];
+  return tags.filter((tag) => tag.toLowerCase().includes(normalized));
+};
+
+const hydrateRecentTags = () => {
+  try {
+    const stored = localStorage.getItem(RECENT_TAGS_KEY);
+    if (!stored) {
+      state.recentTags = [];
+      return;
+    }
+    const parsed = JSON.parse(stored);
+    state.recentTags = Array.isArray(parsed)
+      ? parsed.filter((tag) => typeof tag === "string" && tag.trim())
+      : [];
+  } catch {
+    state.recentTags = [];
+  }
+};
+
+const persistRecentTags = () => {
+  try {
+    localStorage.setItem(RECENT_TAGS_KEY, JSON.stringify(state.recentTags));
+  } catch {
+    // ignore write errors
+  }
+};
+
 const updateLanguageRadios = (selected = getCurrentLanguage()) => {
   if (Array.isArray(elements.languageRadios)) {
     elements.languageRadios.forEach((radio) => {
@@ -708,6 +1185,11 @@ const handleLanguageSelectionChange = async (event) => {
       "error"
     );
     updateLanguageRadios();
+  } finally {
+    const languageDropdown = document.getElementById("languageDropdown");
+    if (languageDropdown) {
+      languageDropdown.open = false;
+    }
   }
 };
 
@@ -913,6 +1395,8 @@ const initSettings = async () => {
   }
 
   cacheElements();
+  hydrateRecentTags();
+  renderTagFilter();
   await loadWindowBehaviorSettings();
   await setupWindowCloseHandler();
   bindEvents();
@@ -923,6 +1407,7 @@ const initSettings = async () => {
   onLanguageChange(() => {
     applyTranslations(document);
     updateLanguageRadios();
+    renderTagFilter();
     renderPromptTable();
     renderClientTable();
     renderGeneralClientDropdown(state.clients.length > 0);
@@ -930,6 +1415,7 @@ const initSettings = async () => {
     const cachedSnapshots = state.snapshotCache[state.snapshotClientId]?.snapshots ?? [];
     renderSnapshotTable(cachedSnapshots);
     updateSettingsDropdownLabel(state.activeTabId);
+    renderImportClientsList();
     initButtonTooltips();
   });
 
@@ -950,6 +1436,7 @@ const loadPrompts = async () => {
     const prompts = await PromptAPI.getAll();
     state.prompts = Array.isArray(prompts) ? prompts : [];
     renderPromptTable();
+     renderTagFilter();
     updateTagSuggestions();
   } catch (error) {
     throw new Error(getErrorMessage(error) || t("errors.loadPromptsFailed", "Failed to load prompts"));
@@ -1013,7 +1500,17 @@ const renderPromptTable = () => {
     return;
   }
 
-  const sorted = [...state.prompts].sort(
+  const filteredPrompts = getFilteredPrompts();
+  if (!filteredPrompts.length) {
+    appendEmptyRow(
+      tbody,
+      4,
+      t("settings.promptFilterEmpty", "No prompts match current filters")
+    );
+    return;
+  }
+
+  const sorted = [...filteredPrompts].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
   sorted.forEach((prompt) => {
@@ -1108,13 +1605,68 @@ const renderPromptTable = () => {
   });
 };
 
+const getFilteredPrompts = () => {
+  const searchQuery = state.promptSearchQuery?.trim().toLowerCase() ?? "";
+  const hasSearch = searchQuery.length > 0;
+  const hasTags = state.selectedTags.length > 0;
+
+  if (!hasSearch && !hasTags) {
+    return [...state.prompts];
+  }
+
+  return state.prompts.filter((prompt) => {
+    const promptName = typeof prompt?.name === "string" ? prompt.name.toLowerCase() : "";
+    const promptContent =
+      typeof prompt?.content === "string" ? prompt.content.toLowerCase() : "";
+    const promptTags = Array.isArray(prompt?.tags) ? prompt.tags : [];
+    const matchesSearch =
+      !hasSearch || promptName.includes(searchQuery) || promptContent.includes(searchQuery);
+    const matchesTags =
+      !hasTags ||
+      (promptTags.length > 0 && state.selectedTags.every((tag) => promptTags.includes(tag)));
+    // AND 逻辑：同时满足搜索和标签条件
+    return matchesSearch && matchesTags;
+  });
+};
+
+const getFilteredClients = () => {
+  const searchQuery = state.clientSearchQuery?.trim().toLowerCase() ?? "";
+  const hasSearch = searchQuery.length > 0;
+
+  if (!hasSearch) {
+    return [...state.clients];
+  }
+
+  return state.clients.filter((client) => {
+    const clientId = typeof client?.id === "string" ? client.id.toLowerCase() : "";
+    const clientName = typeof client?.name === "string" ? client.name.toLowerCase() : "";
+
+    // 处理配置路径：支持单个路径(config_path)和多个路径(config_file_paths)
+    let configPaths = [];
+    if (Array.isArray(client?.config_file_paths)) {
+      configPaths = client.config_file_paths;
+    } else if (typeof client?.config_path === "string") {
+      configPaths = [client.config_path];
+    }
+    const allPaths = configPaths.map(p => (typeof p === "string" ? p.toLowerCase() : "")).join(" ");
+
+    // 模糊匹配：搜索词在ID、名称或任一配置路径中出现即可
+    return clientId.includes(searchQuery) ||
+           clientName.includes(searchQuery) ||
+           allPaths.includes(searchQuery);
+  });
+};
+
 const renderClientTable = () => {
   const tbody = elements.clientTable;
   if (!tbody) return;
 
+  // 获取过滤后的客户端列表
+  const filteredClients = getFilteredClients();
+
   // 隐藏或显示空状态
   if (elements.emptyStateClient) {
-    if (state.clients.length === 0) {
+    if (filteredClients.length === 0) {
       elements.emptyStateClient.classList.remove("hidden");
     } else {
       elements.emptyStateClient.classList.add("hidden");
@@ -1127,11 +1679,11 @@ const renderClientTable = () => {
   );
   rows.forEach((row) => row.remove());
 
-  if (!state.clients.length) {
+  if (!filteredClients.length) {
     return;
   }
 
-  const sorted = [...state.clients].sort((a, b) => {
+  const sorted = [...filteredClients].sort((a, b) => {
     if (a.is_builtin === b.is_builtin) {
       return a.name.localeCompare(b.name, "zh-CN");
     }
@@ -1694,6 +2246,243 @@ const validateImportPayload = (jsonText) => {
   }
 };
 
+const handleExportClients = async () => {
+  try {
+    const data = await withLoading(async () => ClientAPI.exportClients());
+    const blob = new Blob([data], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `clients_backup_${formatExportTimestamp()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(t("toast.clientsExported", "Clients exported"), "success");
+  } catch (error) {
+    showToast(
+      getErrorMessage(error) || t("toast.exportClientsFailed", "Failed to export clients"),
+      "error"
+    );
+  }
+};
+
+const importClientsFromContent = async (content, overwriteIds) => {
+  const importResult = await withLoading(async () => {
+    const result = await ClientAPI.importClients(content, overwriteIds);
+    await loadClients();
+    await loadSnapshotClients();
+    await SnapshotAPI.refreshTrayMenu();
+    return result;
+  });
+  const { total = 0, added = 0, updated = 0 } = importResult || {};
+  showToast(formatImportResultMessage(total, added, updated), "success");
+};
+
+const openImportClientsModal = (content, duplicates, hasNewClients) => {
+  if (!elements.modalImportClients) return;
+  state.importClientsModal.content = content;
+  state.importClientsModal.duplicates = duplicates;
+  state.importClientsModal.hasNewClients = hasNewClients;
+  state.importClientsModal.selectedIds = new Set(duplicates.map((client) => client.id));
+  renderImportClientsList();
+  toggleModal(elements.modalImportClients, true);
+};
+
+const resetImportClientsModalState = () => {
+  state.importClientsModal.content = "";
+  state.importClientsModal.duplicates = [];
+  state.importClientsModal.selectedIds = new Set();
+  state.importClientsModal.hasNewClients = false;
+  if (elements.importClientsList) {
+    elements.importClientsList.innerHTML = "";
+  }
+  if (elements.btnImportClientsSelectAll) {
+    elements.btnImportClientsSelectAll.disabled = false;
+  }
+};
+
+const closeImportClientsModal = () => {
+  if (!elements.modalImportClients) {
+    resetImportClientsModalState();
+    return;
+  }
+  toggleModal(elements.modalImportClients, false);
+  resetImportClientsModalState();
+};
+
+const renderImportClientsList = () => {
+  const container = elements.importClientsList;
+  if (!container) return;
+  container.innerHTML = "";
+  const duplicates = state.importClientsModal.duplicates;
+  if (elements.btnImportClientsSelectAll) {
+    elements.btnImportClientsSelectAll.disabled = duplicates.length === 0;
+  }
+  if (!duplicates.length) {
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  duplicates.forEach((client) => {
+    const row = document.createElement("label");
+    row.className =
+      "flex items-center gap-2 p-2 rounded-md text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "w-4 h-4 flex-shrink-0";
+    const clientId = typeof client?.id === "string" ? client.id : "";
+    checkbox.dataset.clientId = clientId;
+    checkbox.checked = state.importClientsModal.selectedIds.has(clientId);
+    checkbox.addEventListener("change", handleImportClientSelectionChange);
+    const label = document.createElement("span");
+    label.className = "text-sm font-medium truncate";
+    const builtinText = client.isBuiltin ? ` (${t("settings.builtinClient", "Built-in")})` : "";
+    const labelText = `${clientId}${builtinText}`;
+    label.textContent = labelText;
+    label.title = labelText;
+    row.appendChild(checkbox);
+    row.appendChild(label);
+    fragment.appendChild(row);
+  });
+  container.appendChild(fragment);
+};
+
+const updateImportClientsCheckboxes = () => {
+  if (!elements.importClientsList) return;
+  const checkboxes = elements.importClientsList.querySelectorAll(
+    'input[type="checkbox"][data-client-id]'
+  );
+  checkboxes.forEach((checkbox) => {
+    const clientId = checkbox.dataset.clientId;
+    if (!clientId) return;
+    checkbox.checked = state.importClientsModal.selectedIds.has(clientId);
+  });
+};
+
+const handleImportClientSelectionChange = (event) => {
+  const checkbox = event.target instanceof HTMLInputElement ? event.target : null;
+  if (!checkbox) return;
+  const clientId = checkbox.dataset.clientId;
+  if (!clientId) return;
+  if (checkbox.checked) {
+    state.importClientsModal.selectedIds.add(clientId);
+  } else {
+    state.importClientsModal.selectedIds.delete(clientId);
+  }
+};
+
+const handleSelectAllImportClients = () => {
+  if (!state.importClientsModal.duplicates.length) return;
+  state.importClientsModal.selectedIds = new Set(
+    state.importClientsModal.duplicates.map((client) => client.id)
+  );
+  updateImportClientsCheckboxes();
+};
+
+const handleConfirmImportClients = async () => {
+  const content = state.importClientsModal.content;
+  if (!content) {
+    closeImportClientsModal();
+    return;
+  }
+  const overwriteIds = Array.from(state.importClientsModal.selectedIds);
+  if (!overwriteIds.length && !state.importClientsModal.hasNewClients) {
+    showToast(t("toast.noClientsSelected", "No clients selected"), "warning");
+    return;
+  }
+  try {
+    await importClientsFromContent(content, overwriteIds);
+    closeImportClientsModal();
+  } catch (error) {
+    showToast(
+      getErrorMessage(error) || t("toast.importClientsFailed", "Failed to import clients"),
+      "error"
+    );
+  }
+};
+
+const handleImportClientsFileChange = async (event) => {
+  const input = event.target instanceof HTMLInputElement ? event.target : null;
+  const file = input?.files?.[0];
+  if (!file) return;
+  try {
+    const content = await file.text();
+    const importPayload = validateClientsImportPayload(content);
+    const importedClients = importPayload.filter(
+      (client) => client && typeof client.id === "string"
+    );
+    if (!importedClients.length) {
+      await importClientsFromContent(content);
+      return;
+    }
+    const existingClientMap = state.clients.reduce((map, client) => {
+      const clientId = typeof client?.id === "string" ? client.id.trim() : "";
+      if (clientId) {
+        map.set(clientId, client);
+      }
+      return map;
+    }, new Map());
+    const duplicatesMap = new Map();
+    let hasNewClients = false;
+    importedClients.forEach((client) => {
+      const normalizedId =
+        typeof client.id === "string" ? client.id.trim() : "";
+      if (!normalizedId) {
+        return;
+      }
+      if (existingClientMap.has(normalizedId)) {
+        if (!duplicatesMap.has(normalizedId)) {
+          const existing = existingClientMap.get(normalizedId);
+          const resolvedName =
+            typeof client.name === "string" && client.name.trim().length
+              ? client.name.trim()
+              : existing?.name || normalizedId;
+          duplicatesMap.set(normalizedId, {
+            id: normalizedId,
+            name: resolvedName,
+            isBuiltin: Boolean(existing?.is_builtin),
+          });
+        }
+      } else {
+        hasNewClients = true;
+      }
+    });
+    const duplicates = Array.from(duplicatesMap.values());
+    if (duplicates.length) {
+      openImportClientsModal(content, duplicates, hasNewClients);
+      return;
+    }
+    await importClientsFromContent(content);
+  } catch (error) {
+    showToast(
+      getErrorMessage(error) || t("toast.importClientsFailed", "Failed to import clients"),
+      "error"
+    );
+  } finally {
+    if (input) {
+      input.value = "";
+    }
+  }
+};
+
+const validateClientsImportPayload = (jsonText) => {
+  if (!jsonText.trim()) {
+    throw new Error(t("errors.clientsImportFileEmpty", "Client import file is empty"));
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch (error) {
+    throw new Error(t("errors.clientsImportInvalidJson", "Invalid JSON format"));
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error(
+      t("errors.clientsImportInvalidStructure", "JSON content must be an array of clients")
+    );
+  }
+  return parsed;
+};
+
 const deleteClient = async (clientId) => {
   if (!clientId) return;
   // 检查是否只有一个客户端
@@ -2127,6 +2916,89 @@ const saveGeneralSettings = async (event) => {
   } catch (error) {
     showToast(
       getErrorMessage(error) || t("toast.saveSettingsFailed", "Failed to save settings"),
+      "error"
+    );
+  }
+};
+
+// 快照设置立即保存
+const saveSnapshotSettings = async () => {
+  if (!state.generalSettingsClientId) {
+    return;
+  }
+
+  const fallbackAuto = state.generalMaxAutoSnapshots ?? DEFAULT_MAX_AUTO_SNAPSHOTS;
+  const fallbackManual = state.generalMaxManualSnapshots ?? DEFAULT_MAX_MANUAL_SNAPSHOTS;
+
+  let maxAuto = Number.parseInt(elements.inputMaxAutoSnapshots?.value ?? "", 10);
+  if (Number.isNaN(maxAuto)) {
+    maxAuto = fallbackAuto;
+  }
+  let maxManual = Number.parseInt(elements.inputMaxManualSnapshots?.value ?? "", 10);
+  if (Number.isNaN(maxManual)) {
+    maxManual = fallbackManual;
+  }
+
+  maxAuto = clampNumber(maxAuto, 1, 20);
+  maxManual = clampNumber(maxManual, 1, 50);
+  updateGeneralSettingsInput({ auto: maxAuto, manual: maxManual });
+
+  try {
+    await Promise.all([
+      SnapshotAPI.setMaxAutoSnapshots(state.generalSettingsClientId, maxAuto),
+      SnapshotAPI.setMaxManualSnapshots(state.generalSettingsClientId, maxManual),
+    ]);
+    await SnapshotAPI.refreshTrayMenu();
+
+    state.generalMaxAutoSnapshots = maxAuto;
+    state.generalMaxManualSnapshots = maxManual;
+    const cache = state.snapshotCache[state.generalSettingsClientId];
+    if (cache) {
+      cache.maxAutoSnapshots = maxAuto;
+      cache.maxManualSnapshots = maxManual;
+    } else {
+      state.snapshotCache[state.generalSettingsClientId] = {
+        snapshots: [],
+        maxAutoSnapshots: maxAuto,
+        maxManualSnapshots: maxManual,
+      };
+    }
+
+    await loadSnapshotsTable(state.generalSettingsClientId, { silent: true });
+  } catch (error) {
+    showToast(
+      getErrorMessage(error) || t("toast.saveSnapshotSettingsFailed", "Failed to save snapshot settings"),
+      "error"
+    );
+  }
+};
+
+// 窗口行为立即保存
+const saveWindowBehavior = async () => {
+  const pendingWindowBehavior = {
+    closeBehavior:
+      getRadioGroupValue(
+        elements.closeBehaviorRadios,
+        state.windowBehavior.closeBehavior ?? DEFAULT_WINDOW_BEHAVIOR.closeBehavior
+      ) || DEFAULT_WINDOW_BEHAVIOR.closeBehavior,
+  };
+
+  const shouldSyncWindowBehavior = !areWindowBehaviorsEqual(
+    state.windowBehavior,
+    pendingWindowBehavior
+  );
+
+  if (!shouldSyncWindowBehavior) {
+    return;
+  }
+
+  try {
+    await syncWindowBehaviorWithBackend(pendingWindowBehavior);
+    state.windowBehavior = pendingWindowBehavior;
+    persistWindowBehaviorSettings();
+  } catch (error) {
+    showToast(
+      getErrorMessage(error) || t("toast.saveWindowBehaviorFailed", "Failed to save window behavior"),
       "error"
     );
   }

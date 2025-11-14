@@ -164,10 +164,168 @@ a {
   transform: translateY(0);
 }
 
+.client-dropdown--language {
+  display: block;
+}
+
+.client-dropdown--language summary {
+  list-style: none;
+}
+
+.client-dropdown--language summary::-webkit-details-marker {
+  display: none;
+}
+
+.client-dropdown--language[open] .client-dropdown__panel {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
 .client-dropdown__list {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.language-dropdown__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--color-text, #1f2937);
+}
+
+.dark .language-dropdown__label {
+  color: var(--color-text, #f3f4f6);
+}
+
+.language-dropdown__current {
+  display: none;
+}
+
+.language-dropdown__current[data-language-code="en"] {
+  display: inline-flex;
+}
+
+#languageDropdown:has(#languageOptionZh:checked) .language-dropdown__current[data-language-code="en"] {
+  display: none;
+}
+
+#languageDropdown:has(#languageOptionZh:checked) .language-dropdown__current[data-language-code="zh"] {
+  display: inline-flex;
+}
+
+#languageDropdown:has(#languageOptionEn:checked) .language-dropdown__current[data-language-code="en"] {
+  display: inline-flex;
+}
+
+.language-option-indicator {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  border: 2px solid var(--color-border, #e5e7eb);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.language-option-indicator::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-top: 0;
+  border-left: 0;
+  transform: translate(-50%, -55%) rotate(45deg);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.dark .language-option-indicator {
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+.language-card .language-radio:checked + .language-option-indicator {
+  background: var(--color-primary, #3b82f6);
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+.language-card .language-radio:checked + .language-option-indicator::after {
+  opacity: 1;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+}
+
+.toggle-switch__input {
+  position: absolute;
+  opacity: 0;
+}
+
+.toggle-switch__track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--color-border, #d1d5db);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark .toggle-switch__track {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+.toggle-switch__input:focus-visible ~ .toggle-switch__track {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+}
+
+.toggle-switch__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.dark .toggle-switch__thumb {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.toggle-switch__input[value="tray"]:checked ~ .toggle-switch__track {
+  background: var(--color-primary, #3b82f6);
+}
+
+.toggle-switch__input[value="tray"]:checked ~ .toggle-switch__track .toggle-switch__thumb {
+  transform: translateX(16px);
+}
+
+.toggle-switch__hit-area {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  cursor: pointer;
+  display: block;
+  z-index: 2;
+}
+
+.toggle-switch__hit-area:first-of-type {
+  left: 0;
+}
+
+.toggle-switch__hit-area:last-of-type {
+  right: 0;
 }
 
 .client-dropdown__option {
@@ -425,6 +583,45 @@ a {
   visibility: visible;
   transform: translateY(0) scale(1);
   pointer-events: auto;
+}
+
+.prompt-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-md, 10px);
+  border: none;
+  background: transparent;
+  width: 200px;
+  flex-shrink: 1;
+  min-width: 150px;
+}
+
+/* 设置页面的标签筛选器 - 移除默认的 width: 100% */
+#promptActions .tag-filter,
+#promptActions .tag-dropdown {
+  width: auto;
+  justify-content: flex-start;
+  flex-shrink: 0;
+}
+
+.prompt-search__input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.prompt-search__input::placeholder {
+  color: var(--color-muted);
+}
+
+.prompt-search__input:focus {
+  outline: none;
 }
 
 .tag-dropdown__search {
@@ -1710,4 +1907,10 @@ a {
 
 .dark #splitResizer.bg-primary .split-resizer__track {
   box-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
+}
+
+/* 去掉主题切换按钮和右边按钮的边框 */
+#themeToggleContainer .theme-toggle-btn,
+#themeToggleContainer + a {
+  border: none !important;
 }

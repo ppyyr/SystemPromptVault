@@ -15,8 +15,8 @@
       })();
     </script>
     <!-- 防止 i18n 文本闪烁 - 极简方案(与主题系统一致) -->
-    <script src="js/i18n-antifouc.js"></script>
-    <link rel="stylesheet" href="css/i18n-antifouc.css" />
+    <script src="/i18n-antifouc.js"></script>
+    <link rel="stylesheet" href="/i18n-antifouc.css" />
     <link rel="stylesheet" href="css/output.css" />
     <!-- 保留原有样式以确保平滑过渡 -->
     <link rel="stylesheet" href="css/main.css" />
@@ -27,8 +27,22 @@
   </head>
   <body class="bg-gray-100 dark:bg-gray-900 h-screen text-gray-900 dark:text-gray-100">
     <div class="h-full mx-auto p-5 flex flex-col gap-6">
-      <header class="flex items-center justify-between gap-3">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white" data-i18n="clients.header">Clients</h1>
+      <header class="flex items-center justify-between gap-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg px-5 py-4 shadow-sm">
+        <div class="flex items-center gap-3">
+          <img
+            src="src-tauri/icons/32x32.png"
+            alt=""
+            class="w-8 h-8 rounded-md shadow-sm bg-white/80 dark:bg-slate-800/80"
+          />
+          <div class="flex items-baseline gap-3">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white" data-i18n="common.heroTitle">
+              System Prompt Vault
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 opacity-60" data-i18n="common.heroSubtitle">
+              More Than Just System Prompts
+            </p>
+          </div>
+        </div>
         <div class="flex items-center gap-2">
           <div id="themeToggleContainer"></div>
           <a
@@ -195,7 +209,7 @@
                 data-i18n-aria="tags.filter"
                 data-i18n-tooltip="tags.filter"
               >
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
                   <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"></path>
                 </svg>
                 <span class="tag-dropdown__badge hidden" id="tagDropdownBadge" aria-live="polite">0</span>
@@ -212,12 +226,12 @@
                 aria-hidden="true"
                 tabindex="-1"
               >
-                <div class="tag-dropdown__search">
+                <div class="tag-dropdown__search flex items-center gap-2">
                   <label for="tagDropdownSearch" class="sr-only" data-i18n="tags.searchLabel">Search Tags</label>
                   <input
                     type="text"
                     id="tagDropdownSearch"
-                    class="tag-dropdown__search-input"
+                    class="tag-dropdown__search-input flex-1"
                     placeholder="Search tags..."
                     data-i18n-placeholder="tags.searchPlaceholder"
                     autocomplete="off"
@@ -225,6 +239,27 @@
                     aria-label="Search Tags"
                     data-i18n-aria="tags.searchLabel"
                   />
+                  <button
+                    type="button"
+                    id="tagDropdownClear"
+                    class="tag-dropdown__clear hidden flex-shrink-0 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2"
+                    aria-label="Clear all selected tags"
+                    data-i18n-aria="tags.clearAllAria"
+                    aria-disabled="true"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path d="M6 6l12 12M6 18L18 6"></path>
+                    </svg>
+                    <span data-i18n="tags.clearAll">Clear All</span>
+                  </button>
                 </div>
                 <div class="tag-dropdown__section" aria-label="Recently Used Tags" data-i18n-aria="tags.recentlyUsedAria">
                   <div class="tag-dropdown__section-header">

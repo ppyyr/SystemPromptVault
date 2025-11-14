@@ -4,7 +4,6 @@ const call = async (command, params = {}) => {
   try {
     return await invoke(command, params);
   } catch (error) {
-    console.error(`调用命令 ${command} 失败:`, error);
     throw error;
   }
 };
@@ -34,6 +33,14 @@ export const ClientAPI = {
     return call("update_client", params);
   },
   delete: (id) => call("delete_client", { id }),
+  exportClients: () => call("export_clients"),
+  importClients: (jsonData, overwriteIds) => {
+    const params = { jsonData };
+    if (overwriteIds !== undefined) {
+      params.overwriteIds = overwriteIds;
+    }
+    return call("import_clients", params);
+  },
 };
 
 export const ConfigFileAPI = {

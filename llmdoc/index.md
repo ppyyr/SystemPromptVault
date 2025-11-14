@@ -34,7 +34,8 @@
 
 ## 技术指南
 
-- [Vite 构建配置指南](guides/vite-build-configuration.md): Vite构建系统、开发服务器、生产构建、legacy浏览器支持、Tauri集成
+- [Vite 构建配置指南](guides/vite-build-configuration.md): Vite构建系统、开发服务器、生产构建、静态资源复制、legacy浏览器支持、Tauri集成
+- [CI/CD 构建流程](guides/ci-cd-build-workflow.md): GitHub Actions多平台自动化构建、macOS通用二进制、Windows和Linux发布、版本管理、发布流程
 - [Tailwind CSS 集成指南](guides/tailwind-css-integration-guide.md): Tailwind CSS CLI 构建集成、自定义配置、构建流程和最佳实践
 - [Bun 包管理器迁移指南](guides/bun-migration-guide.md): 从 npm 迁移到 Bun 的完整指南，包含新工作流和性能优势
 - [无障碍开发指南](guides/accessibility-development-guide.md): ARIA 属性使用、键盘导航、屏幕阅读器支持
@@ -55,4 +56,4 @@
 **更新日期**: 2025-11-13
 **项目版本**: 0.1.0
 **维护者**: SystemPromptVault 开发团队
-**最近更新**: i18n防闪烁方案重构为CSS属性选择器模式，代码减少50%，实现模块化设计和与主题系统的技术一致性
+**最近更新**: 开发环境配置修复（Vite静态资源复制）、CI/CD构建流程文档、客户端多配置文件支持、i18n防闪烁方案重构

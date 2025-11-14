@@ -38,38 +38,77 @@ graph TB
 
 ### 2.2 标签过滤系统
 
-#### 2.2.1 标签类型
+#### 2.2.1 标签类型与状态管理
 
-系统支持两种类型的标签:
+系统支持两种类型的标签，并采用分离的状态管理策略：
 
-1. **自动标签**: 由客户端配置自动应用,不可手动移除
+**标签类型定义**：
+
+1. **自动标签**: 由客户端配置自动应用，不可手动移除
+   - 来源：`currentClient.auto_tags`
+   - 特性：自动激活、不可禁用、随客户端切换
+
 2. **手动标签**: 用户通过下拉菜单手动选择的标签
+   - 来源：`state.selectedTags`
+   - 特性：用户可控、可清空、支持多选
+
+**状态管理架构**：
 
 ```javascript
+// 核心状态
+const state = {
+  selectedTags: [],       // 手动选择的标签列表（用户可控）
+  recentTags: [],         // 最近使用的标签列表（持久化）
+  tagDropdownOpen: false, // 下拉菜单开关状态
+  tagSearchQuery: "",     // 标签搜索关键词
+};
+
+// 标签计算函数
 const getAutoTags = () => {
   const currentClient = state.clients.find((c) => c.id === state.currentClientId);
   return currentClient?.auto_tags ?? [];
 };
 
-const getAllSelectedTags = () => {
+const getActiveTags = () => {
   const autoTags = getAutoTags();
-  return [...new Set([...autoTags, ...state.selectedTags])];
+  const selectedTags = state.selectedTags;
+  return [...new Set([...autoTags, ...selectedTags])]; // 去重合并
 };
 ```
 
+**清空已选标签功能**：
+
+```javascript
+const clearSelectedTags = () => {
+  if (!state.selectedTags.length) {
+    return;
+  }
+  // 仅清空手动选择的标签，不影响自动标签
+  state.selectedTags = [];
+  renderTagFilter();
+  renderPromptList();
+};
+```
+
+**设计决策**：
+- **选择性清空**：只清除手动标签（`state.selectedTags`），保留自动标签
+- **状态分离**：手动标签和自动标签分别管理，避免混淆
+- **用户体验**：提供一键清空功能，同时支持连续多选操作
+
 #### 2.2.2 过滤算法
 
-提示词过滤采用**包含匹配**策略:提示词的标签必须包含所有选中的标签才会被显示。
+提示词过滤采用**包含匹配**策略：提示词的标签必须包含所有激活的标签（手动+自动）才会被显示。
 
 ```javascript
 const getFilteredPrompts = () => {
-  const allTags = getAllSelectedTags();
-  if (!allTags.length) {
-    return state.prompts;
+  const activeTags = getActiveTags(); // 获取合并后的激活标签
+  if (!activeTags.length) {
+    return state.prompts; // 无标签限制时显示所有提示词
   }
+
   return state.prompts.filter((prompt) => {
     const promptTags = prompt.tags ?? [];
-    return allTags.every((tag) => promptTags.includes(tag));
+    return activeTags.every((tag) => promptTags.includes(tag));
   });
 };
 ```
@@ -458,6 +497,12 @@ sequenceDiagram
 - `dist/js/api.js`: `PromptAPI.getAll()` 接口封装
 
 ## 4. Attention
+
+### 标签状态管理注意事项
+
+1. **状态分离原则**：手动标签（`state.selectedTags`）和自动标签（`getAutoTags()`）分别管理，清空操作只影响手动标签
+2. **连续多选支持**：标签选择器支持连续选择，点击标签选项后面板保持开启，提升多选体验
+3. **选择性与自动性平衡**：用户可以清空手动选择，但自动标签始终生效（随客户端配置）
 
 ### 智能插入注意事项
 

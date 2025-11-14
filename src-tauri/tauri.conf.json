@@ -63,7 +63,9 @@
     "active": true,
     "targets": ["dmg", "app", "nsis", "deb"],
     "icon": [
-      "icons/icon.png"
+      "../build/icons/icon.png",
+      "../build/icons/icon.icns",
+      "../build/icons/icon.ico"
     ]
   }
 }

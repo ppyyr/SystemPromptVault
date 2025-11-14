@@ -320,6 +320,7 @@ const cacheElements = () => {
   elements.tagDropdownRecent = document.getElementById("tagDropdownRecent");
   elements.tagDropdownList = document.getElementById("tagDropdownList");
   elements.tagDropdownCount = document.getElementById("tagDropdownCount");
+  elements.tagDropdownClear = document.getElementById("tagDropdownClear");
   elements.promptList = document.getElementById("promptList");
   elements.promptTooltip = document.getElementById("promptTooltip");
   elements.promptTooltipTitle = elements.promptTooltip?.querySelector(".prompt-tooltip-title");
@@ -977,6 +978,7 @@ const bindTagDropdownEvents = () => {
   elements.tagDropdownToggle?.addEventListener("click", () => toggleTagDropdown());
   elements.tagDropdownSearch?.addEventListener("input", handleTagSearchInput);
   elements.tagDropdownSearch?.addEventListener("keydown", handleTagSearchKeyNavigation);
+  elements.tagDropdownClear?.addEventListener("click", handleClearSelectedTags);
   elements.tagDropdownPanel?.addEventListener("click", handleTagOptionClick);
   elements.tagDropdownPanel?.addEventListener("keydown", handleTagPanelKeydown);
   document.addEventListener("click", handleDocumentClickForDropdown);
@@ -1032,9 +1034,16 @@ const handleDocumentClickForDropdown = (event) => {
   if (!state.tagDropdownOpen || !elements.tagFilter) return;
   const target = event.target;
   if (!(target instanceof Node)) return;
-  if (!elements.tagFilter.contains(target)) {
-    closeTagDropdown();
+  if (elements.tagFilter.contains(target)) {
+    return;
   }
+  if (typeof event.composedPath === "function") {
+    const path = event.composedPath();
+    if (Array.isArray(path) && path.includes(elements.tagFilter)) {
+      return;
+    }
+  }
+  closeTagDropdown();
 };
 
 const handleDocumentKeydownForDropdown = (event) => {
@@ -1075,6 +1084,21 @@ const handleTagOptionClick = (event) => {
   if (tag) {
     toggleTagFilter(tag);
   }
+};
+
+const handleClearSelectedTags = (event) => {
+  event?.preventDefault();
+  event?.stopPropagation();
+  clearSelectedTags();
+};
+
+const clearSelectedTags = () => {
+  if (!state.selectedTags.length) {
+    return;
+  }
+  state.selectedTags = [];
+  renderTagFilter();
+  renderPromptList();
 };
 
 const handleTagPanelKeydown = (event) => {
@@ -2195,6 +2219,13 @@ const renderTagFilter = () => {
     const count = state.selectedTags.length;
     elements.tagDropdownBadge.textContent = String(count);
     elements.tagDropdownBadge.classList.toggle("hidden", count === 0);
+  }
+
+  if (elements.tagDropdownClear) {
+    const hasSelection = state.selectedTags.length > 0;
+    elements.tagDropdownClear.classList.toggle("hidden", !hasSelection);
+    elements.tagDropdownClear.disabled = !hasSelection;
+    elements.tagDropdownClear.setAttribute("aria-disabled", String(!hasSelection));
   }
 
   const filteredTags = hasTags ? filterTagsByQuery(tags, state.tagSearchQuery) : [];

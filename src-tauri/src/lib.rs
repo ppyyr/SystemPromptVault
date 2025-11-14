@@ -55,6 +55,8 @@ pub fn run() {
             commands::client::add_custom_client,
             commands::client::update_client,
             commands::client::delete_client,
+            commands::client::export_clients,
+            commands::client::import_clients,
             commands::config_file::read_config_file,
             commands::config_file::write_config_file,
             commands::file_watcher::start_watching_config,
