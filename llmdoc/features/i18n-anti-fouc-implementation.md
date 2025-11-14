@@ -230,6 +230,7 @@ if (!hasAntiFouc) {
 ### HTML 集成示例
 - `dist/index.html:17-19`: 防闪烁模块引用（2行）
 - `dist/index.html:37-40`: 设置按钮防闪烁实现示例
+- `dist/index.html:41-46`: 主页副标题防闪烁实现示例（p元素，包含复杂样式类）
 - `dist/settings.html:28,35`: 设置页面防闪烁实现示例
 
 ### 构建配置
