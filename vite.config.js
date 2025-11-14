@@ -27,8 +27,8 @@ export default defineConfig({
           dest: 'css'
         },
         {
-          src: resolve(__dirname, 'src-tauri/icons'),
-          dest: 'src-tauri'
+          src: '../src-tauri/icons/*',
+          dest: 'icons'
         }
       ]
     })
