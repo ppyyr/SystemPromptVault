@@ -170,7 +170,7 @@ body {
 <!-- dist/about.html -->
 <body>
     <div class="icon">
-        <img src="src-tauri/icons/128x128.png" alt="System Prompt Vault"
+        <img src="icons/128x128.png" alt="System Prompt Vault"
              style="width: 64px; height: 64px; object-fit: contain;">
     </div>
     <div class="app-name">System Prompt Vault</div>
@@ -226,7 +226,7 @@ About 窗口使用 `WebviewUrl::App("about.html".into())` 方式加载，确保�
 - `@tauri-apps/api/core`: 前端 Tauri API 调用
 
 ### 设计资源
-- `src-tauri/icons/128x128.png`: 应用图标文件（64x64px 显示）
+- `icons/128x128.png`: About 页面使用的图标文件（源自 `src-tauri/icons/128x128.png`，构建时复制到 icons/ 目录）
 - 品牌色彩规范（渐变背景色彩 #667eea 到 #764ba2）
 
 ## 4. Attention
@@ -257,7 +257,7 @@ About 窗口使用 `WebviewUrl::App("about.html".into())` 方式加载，确保�
 2. **版权信息更新**: 每年更新版权年份信息
 3. **样式维护**: 保持与应用整体设计风格的一致性
 4. **兼容性测试**: 确保在不同操作系统上的表现一致
-5. **图标文件维护**: 确保 `src-tauri/icons/128x128.png` 图标文件存在且可访问
+5. **图标文件维护**: 确保 `icons/128x128.png`（由 `src-tauri/icons/128x128.png` 同步而来）存在且可访问
 6. **资源路径管理**: 图标使用相对路径引用，确保构建后路径正确
 
 ### 安全注意事项

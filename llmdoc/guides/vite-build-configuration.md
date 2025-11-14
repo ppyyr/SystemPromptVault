@@ -83,8 +83,8 @@ export default defineConfig({
           dest: '.'
         },
         {
-          src: resolve(__dirname, 'src-tauri/icons'),  // 使用绝对路径复制图标文件
-          dest: 'src-tauri'
+          src: '../src-tauri/icons/*',  // 通过 glob 复制 src-tauri/icons 下所有图标
+          dest: 'icons'                // 输出到 dist/icons/，与生产路径保持一致
         }
       ]
     })
@@ -140,7 +140,7 @@ export default defineConfig({
 
 **问题背景**：
 - Tauri dev 模式下，Vite 开发服务器 root 是 `dist/` 目录
-- HTML 中引用的 `src-tauri/icons/32x32.png` 等相对路径无法正确加载
+- HTML 中引用的 `icons/32x32.png` 等相对路径无法正确加载
 - 需要将项目根目录的静态资源复制到开发服务器可访问的位置
 
 **配置方案**：
@@ -152,32 +152,32 @@ viteStaticCopy({
       dest: '.'
     },
     {
-      src: resolve(__dirname, 'src-tauri/icons'),  // 使用绝对路径确保正确解析
-      dest: 'src-tauri'       // 复制到 dist/src-tauri/icons/
+      src: '../src-tauri/icons/*',  // 使用 glob 模式捕获所有图标文件
+      dest: 'icons'                 // 输出到 dist/icons/，与 HTML 中的引用一致
     }
   ]
 })
 ```
 
 **技术要点**：
-1. **绝对路径解析**：使用 `resolve(__dirname, 'src-tauri/icons')` 确保跨平台兼容性
+1. **跨目录复制**：通过 `../` 访问根目录外的 `src-tauri/icons/`
 2. **开发时复制**：插件在开发服务器启动时自动复制文件
-3. **目录结构保持**：`dest` 参数保持原有的目录层级关系
-4. **实时同步**：文件修改后自动重新复制
+3. **统一路径**：`dest: 'icons'` 保证开发与生产环境共享 `icons/` 访问前缀
+4. **glob 覆盖**：`*` 模式确保新增图标无需额外配置
 
 #### 2.4.2 资源访问路径
 
 | 资源类型 | 源路径 | 开发时访问路径 | 生产构建后 |
 |---------|--------|---------------|------------|
 | 本地化文件 | `dist/locales/` | `/locales/` | 打包进 assets/ |
-| 图标文件 | `src-tauri/icons/` | `/src-tauri/icons/` | 打包进 assets/ |
+| 图标文件 | `src-tauri/icons/` | `/icons/` | 打包进 assets/icons/ |
 | HTML文件 | `dist/*.html` | `/*.html` | 优化后的 HTML |
 
 #### 2.4.3 开发环境修复历史
 
 **问题表现**：
 ```
-GET http://localhost:1420/src-tauri/icons/32x32.png 404 (Not Found)
+GET http://localhost:1420/icons/32x32.png 404 (Not Found)
 ```
 
 **解决方案演进**：
@@ -192,7 +192,7 @@ GET http://localhost:1420/src-tauri/icons/32x32.png 404 (Not Found)
 
 2. **当前方案（推荐）**：
    - 使用 `vite-plugin-static-copy` 插件
-   - 配置绝对路径解析
+   - 通过 glob 将 `src-tauri/icons/*` 同步到 `dist/icons/`
    - 自动化文件复制和同步
 
 **优势对比**：

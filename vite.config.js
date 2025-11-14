@@ -50,6 +50,18 @@ export default defineConfig({
   build: {
     outDir: resolve(rootDir, '../build'),
     emptyOutDir: true,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: false,
+        pure_funcs: [
+          'console.log',
+          'console.debug',
+          'console.info',
+          'console.warn'
+        ]
+      }
+    },
     rollupOptions: {
       input: {
         main: resolve(rootDir, 'index.html'),
