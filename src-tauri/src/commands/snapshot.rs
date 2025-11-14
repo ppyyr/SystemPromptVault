@@ -315,9 +315,7 @@ fn rollback_written_files(written: &[WrittenFile]) {
     }
 }
 
-fn pause_watcher(
-    watcher_state: &Arc<Mutex<ConfigFileWatcher>>,
-) -> Result<Option<PathBuf>, String> {
+fn pause_watcher(watcher_state: &Arc<Mutex<ConfigFileWatcher>>) -> Result<Option<PathBuf>, String> {
     let mut watcher = watcher_state
         .lock()
         .map_err(|e| format!("获取文件监听器失败: {}", e))?;

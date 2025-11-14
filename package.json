@@ -17,8 +17,8 @@
     "tauri:build:universal": "cargo tauri build --target universal-apple-darwin"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Saul <p@sora.im>",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",

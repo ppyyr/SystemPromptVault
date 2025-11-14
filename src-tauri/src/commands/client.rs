@@ -201,8 +201,7 @@ pub fn export_clients(
         });
     }
 
-    serde_json::to_string_pretty(&exports)
-        .map_err(|e| format!("序列化客户端数据失败: {}", e))
+    serde_json::to_string_pretty(&exports).map_err(|e| format!("序列化客户端数据失败: {}", e))
 }
 
 #[tauri::command]
@@ -319,24 +318,15 @@ fn validate_client_entries(entries: &[Value]) -> Result<(), String> {
                 for path_value in paths {
                     if let Some(path) = path_value.as_str() {
                         if path.trim().is_empty() {
-                            return Err(format!(
-                                "第{}个客户端包含空的配置文件路径",
-                                index + 1
-                            ));
+                            return Err(format!("第{}个客户端包含空的配置文件路径", index + 1));
                         }
                     } else {
-                        return Err(format!(
-                            "第{}个客户端的配置文件路径必须是字符串",
-                            index + 1
-                        ));
+                        return Err(format!("第{}个客户端的配置文件路径必须是字符串", index + 1));
                     }
                 }
             }
             Some(Value::Array(_)) => {
-                return Err(format!(
-                    "第{}个客户端至少需要一个配置文件路径",
-                    index + 1
-                ))
+                return Err(format!("第{}个客户端至少需要一个配置文件路径", index + 1))
             }
             Some(_) => {
                 return Err(format!(
@@ -344,12 +334,7 @@ fn validate_client_entries(entries: &[Value]) -> Result<(), String> {
                     index + 1
                 ))
             }
-            None => {
-                return Err(format!(
-                    "第{}个客户端缺少config_file_paths字段",
-                    index + 1
-                ))
-            }
+            None => return Err(format!("第{}个客户端缺少config_file_paths字段", index + 1)),
         }
 
         match obj.get("config_contents") {
@@ -370,25 +355,13 @@ fn validate_client_entries(entries: &[Value]) -> Result<(), String> {
                     index + 1
                 ))
             }
-            None => {
-                return Err(format!(
-                    "第{}个客户端缺少config_contents字段",
-                    index + 1
-                ))
-            }
+            None => return Err(format!("第{}个客户端缺少config_contents字段", index + 1)),
         }
 
         match obj.get("auto_tag") {
             Some(Value::Bool(_)) => {}
-            Some(_) => {
-                return Err(format!(
-                    "第{}个客户端的auto_tag必须是布尔值",
-                    index + 1
-                ))
-            }
-            None => {
-                return Err(format!("第{}个客户端缺少auto_tag字段", index + 1))
-            }
+            Some(_) => return Err(format!("第{}个客户端的auto_tag必须是布尔值", index + 1)),
+            None => return Err(format!("第{}个客户端缺少auto_tag字段", index + 1)),
         }
 
         if let Some(value) = obj.get("active_config_path") {
@@ -410,21 +383,9 @@ fn ensure_client_string_field(
 ) -> Result<(), String> {
     match obj.get(field) {
         Some(Value::String(value)) if !value.trim().is_empty() => Ok(()),
-        Some(Value::String(_)) => Err(format!(
-            "第{}个客户端的{}不能为空",
-            index + 1,
-            field
-        )),
-        Some(_) => Err(format!(
-            "第{}个客户端的{}必须是字符串",
-            index + 1,
-            field
-        )),
-        None => Err(format!(
-            "第{}个客户端缺少{}字段",
-            index + 1,
-            field
-        )),
+        Some(Value::String(_)) => Err(format!("第{}个客户端的{}不能为空", index + 1, field)),
+        Some(_) => Err(format!("第{}个客户端的{}必须是字符串", index + 1, field)),
+        None => Err(format!("第{}个客户端缺少{}字段", index + 1, field)),
     }
 }
 
@@ -444,17 +405,11 @@ fn validate_client_models(clients: &[ClientExportData]) -> Result<(), String> {
             .iter()
             .any(|path| path.trim().is_empty())
         {
-            return Err(format!(
-                "第{}个客户端包含空的配置文件路径",
-                index + 1
-            ));
+            return Err(format!("第{}个客户端包含空的配置文件路径", index + 1));
         }
         if let Some(active) = client.active_config_path.as_ref() {
             if active.trim().is_empty() {
-                return Err(format!(
-                    "第{}个客户端的激活配置路径不能为空",
-                    index + 1
-                ));
+                return Err(format!("第{}个客户端的激活配置路径不能为空", index + 1));
             }
             if !client.config_file_paths.iter().any(|path| path == active) {
                 return Err(format!(
@@ -497,12 +452,9 @@ fn write_client_config_files(
     contents: &HashMap<String, String>,
 ) -> Result<(), String> {
     for path in &client.config_file_paths {
-        let data = contents.get(path).ok_or_else(|| {
-            format!(
-                "客户端 {} 缺少配置文件 {} 的内容",
-                client.id, path
-            )
-        })?;
+        let data = contents
+            .get(path)
+            .ok_or_else(|| format!("客户端 {} 缺少配置文件 {} 的内容", client.id, path))?;
         let expanded = expand_tilde(path);
         atomic_write(&expanded, data)?;
     }

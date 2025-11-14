@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="settings.title">Settings - System Prompt Vault</title>
+    <!-- 防止主题闪烁 - 必须在页面渲染前执行 -->
+    <script>
+      (function() {
+        const theme = localStorage.getItem('app-theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <!-- 防止 i18n 文本闪烁 - 极简方案(与主题系统一致) -->
+    <script src="/i18n-antifouc.js"></script>
+    <link rel="stylesheet" href="/i18n-antifouc.css" />
+    <link rel="stylesheet" href="css/output.css" />
+    <!-- 保留原有样式以确保平滑过渡 -->
+    <link rel="stylesheet" href="css/main.css" />
+    <link rel="stylesheet" href="css/components.css" />
+  </head>
+  <body class="bg-gray-100 dark:bg-gray-900 h-screen text-gray-900 dark:text-gray-100 overflow-hidden">
+    <div class="h-full mx-auto p-5 flex flex-col gap-6">
+      <header class="flex justify-between items-center flex-shrink-0 bg-blue-100 dark:bg-blue-900/50 rounded-lg px-5 py-4 shadow-sm">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white" data-i18n="settings.header" data-i18n-en="Settings" data-i18n-zh="设置"></h1>
+        <div class="flex items-center gap-2">
+          <div id="themeToggleContainer"></div>
+          <a
+            class="btn-icon btn-icon-primary"
+            href="index.html"
+            data-tooltip="返回"
+            data-i18n-tooltip="common.back"
+            aria-label="返回"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </a>
+        </div>
+      </header>
+
+      <main class="bg-white border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm flex flex-col gap-6 flex-1 overflow-hidden" style="background: rgba(255, 255, 255, 0.95); min-height: 0;">
+        <style>
+          .dark main {
+            background: rgba(15, 23, 42, 0.9) !important;
+            border-color: rgba(148, 163, 184, 0.2) !important;
+          }
+
+          /* 常规设置tab的滚动条样式优化 */
+          #tabGeneral {
+            padding-right: 1.5rem; /* 为滚动条留出空间 */
+          }
+
+          /* 自定义滚动条样式 - 使其更贴边 */
+          #tabGeneral::-webkit-scrollbar {
+            width: 10px;
+          }
+
+          #tabGeneral::-webkit-scrollbar-track {
+            background: transparent;
+            margin: 0; /* 移除上下边距，使滚动条轨道贴边 */
+          }
+
+          #tabGeneral::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 5px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+          }
+
+          .dark #tabGeneral::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+          }
+
+          #tabGeneral::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+          }
+
+          .dark #tabGeneral::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+          }
+        </style>
+        <div class="flex items-center justify-between gap-3 flex-wrap flex-shrink-0" id="settingsHeader">
+          <div class="client-dropdown" id="settingsDropdown">
+            <button
+              type="button"
+              class="client-dropdown__toggle"
+              id="settingsDropdownToggle"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="settingsDropdownPanel"
+              aria-label="Select settings type"
+              data-i18n-aria="settings.dropdownAria"
+            >
+              <span class="client-dropdown__label" id="settingsDropdownLabel" data-i18n="settings.promptTab">Prompt Management</span>
+              <svg class="client-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path>
+              </svg>
+            </button>
+            <div
+              class="client-dropdown__panel"
+              id="settingsDropdownPanel"
+              role="listbox"
+              aria-label="Settings type list"
+              data-i18n-aria="settings.dropdownListAria"
+              aria-hidden="true"
+            >
+              <div class="client-dropdown__list" id="settingsDropdownList">
+                <button
+                  type="button"
+                  class="client-dropdown__option"
+                  role="option"
+                  aria-selected="true"
+                  data-target="tabPrompts"
+                  data-i18n="settings.promptTab"
+                >
+                  Prompt Management
+                </button>
+                <button
+                  type="button"
+                  class="client-dropdown__option"
+                  role="option"
+                  aria-selected="false"
+                  data-target="tabClients"
+                  data-i18n="settings.clientTab"
+                >
+                  Client Management
+                </button>
+                <button
+                  type="button"
+                  class="client-dropdown__option"
+                  role="option"
+                  aria-selected="false"
+                  data-target="tabGeneral"
+                  data-i18n="settings.generalTab"
+                >
+                  General Settings
+                </button>
+                <button
+                  type="button"
+                  class="client-dropdown__option"
+                  role="option"
+                  aria-selected="false"
+                  data-target="tabSnapshots"
+                  data-i18n="settings.snapshotTab"
+                >
+                  Snapshot Management
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 flex-nowrap" id="promptActions">
+            <div class="tag-filter tag-dropdown" id="tagFilterSettings">
+              <button
+                type="button"
+                class="tag-dropdown__toggle"
+                id="tagDropdownToggleSettings"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-controls="tagDropdownPanelSettings"
+                aria-label="Filter Tags"
+                data-tooltip="Filter Tags"
+                data-i18n-aria="tags.filter"
+                data-i18n-tooltip="tags.filter"
+              >
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                  <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"></path>
+                </svg>
+                <span class="tag-dropdown__badge hidden" id="tagDropdownBadgeSettings" aria-live="polite">0</span>
+                <svg class="tag-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path>
+                </svg>
+              </button>
+              <div
+                class="tag-dropdown__panel"
+                id="tagDropdownPanelSettings"
+                role="dialog"
+                aria-label="Tag Filter"
+                data-i18n-aria="tags.panelAria"
+                aria-hidden="true"
+                tabindex="-1"
+              >
+                <div class="tag-dropdown__search flex items-center gap-2">
+                  <label for="tagDropdownSearchSettings" class="sr-only" data-i18n="tags.searchLabel">Search Tags</label>
+                  <input
+                    type="text"
+                    id="tagDropdownSearchSettings"
+                    class="tag-dropdown__search-input flex-1"
+                    placeholder="Search tags..."
+                    data-i18n-placeholder="tags.searchPlaceholder"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search Tags"
+                    data-i18n-aria="tags.searchLabel"
+                  />
+                  <button
+                    type="button"
+                    id="tagDropdownClearSettings"
+                    class="tag-dropdown__clear hidden flex-shrink-0 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2"
+                    aria-label="Clear all selected tags"
+                    data-i18n-aria="tags.clearAllAria"
+                    aria-disabled="true"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path d="M6 6l12 12M6 18L18 6"></path>
+                    </svg>
+                    <span data-i18n="tags.clearAll">Clear All</span>
+                  </button>
+                </div>
+                <div class="tag-dropdown__section" aria-label="Recently Used Tags" data-i18n-aria="tags.recentlyUsedAria">
+                  <div class="tag-dropdown__section-header">
+                    <span class="tag-dropdown__section-title" data-i18n="tags.recentlyUsed">Recently Used</span>
+                  </div>
+                  <div
+                    class="tag-dropdown__list"
+                    id="tagDropdownRecentSettings"
+                    role="listbox"
+                    aria-multiselectable="true"
+                  ></div>
+                </div>
+                <div class="tag-dropdown__section" aria-label="All Tags" data-i18n-aria="tags.allTagsAria">
+                  <div class="tag-dropdown__section-header">
+                    <span class="tag-dropdown__section-title" data-i18n="tags.allTags">All Tags</span>
+                    <span class="tag-dropdown__count" id="tagDropdownCountSettings"></span>
+                  </div>
+                  <div
+                    class="tag-dropdown__list"
+                    id="tagDropdownListSettings"
+                    role="listbox"
+                    aria-multiselectable="true"
+                  ></div>
+                </div>
+              </div>
+            </div>
+            <div class="prompt-search" id="promptSearch">
+              <svg
+                class="w-4 h-4 text-gray-400 dark:text-gray-500"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m1.6-4.15a6 6 0 11-12 0 6 6 0 0112 0z" />
+              </svg>
+              <label class="sr-only" for="inputPromptSearch" data-i18n="prompts.searchLabel">Search prompts</label>
+              <input
+                type="text"
+                id="inputPromptSearch"
+                class="prompt-search__input"
+                placeholder="Search by name or content"
+                data-i18n-placeholder="prompts.searchPlaceholder"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Search prompts"
+                data-i18n-aria="prompts.searchLabel"
+              />
+            </div>
+            <button
+              class="btn-icon btn-icon-primary"
+              id="btnExportPrompts"
+              type="button"
+              aria-label="Export Prompts"
+              data-tooltip="Export Prompts"
+              data-i18n-aria="settings.exportPrompts"
+              data-i18n-tooltip="settings.exportPrompts"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
+            </button>
+            <button
+              class="btn-icon btn-icon-primary"
+              id="btnImportPrompts"
+              type="button"
+              aria-label="Import Prompts"
+              data-tooltip="Import Prompts"
+              data-i18n-aria="settings.importPrompts"
+              data-i18n-tooltip="settings.importPrompts"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+            </button>
+            <input type="file" accept=".json" id="inputImportPrompts" class="hidden" />
+            <button
+              class="btn-icon btn-icon-primary"
+              id="btnNewPrompt"
+              type="button"
+              aria-label="New Prompt"
+              data-tooltip="New Prompt"
+              data-i18n-aria="settings.newPrompt"
+              data-i18n-tooltip="settings.newPrompt"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2 flex-nowrap hidden" id="clientActions">
+            <div class="prompt-search" id="clientSearch">
+              <svg
+                class="w-4 h-4 text-gray-400 dark:text-gray-500"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m1.6-4.15a6 6 0 11-12 0 6 6 0 0112 0z" />
+              </svg>
+              <label class="sr-only" for="inputClientSearch" data-i18n="clients.searchLabel">Search clients</label>
+              <input
+                type="text"
+                id="inputClientSearch"
+                class="prompt-search__input"
+                placeholder="Search by ID, name or path"
+                data-i18n-placeholder="clients.searchPlaceholder"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Search clients"
+                data-i18n-aria="clients.searchLabel"
+              />
+            </div>
+            <button
+              class="btn-icon btn-icon-primary"
+              id="btnExportClients"
+              type="button"
+              aria-label="Export Clients"
+              data-tooltip="Export Clients"
+              data-i18n-aria="settings.exportClients"
+              data-i18n-tooltip="settings.exportClients"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
+            </button>
+            <button
+              class="btn-icon btn-icon-primary"
+              id="btnImportClients"
+              type="button"
+              aria-label="Import Clients"
+              data-tooltip="Import Clients"
+              data-i18n-aria="settings.importClients"
+              data-i18n-tooltip="settings.importClients"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+            </button>
+            <button
+              class="btn-icon btn-icon-primary"
+              id="btnNewClient"
+              type="button"
+              aria-label="Add Client"
+              data-tooltip="Add Client"
+              data-i18n-aria="settings.newClient"
+              data-i18n-tooltip="settings.newClient"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
+            <input type="file" accept=".json" id="inputImportClients" class="hidden" />
+          </div>
+
+          <div class="flex items-center gap-2 flex-wrap hidden" id="snapshotActions">
+            <span class="text-sm text-gray-700 dark:text-gray-300" data-i18n="settings.selectClientLabel">Select Client:</span>
+            <div class="client-dropdown" id="snapshotClientDropdown">
+              <button
+                type="button"
+                class="client-dropdown__toggle"
+                id="snapshotClientDropdownToggle"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-controls="snapshotClientDropdownPanel"
+                aria-label="Select Client"
+                data-i18n-aria="settings.selectClient"
+              >
+                <span class="client-dropdown__label" id="snapshotClientDropdownLabel" data-i18n="settings.noClientsOption">No clients available</span>
+                <svg class="client-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path>
+                </svg>
+              </button>
+              <div
+                class="client-dropdown__panel"
+                id="snapshotClientDropdownPanel"
+                role="listbox"
+                aria-label="Client List"
+                data-i18n-aria="settings.clientList"
+                aria-hidden="true"
+              >
+                <div class="client-dropdown__list" id="snapshotClientDropdownList"></div>
+              </div>
+            </div>
+            <button
+              id="btnRefreshSnapshots"
+              class="btn-icon btn-icon-primary"
+              type="button"
+              aria-label="Refresh Snapshots"
+              data-tooltip="Refresh Snapshots"
+              data-i18n-aria="settings.refreshSnapshots"
+              data-i18n-tooltip="settings.refreshSnapshots"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <section class="flex flex-col gap-4 flex-1" style="min-height: 0;" id="tabPrompts" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+          <div class="settings-table-container">
+            <table class="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.promptName">Name</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.promptTags">Tags</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.promptCreated">Created Time</th>
+                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]" data-i18n="settings.actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="promptTable" class="bg-white dark:bg-gray-800 [&>tr]:border-b [&>tr]:border-gray-200 [&>tr]:dark:border-gray-700 [&>tr:hover]:bg-gray-50 dark:[&>tr:hover]:bg-gray-700">
+                <tr id="emptyState" class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                  <td colspan="4" class="px-4 py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+                    <div class="flex flex-col items-center gap-2">
+                      <svg class="w-12 h-12 text-gray-300 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                      </svg>
+                      <p class="text-base font-medium text-gray-600 dark:text-gray-300" data-i18n="settings.promptEmptyTitle">No prompts yet</p>
+                      <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="settings.promptEmptyDesc">Click "New Prompt" to get started</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabClients" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+          <div class="settings-table-container">
+            <table class="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.clientId">ID</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.clientName">Name</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.clientConfigPath">Config Path</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.clientAutoTag">Auto Tag</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.clientBuiltin">Built-in</th>
+                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]" data-i18n="settings.actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="clientTable" class="bg-white dark:bg-gray-800 [&>tr]:border-b [&>tr]:border-gray-200 [&>tr]:dark:border-gray-700 [&>tr:hover]:bg-gray-50 dark:[&>tr:hover]:bg-gray-700">
+                <tr id="emptyStateClient" class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                  <td colspan="6" class="px-4 py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+                    <div class="flex flex-col items-center gap-2">
+                      <svg class="w-12 h-12 text-gray-300 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                      </svg>
+                      <p class="text-base font-medium text-gray-600 dark:text-gray-300" data-i18n="settings.clientEmptyTitle">No clients available</p>
+                      <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="settings.clientEmptyDesc">Click "Add Client" to start configuration</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="flex flex-col gap-4 flex-1 hidden overflow-y-auto" style="min-height: 0; padding-left: 16px;" id="tabGeneral" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+          <form id="formGeneralSettings" class="flex flex-col gap-4">
+            <!-- 第1行: 客户端 + 自动快照 + 手动快照 -->
+            <div class="flex flex-wrap items-center gap-4">
+              <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap" data-i18n="settings.selectClientLabel">客户端:</label>
+                <div class="client-dropdown" id="generalClientDropdown">
+                  <button
+                    type="button"
+                    class="client-dropdown__toggle"
+                    id="generalClientDropdownToggle"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-controls="generalClientDropdownPanel"
+                    aria-label="Select Client"
+                    data-i18n-aria="settings.selectClient"
+                  >
+                    <span class="client-dropdown__label" id="generalClientDropdownLabel" data-i18n="settings.noClientsOption">No clients available</span>
+                    <svg class="client-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path>
+                    </svg>
+                  </button>
+                  <div
+                    class="client-dropdown__panel"
+                    id="generalClientDropdownPanel"
+                    role="listbox"
+                    aria-label="Client List"
+                    data-i18n-aria="settings.clientList"
+                    aria-hidden="true"
+                  >
+                    <div class="client-dropdown__list" id="generalClientDropdownList"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="inputMaxAutoSnapshots" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap" data-i18n="settings.maxAutoSnapshots">自动快照:</label>
+                <input
+                  type="number"
+                  id="inputMaxAutoSnapshots"
+                  min="1"
+                  max="20"
+                  value="3"
+                  class="form-control w-16 px-3 py-1.5 bg-transparent text-gray-900 dark:text-gray-100 text-center focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                  title="超过此限制的自动快照将被自动删除（默认: 3）"
+                  data-i18n-title="settings.maxAutoSnapshotsTooltip"
+                />
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="inputMaxManualSnapshots" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap" data-i18n="settings.maxManualSnapshots">手动快照:</label>
+                <input
+                  type="number"
+                  id="inputMaxManualSnapshots"
+                  min="1"
+                  max="50"
+                  value="10"
+                  class="form-control w-16 px-3 py-1.5 bg-transparent text-gray-900 dark:text-gray-100 text-center focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                  title="超过此限制的手动快照（Shift+保存）将被自动删除（默认: 10）"
+                  data-i18n-title="settings.maxManualSnapshotsTooltip"
+                />
+              </div>
+            </div>
+
+            <!-- 第2行: 界面语言 + 关闭时最小化到托盘 -->
+            <div class="flex flex-wrap items-center gap-4">
+              <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap" data-i18n="settings.languageDropdownLabel">界面语言:</label>
+                <details
+                  class="client-dropdown client-dropdown--language"
+                  id="languageDropdown"
+                  ontoggle="var summary=document.getElementById('languageDropdownSummary');if(summary){summary.setAttribute('aria-expanded', this.open);}var panel=document.getElementById('languageDropdownPanel');if(panel){panel.setAttribute('aria-hidden', (!this.open).toString());}"
+                >
+                  <summary
+                    class="client-dropdown__toggle justify-between"
+                    id="languageDropdownSummary"
+                    role="button"
+                    aria-haspopup="true"
+                    aria-expanded="false"
+                    aria-controls="languageDropdownPanel"
+                  >
+                    <span class="client-dropdown__label">
+                      <span class="language-dropdown__current" data-language-code="en" data-i18n="settings.languageEnglish">English</span>
+                      <span class="language-dropdown__current" data-language-code="zh" data-i18n="settings.languageChinese">中文</span>
+                    </span>
+                    <svg class="client-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path>
+                    </svg>
+                  </summary>
+                  <div
+                    class="client-dropdown__panel"
+                    id="languageDropdownPanel"
+                    aria-hidden="true"
+                    aria-label="Language list"
+                    data-i18n-aria="settings.languageSectionTitle"
+                  >
+                    <div class="client-dropdown__list" id="languageOptions">
+                      <label
+                        class="client-dropdown__option language-card p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:border-primary transition-colors cursor-pointer"
+                        data-language="en"
+                      >
+                        <span class="language-name" data-i18n="settings.languageEnglish">English</span>
+                        <input
+                          type="radio"
+                          name="languageSetting"
+                          value="en"
+                          id="languageOptionEn"
+                          class="language-radio sr-only"
+                          checked
+                        />
+                      </label>
+                      <label
+                        class="client-dropdown__option language-card p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:border-primary transition-colors cursor-pointer"
+                        data-language="zh"
+                      >
+                        <span class="language-name" data-i18n="settings.languageChinese">中文</span>
+                        <input
+                          type="radio"
+                          name="languageSetting"
+                          value="zh"
+                          id="languageOptionZh"
+                          class="language-radio sr-only"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap" data-i18n="settings.closeBehaviorToggleLabel">关闭时最小化到托盘:</label>
+                <div class="toggle-switch" id="closeBehaviorToggle" role="group" aria-label="关闭时最小化到托盘" data-i18n-aria="settings.closeBehaviorToggleLabel">
+                  <input
+                    type="radio"
+                    name="closeBehavior"
+                    value="exit"
+                    id="closeBehaviorExit"
+                    class="toggle-switch__input"
+                  />
+                  <input
+                    type="radio"
+                    name="closeBehavior"
+                    value="tray"
+                    id="closeBehaviorTray"
+                    class="toggle-switch__input"
+                    checked
+                  />
+                  <div class="toggle-switch__track" aria-hidden="true">
+                    <span class="toggle-switch__thumb"></span>
+                  </div>
+                  <label for="closeBehaviorExit" class="toggle-switch__hit-area" aria-label="直接退出" data-i18n-aria="settings.windowCloseExit"></label>
+                  <label for="closeBehaviorTray" class="toggle-switch__hit-area" aria-label="最小化到托盘" data-i18n-aria="settings.windowCloseTray"></label>
+                </div>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <section class="flex flex-col gap-4 flex-1 hidden" style="min-height: 0;" id="tabSnapshots" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+          <div class="settings-table-container">
+            <table class="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.snapshotName">
+                    Snapshot Name
+                  </th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.snapshotCreated">
+                    Created Time
+                  </th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600" data-i18n="settings.snapshotType">
+                    Type
+                  </th>
+                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 w-[180px]" data-i18n="settings.actions">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody
+                id="snapshotTable"
+                class="bg-white dark:bg-gray-800 [&>tr]:border-b [&>tr]:border-gray-200 [&>tr]:dark:border-gray-700 [&>tr:hover]:bg-gray-50 dark:[&>tr:hover]:bg-gray-700"
+              >
+                <tr id="emptyStateSnapshot">
+                  <td colspan="4" class="px-4 py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+                    <div class="flex flex-col items-center gap-2" id="snapshotEmptyMessage">
+                      <span data-i18n="settings.snapshotEmpty">No snapshots</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div
+      id="modalPrompt"
+      class="fixed inset-0 z-[1800] flex items-center justify-center bg-black/45 hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalPromptTitle"
+      aria-hidden="true"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-5 w-full max-w-[520px] shadow-xl flex flex-col gap-4">
+        <div class="flex items-center justify-between gap-3">
+          <h3 id="modalPromptTitle" class="text-lg font-semibold text-gray-900 dark:text-white" data-i18n="settings.promptModalTitle">New Prompt</h3>
+          <button type="button" class="text-2xl leading-none text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer" data-close-modal="modalPrompt">&times;</button>
+        </div>
+        <form id="formPrompt" class="flex flex-col gap-4" novalidate>
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
+            <span data-i18n="settings.promptName">Name</span>
+            <input
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              id="inputPromptName"
+              placeholder="Enter prompt name"
+              data-i18n-placeholder="settings.promptNamePlaceholder"
+              required
+            />
+          </label>
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
+            <span data-i18n="settings.promptTagsLabel">Tags (comma or space separated)</span>
+            <input
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              id="inputPromptTags"
+              placeholder="claude, system"
+              data-i18n-placeholder="settings.promptTagsPlaceholder"
+              list="tagSuggestions"
+            />
+          </label>
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
+            <span data-i18n="settings.promptContent">Content</span>
+            <textarea
+              id="inputPromptContent"
+              rows="8"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y min-h-[160px] font-mono text-sm"
+              placeholder="Enter prompt content"
+              data-i18n-placeholder="settings.promptContentPlaceholder"
+              required
+            ></textarea>
+          </label>
+          <div class="flex justify-end gap-3">
+            <button
+              type="button"
+              class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200"
+              data-close-modal="modalPrompt"
+              data-i18n="common.cancel"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors" data-i18n="common.save">
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="modalClient"
+      class="fixed inset-0 z-[1800] flex items-center justify-center bg-black/45 hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalClientTitle"
+      aria-hidden="true"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-5 w-full max-w-[520px] shadow-xl flex flex-col gap-4">
+        <div class="flex items-center justify-between gap-3">
+          <h3 id="modalClientTitle" class="text-lg font-semibold text-gray-900 dark:text-white" data-i18n="settings.clientModalTitle">New Client</h3>
+          <button type="button" class="text-2xl leading-none text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer" data-close-modal="modalClient">&times;</button>
+        </div>
+        <form id="formClient" class="flex flex-col gap-4" novalidate>
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
+            <span data-i18n="settings.clientId">ID</span>
+            <input
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              id="inputClientId"
+              placeholder="claude"
+              data-i18n-placeholder="settings.clientIdPlaceholder"
+              required
+            />
+          </label>
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
+            <span data-i18n="settings.clientName">Name</span>
+            <input
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              id="inputClientName"
+              placeholder="Client name"
+              data-i18n-placeholder="settings.clientNamePlaceholder"
+              required
+            />
+          </label>
+          <label class="flex flex-col gap-2 font-semibold text-gray-900 dark:text-gray-200">
+            <span data-i18n="settings.clientPaths">Config Paths (one per line)</span>
+            <textarea
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent min-h-[80px] font-mono text-sm resize-y"
+              id="inputClientPath"
+              placeholder="~/.client/CONFIG1.md
+~/.client/CONFIG2.md"
+              data-i18n-placeholder="settings.clientPathsPlaceholder"
+              rows="3"
+              required
+            ></textarea>
+          </label>
+          <label class="flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-200">
+            <input type="checkbox" class="w-4 h-4" id="inputClientAutoTag" />
+            <span data-i18n="settings.clientAutoTagHint">Auto-filter tags by client ID</span>
+          </label>
+          <div class="flex justify-end gap-3">
+            <button
+              type="button"
+              class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200"
+              data-close-modal="modalClient"
+              data-i18n="common.cancel"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors" data-i18n="common.save">
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="modalImportClients"
+      class="fixed inset-0 z-[1800] flex items-center justify-center bg-black/45 hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalImportClientsTitle"
+      aria-hidden="true"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-5 w-full max-w-[520px] shadow-xl flex flex-col gap-4">
+        <div class="flex items-center justify-between gap-3">
+          <h3
+            id="modalImportClientsTitle"
+            class="text-lg font-semibold text-gray-900 dark:text-white"
+            data-i18n="settings.selectClientsToOverwrite"
+          >
+            Select clients to overwrite
+          </h3>
+          <button
+            type="button"
+            class="text-2xl leading-none text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-transparent border-none cursor-pointer"
+            data-close-modal="modalImportClients"
+          >
+            &times;
+          </button>
+        </div>
+        <p class="text-sm text-gray-600 dark:text-gray-300" data-i18n="dialogs.importClientsSelectPrompt">
+          Select clients to overwrite (unchecked duplicates will be skipped):
+        </p>
+        <div class="flex items-center justify-between">
+          <button
+            type="button"
+            id="btnImportClientsSelectAll"
+            class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1.5 font-medium hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200 text-sm"
+            data-i18n="settings.selectAll"
+          >
+            Select All
+          </button>
+        </div>
+        <div class="border border-gray-200 dark:border-gray-700 rounded-md max-h-64 overflow-y-auto bg-white dark:bg-gray-900">
+          <div
+            id="importClientsList"
+            class="grid grid-cols-2 gap-2 p-2 text-sm"
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;"
+          ></div>
+        </div>
+        <div class="flex justify-end gap-3">
+          <button
+            type="button"
+            class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200"
+            data-close-modal="modalImportClients"
+            data-i18n="common.cancel"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            id="btnConfirmImportClients"
+            class="bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-primary-dark transition-colors"
+            data-i18n="settings.importClients"
+          >
+            Import Clients
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <datalist id="tagSuggestions"></datalist>
+
+    <div id="toastContainer" class="fixed top-4 right-4 z-[1800] max-w-sm" role="status" aria-live="polite"></div>
+    <div
+      id="loadingOverlay"
+      class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 hidden"
+      aria-hidden="true"
+      role="alert"
+      aria-label="Processing"
+      data-i18n-aria="common.processing"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-6 flex items-center gap-3">
+        <div class="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
+        <span class="text-gray-900 dark:text-white" data-i18n="common.processingText">Processing...</span>
+      </div>
+    </div>
+
+    <div id="buttonTooltip" class="button-tooltip hidden" role="tooltip"></div>
+
+    <script type="module" src="/js/settings.js"></script>
+  </body>
+</html>

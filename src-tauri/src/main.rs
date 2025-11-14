@@ -7,7 +7,7 @@ use systemprompt_vault::storage::{
     client_repository::ClientRepository, prompt_repository::PromptRepository,
     snapshot_repository::SnapshotRepository,
 };
-use systemprompt_vault::{commands, tray};
+use systemprompt_vault::{app_menu, commands, tray};
 use tauri::{Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
 
 const DEFAULT_WINDOW_WIDTH: u32 = 1200;
@@ -33,7 +33,24 @@ fn main() {
         .manage(file_watcher)
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            // 设置应用菜单
+            let handle = app.handle();
+            let menu = app_menu::build_app_menu(&handle)
+                .map_err(|err| Box::<dyn std::error::Error>::from(err.to_string()))?;
+            app.set_menu(menu)
+                .map_err(|err| Box::<dyn std::error::Error>::from(err.to_string()))?;
+
+            // 注册菜单事件处理器
+            app.on_menu_event(|app, event| {
+                if let Err(err) = app_menu::handle_menu_event(app, &event) {
+                    eprintln!("菜单事件处理失败: {}", err);
+                }
+            });
+
+            // 初始化系统托盘
             tray::init_tray(app).map_err(|err| Box::<dyn std::error::Error>::from(err))?;
+
+            // 恢复窗口状态
             if let Some(window) = app.get_webview_window("main") {
                 if let Err(err) = restore_window_state(&window) {
                     eprintln!("恢复窗口状态失败: {}", err);

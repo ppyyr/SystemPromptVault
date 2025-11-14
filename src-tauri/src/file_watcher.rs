@@ -52,8 +52,8 @@ impl ConfigFileWatcher {
         let event_client_id = client_id.clone();
         let fallback_for_event = fallback_path.clone();
 
-        let mut watcher = notify::recommended_watcher(move |res: Result<Event, notify::Error>| {
-            match res {
+        let mut watcher =
+            notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
                 Ok(event) => {
                     if matches!(
                         event.kind,
@@ -86,9 +86,8 @@ impl ConfigFileWatcher {
                 Err(err) => {
                     eprintln!("[FileWatcher] 文件监听器错误: {}", err);
                 }
-            }
-        })
-        .map_err(|e| format!("创建文件监听器失败: {}", e))?;
+            })
+            .map_err(|e| format!("创建文件监听器失败: {}", e))?;
 
         for path in &unique_paths {
             watcher
@@ -106,11 +105,7 @@ impl ConfigFileWatcher {
         path: PathBuf,
         app_handle: AppHandle<R>,
     ) -> Result<(), String> {
-        self.watch_files(
-            LEGACY_CLIENT_ID.to_string(),
-            vec![path],
-            app_handle,
-        )
+        self.watch_files(LEGACY_CLIENT_ID.to_string(), vec![path], app_handle)
     }
 
     pub fn stop(&mut self) {

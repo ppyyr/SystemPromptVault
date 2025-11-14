@@ -1,3 +1,4 @@
+pub mod app_menu;
 pub mod commands;
 pub mod file_watcher;
 pub mod models;

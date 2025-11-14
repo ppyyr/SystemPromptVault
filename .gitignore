@@ -50,7 +50,6 @@ src-tauri/target/release/bundle/
 
 # Vite build outputs
 build/
-dist/
 .vite/
 *.local
 

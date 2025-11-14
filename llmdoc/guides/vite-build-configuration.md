@@ -103,7 +103,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(rootDir, 'index.html'),      // 主页面入口
-        settings: resolve(rootDir, 'settings.html') // 设置页面入口
+        settings: resolve(rootDir, 'settings.html'), // 设置页面入口
+        about: resolve(rootDir, 'about.html')        // About 窗口入口
       }
     }
   }
@@ -338,6 +339,7 @@ SystemPromptVault/
 ├── dist/                    # 源代码目录（未构建）
 │   ├── index.html          # 入口HTML
 │   ├── settings.html       # 设置页面HTML
+│   ├── about.html          # About 窗口HTML
 │   ├── js/                 # JavaScript源代码
 │   │   ├── main.js
 │   │   ├── settings.js
@@ -350,7 +352,8 @@ SystemPromptVault/
 ├── build/                   # Vite构建输出（生产）
 │   ├── assets/             # 打包后的资源（哈希命名）
 │   ├── index.html          # 处理后的HTML
-│   └── settings.html
+│   ├── settings.html       # 处理后的设置页面HTML
+│   └── about.html          # 处理后的About页面HTML
 │
 ├── vite.config.js          # Vite配置
 ├── package.json            # 包管理配置
@@ -369,6 +372,7 @@ SystemPromptVault/
 - `dist/`: 前端源代码根目录
 - `dist/index.html`: 主页面入口
 - `dist/settings.html`: 设置页面入口
+- `dist/about.html`: About 窗口入口
 - `dist/js/`: JavaScript模块
 - `dist/css/`: CSS样式
 

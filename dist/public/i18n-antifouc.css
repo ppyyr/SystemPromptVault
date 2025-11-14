@@ -1,0 +1,42 @@
+/**
+ * i18n Anti-FOUC (Flash of Unstyled Content) Styles
+ *
+ * 使用CSS属性选择器和伪元素实现零闪烁的多语言文本显示
+ * 原理:通过 [data-lang] 属性选择器 + ::before 伪元素 + attr() 函数
+ * 在页面首次渲染时就显示正确的语言,无需等待JS加载
+ */
+
+/*
+ * 核心机制:
+ * 1. HTML元素包含 data-i18n-en 和 data-i18n-zh 属性
+ * 2. 根据 html[data-lang] 的值选择对应的翻译
+ * 3. 使用 ::before 伪元素 + content: attr() 显示文本
+ */
+
+/* 英文翻译显示 */
+[data-lang="en"] [data-i18n-en]::before {
+  content: attr(data-i18n-en);
+}
+
+/* 中文翻译显示 */
+[data-lang="zh"] [data-i18n-zh]::before {
+  content: attr(data-i18n-zh);
+}
+
+/*
+ * 确保伪元素正常工作:
+ * - inline元素(如<a>)需要转为inline-block才能显示伪元素
+ * - 已有display属性的元素(如flex/block)不受影响
+ */
+[data-i18n-en],
+[data-i18n-zh] {
+  display: inline-block;
+}
+
+/* 针对已有display属性的元素,保持原有display值 */
+.flex[data-i18n-en],
+.flex[data-i18n-zh],
+.block[data-i18n-en],
+.block[data-i18n-zh] {
+  display: inherit;
+}

@@ -21,6 +21,7 @@
 - [快照版本管理系统](features/snapshot-version-management.md): 配置文件快照、内容去重、分类FIFO清理、System Tray集成、自动/手动快照分别管理
 - [配置文件变化检测与重新加载](features/config-file-change-detection.md): 多配置文件路径监听、客户端事件隔离、实时文件变化检测、Toast文件名显示、冲突保护、托盘恢复优化机制、资源优化（单一Watcher实例）
 - [设置页面窗口生命周期与行为管理](features/settings-window-lifecycle-management.md): 设置页面窗口关闭事件处理、窗口行为配置系统、跨窗口配置同步、Tauri API集成
+- [About 窗口功能](features/about-window-functionality.md): 应用信息展示、PNG图标显示、应用名称层次结构、版本号动态获取、透明背景设计、系统菜单集成
 - [Tauri v2 框架技术限制](features/tauri-v2-technical-limitations.md): Tauri v2 已知技术限制、架构决策、应对策略、窗口最小化按钮事件拦截限制、权限静默失败
 
 ## 核心模块文档
@@ -31,6 +32,7 @@
 - [命令处理模块](modules/command-handling-module.md): Rust 端命令实现、参数验证、错误处理
 - [存储管理模块](modules/storage-module.md): JSON 数据存储、文件操作、数据持久化
 - [System Tray 模块](modules/system-tray-module.md): 系统托盘实现、菜单构建、快照恢复、事件处理、通知系统、文件监听器控制
+- [应用菜单模块](modules/app-menu-module.md): macOS 原生应用菜单、File/Help 菜单构建、事件处理、系统集成
 
 ## 技术指南
 
@@ -56,7 +58,7 @@
 ### 已废弃文档
 - ~~[Tauri v2 剪贴板功能实现和 Command 系统调研报告](agent/tauri-v2-clipboard-integration-technical-research.md)~~ - 项目已采用浏览器原生 Clipboard API，移除 Tauri 插件依赖
 
-**更新日期**: 2025-11-13
+**更新日期**: 2025-11-14
 **项目版本**: 0.1.0
 **维护者**: SystemPromptVault 开发团队
-**最近更新**: Toast提示显示具体配置文件名功能实现，包括路径格式化、多文件智能显示、用户主目录缓存、事件监听器数据流修复，显著提升用户体验；配置文件变化检测系统重构，支持多配置文件路径监听、客户端事件隔离、资源优化（单一Watcher实例）
+**最近更新**: About 窗口界面优化，包括PNG图标替换emoji、透明背景设计、应用名称层次结构新增；应用菜单模块完善，支持 File/Help 菜单、事件处理、系统集成；Vite 构建配置更新，新增 about.html 入口支持

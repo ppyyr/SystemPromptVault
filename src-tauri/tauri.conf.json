@@ -24,7 +24,7 @@
         {
           "identifier": "main-capability",
           "description": "Main application capabilities",
-          "windows": ["main"],
+          "windows": ["main", "about"],
           "permissions": [
             "core:default",
             "core:event:default",

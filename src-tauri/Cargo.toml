@@ -2,7 +2,8 @@
 name = "systemprompt-vault"
 version = "0.1.0"
 description = "SystemPromptVault Tauri App"
-authors = ["user"]
+authors = ["Saul <p@sora.im>"]
+license = "MIT"
 edition = "2021"
 
 [lib]

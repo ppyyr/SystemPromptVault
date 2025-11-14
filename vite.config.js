@@ -53,7 +53,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(rootDir, 'index.html'),
-        settings: resolve(rootDir, 'settings.html')
+        settings: resolve(rootDir, 'settings.html'),
+        about: resolve(rootDir, 'about.html')
       }
     }
   }
