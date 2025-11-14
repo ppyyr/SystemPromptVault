@@ -53,7 +53,16 @@
             "core:webview:allow-webview-position",
             "core:webview:allow-webview-size",
             "core:app:default",
-            "core:tray:default"
+            "core:tray:default",
+            "core:path:default",
+            "core:path:allow-resolve-directory",
+            "core:path:allow-resolve",
+            "core:path:allow-normalize",
+            "core:path:allow-join",
+            "core:path:allow-dirname",
+            "core:path:allow-extname",
+            "core:path:allow-basename",
+            "core:path:allow-is-absolute"
           ]
         }
       ]

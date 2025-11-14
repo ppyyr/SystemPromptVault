@@ -265,5 +265,10 @@
     "switchClientFailed": "Failed to switch client",
     "configSwitched": "Config file switched",
     "switchConfigFailed": "Failed to switch config"
+  },
+  "contextMenu": {
+    "copyPath": "Copy Full Path",
+    "copySuccess": "File path copied to clipboard",
+    "copyFailed": "Failed to copy file path"
   }
 }

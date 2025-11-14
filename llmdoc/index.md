@@ -19,7 +19,7 @@
 - [导入导出功能](features/import-export-functionality.md): 提示词批量导入导出、文件处理、数据验证
 - [客户端配置管理](features/client-configuration-management.md): 多客户端支持、配置文件读写、自动标签
 - [快照版本管理系统](features/snapshot-version-management.md): 配置文件快照、内容去重、分类FIFO清理、System Tray集成、自动/手动快照分别管理
-- [配置文件变化检测与重新加载](features/config-file-change-detection.md): 实时文件监听、外部修改检测、Toast提示、冲突保护、托盘恢复优化机制
+- [配置文件变化检测与重新加载](features/config-file-change-detection.md): 多配置文件路径监听、客户端事件隔离、实时文件变化检测、Toast提示、冲突保护、托盘恢复优化机制、资源优化（单一Watcher实例）
 - [设置页面窗口生命周期与行为管理](features/settings-window-lifecycle-management.md): 设置页面窗口关闭事件处理、窗口行为配置系统、跨窗口配置同步、Tauri API集成
 - [Tauri v2 框架技术限制](features/tauri-v2-technical-limitations.md): Tauri v2 已知技术限制、架构决策、应对策略、窗口最小化按钮事件拦截限制、权限静默失败
 
@@ -53,7 +53,10 @@
 此目录包含由自动化工具生成的技术分析文档：
 - [agent/](agent/): 自动生成的代码分析、架构研究、技术实现指南
 
+### 已废弃文档
+- ~~[Tauri v2 剪贴板功能实现和 Command 系统调研报告](agent/tauri-v2-clipboard-integration-technical-research.md)~~ - 项目已采用浏览器原生 Clipboard API，移除 Tauri 插件依赖
+
 **更新日期**: 2025-11-13
 **项目版本**: 0.1.0
 **维护者**: SystemPromptVault 开发团队
-**最近更新**: UI图标按钮样式统一化（主题切换按钮简化、导航按钮图标化）、CSS规则优化、按钮提示系统标准化
+**最近更新**: 剪贴板功能技术债务清理，移除 Tauri 插件依赖，采用浏览器原生 API 实现；配置文件变化检测系统重构，支持多配置文件路径监听、客户端事件隔离、资源优化（单一Watcher实例）

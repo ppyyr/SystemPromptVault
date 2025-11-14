@@ -488,7 +488,7 @@
           </div>
         </section>
 
-        <section class="flex flex-col gap-4 flex-1 hidden overflow-y-auto" style="min-height: 0;" id="tabGeneral" role="tabpanel" aria-labelledby="settingsDropdownToggle">
+        <section class="flex flex-col gap-4 flex-1 hidden overflow-y-auto" style="min-height: 0; padding-left: 16px;" id="tabGeneral" role="tabpanel" aria-labelledby="settingsDropdownToggle">
           <form id="formGeneralSettings" class="flex flex-col gap-4">
             <!-- 第1行: 客户端 + 自动快照 + 手动快照 -->
             <div class="flex flex-wrap items-center gap-4">
@@ -531,7 +531,7 @@
                   min="1"
                   max="20"
                   value="3"
-                  class="form-control w-16 px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-center focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                  class="form-control w-16 px-3 py-1.5 bg-transparent text-gray-900 dark:text-gray-100 text-center focus:outline-none focus:ring-2 focus:ring-primary rounded"
                   title="超过此限制的自动快照将被自动删除（默认: 3）"
                   data-i18n-title="settings.maxAutoSnapshotsTooltip"
                 />
@@ -545,7 +545,7 @@
                   min="1"
                   max="50"
                   value="10"
-                  class="form-control w-16 px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-center focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                  class="form-control w-16 px-3 py-1.5 bg-transparent text-gray-900 dark:text-gray-100 text-center focus:outline-none focus:ring-2 focus:ring-primary rounded"
                   title="超过此限制的手动快照（Shift+保存）将被自动删除（默认: 10）"
                   data-i18n-title="settings.maxManualSnapshotsTooltip"
                 />
@@ -901,6 +901,6 @@
 
     <div id="buttonTooltip" class="button-tooltip hidden" role="tooltip"></div>
 
-    <script type="module" src="js/settings.js"></script>
+    <script type="module" src="/js/settings.js"></script>
   </body>
 </html>

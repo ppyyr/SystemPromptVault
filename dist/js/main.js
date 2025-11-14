@@ -8,6 +8,7 @@ import {
   subscribeThemeChange,
 } from "./theme.js";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -333,6 +334,7 @@ const cacheElements = () => {
   elements.configSection = document.getElementById("configSection");
   elements.promptSection = document.getElementById("promptSection");
   elements.splitResizer = document.getElementById("splitResizer");
+  elements.contextMenu = document.getElementById("contextMenu");
   if (elements.configEditor) {
     elements.configEditor.addEventListener("input", handleEditorChange);
   }
@@ -498,6 +500,12 @@ const initButtonTooltips = () => {
       hideTooltip();
     }
   });
+
+  // 右键菜单事件监听
+  document.addEventListener("contextmenu", handleConfigFileDropdownLabelContextMenu, true);
+  elements.contextMenu?.addEventListener("click", handleContextMenuItemClick);
+  document.addEventListener("click", handleDocumentClickForContextMenu);
+  document.addEventListener("keydown", handleDocumentKeydownForContextMenu);
 };
 
 const waitForMonacoLoader = () =>
@@ -1086,6 +1094,132 @@ const handleTagOptionClick = (event) => {
   }
 };
 
+// ========== 右键菜单相关函数 ==========
+const showContextMenu = (clientX, clientY, filePath) => {
+  const menu = elements.contextMenu;
+  if (!menu) return;
+
+  // 保存当前右键点击的文件路径到菜单的data属性
+  menu.dataset.contextFilePath = filePath || "";
+
+  // 显示菜单
+  menu.classList.remove("hidden");
+  menu.setAttribute("aria-hidden", "false");
+
+  // 位置计算 - 确保菜单不超出视口
+  const menuRect = menu.getBoundingClientRect();
+  let left = clientX;
+  let top = clientY;
+
+  // 边界检测
+  const padding = 10;
+  const maxLeft = window.innerWidth - menuRect.width - padding;
+  const maxTop = window.innerHeight - menuRect.height - padding;
+
+  left = Math.min(Math.max(padding, left), Math.max(padding, maxLeft));
+  top = Math.min(Math.max(padding, top), Math.max(padding, maxTop));
+
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+
+  // 聚焦第一个菜单项
+  window.requestAnimationFrame(() => {
+    const firstItem = menu.querySelector('[role="menuitem"]');
+    if (firstItem) {
+      firstItem.focus();
+    }
+  });
+};
+
+const hideContextMenu = () => {
+  const menu = elements.contextMenu;
+  if (!menu) return;
+
+  menu.classList.add("hidden");
+  menu.setAttribute("aria-hidden", "true");
+  menu.dataset.contextFilePath = "";
+  menu.style.left = "";
+  menu.style.top = "";
+};
+
+const handleConfigFileDropdownLabelContextMenu = (event) => {
+  // 检查是否右键点击了配置文件名标签
+  const target = event.target.closest("#configFileDropdownLabel");
+  if (!target) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  // 获取当前客户端的配置文件路径
+  const client = getCurrentClient();
+  if (!client) {
+    console.warn("[ContextMenu] 没有选中的客户端");
+    return;
+  }
+
+  const currentConfigPath = state.currentConfigPath;
+  if (!currentConfigPath) {
+    console.warn("[ContextMenu] 没有选中的配置文件路径");
+    return;
+  }
+
+  showContextMenu(event.clientX, event.clientY, currentConfigPath);
+};
+
+const handleContextMenuItemClick = async (event) => {
+  const item = event.target.closest('[data-action="copy-path"]');
+  if (!item) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const menu = elements.contextMenu;
+  const filePath = menu?.dataset.contextFilePath;
+
+  if (!filePath) {
+    console.warn("[ContextMenu] 没有可复制的文件路径");
+    hideContextMenu();
+    return;
+  }
+
+  // 调用剪贴板复制功能
+  await copyFilePathToClipboard(filePath);
+  hideContextMenu();
+};
+
+const handleDocumentClickForContextMenu = (event) => {
+  if (!elements.contextMenu) return;
+  if (elements.contextMenu.classList.contains("hidden")) return;
+
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+
+  // 如果点击的是菜单内部，不关闭
+  if (elements.contextMenu.contains(target)) {
+    return;
+  }
+
+  hideContextMenu();
+};
+
+const handleDocumentKeydownForContextMenu = (event) => {
+  if (event.key === "Escape" && !elements.contextMenu?.classList.contains("hidden")) {
+    event.preventDefault();
+    hideContextMenu();
+  }
+};
+
+const copyFilePathToClipboard = async (filePath) => {
+  try {
+    // 使用浏览器原生 Clipboard API
+    await navigator.clipboard.writeText(filePath);
+    showToast(t("contextMenu.copySuccess", "文件路径已复制到剪贴板"), "success");
+  } catch (error) {
+    console.error("[ContextMenu] 复制失败:", error);
+    showToast(t("contextMenu.copyFailed", "复制文件路径失败"), "error");
+  }
+};
+
 const handleClearSelectedTags = (event) => {
   event?.preventDefault();
   event?.stopPropagation();
@@ -1514,12 +1648,42 @@ const startFileWatcher = async (clientId) => {
     return;
   }
   const client = state.clients.find((item) => item.id === clientId);
-  if (!client?.config_file_path) {
+  if (!client) {
     return;
   }
   try {
-    await invoke("start_watching_config", { filePath: client.config_file_path });
-    console.log(`[FileWatcher] Started watching: ${client.config_file_path}`);
+    const configPaths = Array.isArray(client.config_file_paths)
+      ? client.config_file_paths.filter(
+          (path) => typeof path === "string" && path.trim().length > 0
+        )
+      : [];
+
+    if (
+      configPaths.length === 0 &&
+      typeof client.config_file_path === "string" &&
+      client.config_file_path.trim().length > 0
+    ) {
+      configPaths.push(client.config_file_path);
+    }
+
+    if (configPaths.length === 0) {
+      console.warn(`[FileWatcher] Client ${clientId} has no config paths to watch`);
+      return;
+    }
+
+    const payload = {
+      clientId: client.id,
+      filePaths: configPaths,
+    };
+
+    if (configPaths.length === 1) {
+      payload.filePath = configPaths[0];
+    }
+
+    await invoke("start_watching_config", payload);
+    console.log(
+      `[FileWatcher] Started watching ${configPaths.length} file(s) for ${client.id}`
+    );
   } catch (error) {
     console.warn("[FileWatcher] Failed to start watching:", error);
   }
@@ -1631,6 +1795,14 @@ const listenToFileChanges = async () => {
       state.fileChangeUnlisten = await listen("config-file-changed", async (event) => {
         console.log("[FileWatcher] Config file changed:", event.payload);
         try {
+          const payload = event?.payload;
+          const eventClientId = payload?.client_id || payload;
+
+          if (eventClientId && eventClientId !== state.currentClientId && eventClientId !== "__legacy_config_client__") {
+            console.log(`[FileWatcher] Ignoring event for different client: ${eventClientId} (current: ${state.currentClientId})`);
+            return;
+          }
+
           await handleConfigFileChanged();
         } catch (error) {
           console.warn("[FileWatcher] Failed to process config change:", error);

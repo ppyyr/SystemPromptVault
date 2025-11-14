@@ -8,16 +8,18 @@ const rootDir = resolve(__dirname, 'dist');
 export default defineConfig({
   root: rootDir,
   publicDir: resolve(rootDir, 'public'),
+  cacheDir: resolve(__dirname, 'node_modules/.vite'),
+  resolve: {
+    alias: {
+      '@tauri-apps/api': resolve(__dirname, 'node_modules/@tauri-apps/api')
+    }
+  },
   plugins: [
     legacy(),
     viteStaticCopy({
       targets: [
         {
           src: 'locales',
-          dest: '.'
-        },
-        {
-          src: 'js',
           dest: '.'
         },
         {
@@ -33,7 +35,17 @@ export default defineConfig({
   ],
   server: {
     port: 1420,
-    strictPort: true
+    strictPort: true,
+    fs: {
+      allow: ['..']
+    }
+  },
+  optimizeDeps: {
+    include: [
+      '@tauri-apps/api/core',
+      '@tauri-apps/api/event',
+      '@tauri-apps/api/window'
+    ]
   },
   build: {
     outDir: resolve(rootDir, '../build'),

@@ -265,5 +265,10 @@
     "switchClientFailed": "切换客户端失败",
     "configSwitched": "配置文件已切换",
     "switchConfigFailed": "切换配置失败"
+  },
+  "contextMenu": {
+    "copyPath": "复制完整路径",
+    "copySuccess": "文件路径已复制到剪贴板",
+    "copyFailed": "复制文件路径失败"
   }
 }

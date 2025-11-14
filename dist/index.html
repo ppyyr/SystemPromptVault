@@ -32,7 +32,7 @@
           <img
             src="src-tauri/icons/32x32.png"
             alt=""
-            class="w-8 h-8 rounded-md shadow-sm bg-white/80 dark:bg-slate-800/80"
+            class="w-8 h-8 rounded-md shadow-sm"
           />
           <div class="flex items-baseline gap-3">
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white" data-i18n="common.heroTitle">
@@ -337,6 +337,22 @@
 
     <div id="buttonTooltip" class="button-tooltip hidden" role="tooltip" aria-hidden="true"></div>
 
-    <script type="module" src="js/main.js"></script>
+    <!-- 右键菜单 -->
+    <div id="contextMenu" class="context-menu hidden" role="menu" aria-hidden="true" tabindex="-1">
+      <button
+        type="button"
+        class="context-menu__item"
+        role="menuitem"
+        data-action="copy-path"
+        data-i18n="contextMenu.copyPath"
+      >
+        <svg class="context-menu__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+        </svg>
+        <span>复制完整路径</span>
+      </button>
+    </div>
+
+    <script type="module" src="/js/main.js"></script>
   </body>
 </html>
