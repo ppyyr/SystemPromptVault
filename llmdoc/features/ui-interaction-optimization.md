@@ -1614,22 +1614,150 @@ Toggle Switch 提供iOS风格的开关交互体验，适用于二值状态切换
 
 ### 2.15 主题切换按钮样式优化
 
-主题切换按钮移除了边框，提供更简洁的视觉体验。
+主题切换按钮样式进行了简化重构，采用统一的图标按钮设计语言。
 
+#### 2.15.1 样式重构
+
+**重构前** (复杂 Tailwind 类):
 ```css
-/* 去掉主题切换按钮和右边按钮的边框 */
+.theme-toggle-btn.border.border-gray-300.dark:border-gray-600.bg-white.dark:bg-gray-800.text-gray-800.dark:text-gray-200.rounded-md.px-3.py-2.hover:border-primary.hover:text-primary.dark:hover:border-primary.dark:hover:text-primary.hover:bg-gray-50.dark:hover:bg-gray-700.transition-all.duration-200.flex.items-center.justify-center
+```
+
+**重构后** (统一图标按钮类):
+```css
+.theme-toggle-btn.btn-icon.btn-icon-primary
+```
+
+#### 2.15.2 按钮属性优化
+
+**属性变更**:
+- **移除**: `title="切换深色/浅色主题"` 属性
+- **新增**: `data-tooltip="切换主题"` 属性
+
+**代码对比** (`dist/js/theme.js:109-110`):
+```javascript
+// 重构前
+button.title = '切换深色/浅色主题';
+
+// 重构后
+button.setAttribute('data-tooltip', '切换主题');
+```
+
+#### 2.15.3 视觉设计统一
+
+**设计原则**:
+- **一致性**: 与其他操作按钮使用相同的 `btn-icon btn-icon-primary` 样式
+- **简洁性**: 移除冗余的边框和背景样式
+- **标准化**: 统一使用 `data-tooltip` 属性实现提示功能
+
+**样式效果**:
+- 透明背景，hover 时显示淡蓝色背景
+- 图标颜色根据主题自动适配
+- 统一的圆角和间距设计
+- 平滑的过渡动画效果
+
+#### 2.15.4 CSS 规则清理
+
+**移除冗余规则** (`dist/css/main.css:1910-1913`):
+```css
+/* 移除前的冗余规则 */
 #themeToggleContainer .theme-toggle-btn,
 #themeToggleContainer + a {
   border: none !important;
 }
 ```
 
-**设计决策**：
-- **视觉简化**: 移除边框减少视觉噪音
-- **焦点突出**: 通过颜色和背景变化突出状态
-- **一致性**: 与其他无边框按钮保持设计一致性
+**清理原因**: 新的 `btn-icon` 样式本身无边框，原规则已冗余
 
-### 2.16 编辑器模式按钮的状态管理
+### 2.16 导航按钮图标化
+
+为提升界面简洁性和一致性，导航区域的按钮全面改为图标按钮设计。
+
+#### 2.16.1 设置页面按钮重构
+
+**首页设置按钮** (`dist/index.html:49-62`):
+```html
+<!-- 重构前：文字按钮 -->
+<a class="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+   href="settings.html"
+   data-i18n="common.settings"
+   data-i18n-en="Settings"
+   data-i18n-zh="设置">
+</a>
+
+<!-- 重构后：图标按钮 -->
+<a class="btn-icon btn-icon-primary"
+   href="settings.html"
+   data-tooltip="设置"
+   data-i18n-tooltip="common.settings"
+   aria-label="设置">
+  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+</a>
+```
+
+**设置页返回按钮** (`dist/settings.html:32-47`):
+```html
+<!-- 重构前：文字按钮 -->
+<a class="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+   href="index.html"
+   data-i18n="common.back"
+   data-i18n-en="Back"
+   data-i18n-zh="返回">
+</a>
+
+<!-- 重构后：图标按钮 -->
+<a class="btn-icon btn-icon-primary"
+   href="index.html"
+   data-tooltip="返回"
+   data-i18n-tooltip="common.back"
+   aria-label="返回">
+  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+  </svg>
+</a>
+```
+
+#### 2.16.2 图标选择标准
+
+**设置图标** (齿轮图标):
+- 使用 SVG `path` 绘制复杂的齿轮形状
+- 包含外圈齿轮和中心圆点细节
+- 表达设置、配置的含义
+
+**返回图标** (左箭头):
+- 使用简洁的箭头线条
+- 方向明确，表达返回操作
+- 符合通用设计规范
+
+#### 2.16.3 无障碍支持优化
+
+**属性配置**:
+- `data-tooltip`: 悬浮提示文本
+- `data-i18n-tooltip`: 国际化提示文本支持
+- `aria-label`: 屏幕阅读器标签
+- `fill="none" stroke="currentColor"`: SVG 适配主题颜色
+
+**国际化支持**:
+- `common.settings`: "Settings" / "设置"
+- `common.back`: "Back" / "返回"
+
+#### 2.16.4 视觉一致性
+
+**样式统一**:
+- 所有导航按钮使用相同的 `btn-icon btn-icon-primary` 类
+- 统一的 SVG 尺寸 (`w-5 h-5`)
+- 一致的圆角和间距
+- 统一的悬停和焦点效果
+
+**布局优化**:
+- 减少按钮占用空间，界面更简洁
+- 图标视觉识别度高，操作更直观
+- 与主题切换按钮形成统一的按钮组
+
+### 2.17 编辑器模式按钮的状态管理
 
 模式切换按钮集成了状态指示功能，通过图标和颜色变化提供即时反馈。
 
@@ -1735,6 +1863,7 @@ const setModeToggleState = () => {
 ### 核心交互模块
 - `dist/js/main.js`: 主要交互逻辑,包含双重 tooltip 系统、下拉菜单、防抖实现、事件处理 (第 1-850 行)
 - `dist/js/settings.js`: 设置页面交互逻辑,包含设置下拉菜单、按钮 tooltip 系统 (第 1-350 行)
+- `dist/js/theme.js`: 主题按钮创建逻辑,包含统一的图标按钮样式和 `data-tooltip` 属性 (第 106-120 行)
 - `dist/css/main.css`: UI 样式定义,包含 tooltip 样式、下拉菜单样式、按钮图标化样式、语言选择组件、Toggle Switch组件、提示词搜索框组件 (第 1-1916 行)
 - `dist/css/components.css`: 组件样式,包含按钮、列表项、模态框样式
 
@@ -1742,8 +1871,8 @@ const setModeToggleState = () => {
 - `dist/js/utils.js`: 工具函数,包含防抖、节流、DOM 操作等
 
 ### HTML 结构
-- `dist/index.html`: 主页面 HTML 结构,包含提示词 tooltip、按钮 tooltip、客户端下拉菜单、标签下拉菜单、语言选择下拉菜单 (第 3-160 行)
-- `dist/settings.html`: 设置页面 HTML 结构,包含设置下拉菜单、按钮 tooltip、Toggle Switch组件 (第 3-145 行)
+- `dist/index.html`: 主页面 HTML 结构,包含提示词 tooltip、按钮 tooltip、客户端下拉菜单、标签下拉菜单、语言选择下拉菜单、图标化设置按钮 (第 3-160 行)
+- `dist/settings.html`: 设置页面 HTML 结构,包含设置下拉菜单、按钮 tooltip、Toggle Switch组件、图标化返回按钮 (第 3-145 行)
 
 ### 无障碍支持
 - 所有下拉菜单使用 `aria-haspopup`、`aria-expanded`、`aria-controls`、`aria-hidden` 属性

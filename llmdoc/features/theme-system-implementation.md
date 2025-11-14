@@ -214,9 +214,10 @@ sequenceDiagram
 ```javascript
 export function createThemeToggleButton() {
   const button = document.createElement('button');
-  button.className = 'theme-toggle-btn border border-gray-300 bg-white text-gray-800 rounded-md px-3 py-2 hover:border-primary hover:text-primary transition-all duration-200 flex items-center justify-center';
+  button.type = 'button';
+  button.className = 'theme-toggle-btn btn-icon btn-icon-primary';
   button.setAttribute('aria-label', '切换主题');
-  button.title = '切换深色/浅色主题';
+  button.setAttribute('data-tooltip', '切换主题');
 
   // SVG 图标结构
   button.innerHTML = `
@@ -236,6 +237,40 @@ export function createThemeToggleButton() {
   return button;
 }
 ```
+
+#### 2.6.1 样式设计原则
+
+**统一图标按钮语言**:
+- 使用 `btn-icon btn-icon-primary` 样式类
+- 与其他操作按钮保持视觉一致性
+- 透明背景，hover 时显示淡蓝色背景
+
+**提示功能优化**:
+- 使用 `data-tooltip` 替代 `title` 属性
+- 统一的悬浮提示系统
+- 更好的无障碍支持
+
+#### 2.6.2 CSS 样式特性
+
+**无边框设计**:
+```css
+.theme-toggle-btn.btn-icon.btn-icon-primary {
+  /* 透明背景 */
+  background: transparent;
+  /* 无边框 */
+  border: none;
+  /* 统一圆角和间距 */
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  /* 平滑过渡 */
+  transition: all 0.2s ease;
+}
+```
+
+**主题适配**:
+- 亮色主题：灰色图标，hover 变蓝色
+- 暗色主题：浅灰色图标，hover 变蓝色
+- 自动适配当前主题颜色
 
 ### 2.7 系统主题监听
 
