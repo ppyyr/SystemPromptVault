@@ -29,12 +29,16 @@
         <div class="flex items-center gap-2">
           <div id="themeToggleContainer"></div>
           <a
-            class="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 font-semibold hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+            class="btn-icon btn-icon-primary"
             href="index.html"
-            data-i18n="common.back"
-            data-i18n-en="Back"
-            data-i18n-zh="返回"
-          ></a>
+            data-tooltip="返回"
+            data-i18n-tooltip="common.back"
+            aria-label="返回"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </a>
         </div>
       </header>
 

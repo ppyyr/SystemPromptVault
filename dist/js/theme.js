@@ -106,9 +106,9 @@ export function updateThemeIcon() {
 export function createThemeToggleButton() {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'theme-toggle-btn border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-md px-3 py-2 hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 flex items-center justify-center';
+  button.className = 'theme-toggle-btn btn-icon btn-icon-primary';
   button.setAttribute('aria-label', '切换主题');
-  button.title = '切换深色/浅色主题';
+  button.setAttribute('data-tooltip', '切换主题');
 
   button.innerHTML = `
     <svg class="theme-icon-sun w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">

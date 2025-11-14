@@ -1908,9 +1908,3 @@ a {
 .dark #splitResizer.bg-primary .split-resizer__track {
   box-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
 }
-
-/* 去掉主题切换按钮和右边按钮的边框 */
-#themeToggleContainer .theme-toggle-btn,
-#themeToggleContainer + a {
-  border: none !important;
-}
