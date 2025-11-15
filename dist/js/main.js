@@ -292,14 +292,14 @@ const createAutoSnapshot = async (clientId, prefix = null) => {
     await SnapshotAPI.create(clientId, name, true, "");
     await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
     console.log(`[Snapshot] 已创建快照: ${name} (客户端: ${clientId})`);
-    return name;
+    return { success: true, name };
   } catch (error) {
     if (error && typeof error === "string" && error.includes("内容未变化")) {
       console.log(`[Snapshot] 内容未变化,跳过快照: ${prefix} (客户端: ${clientId})`);
-      return null;
+      return { success: true, skipped: true, reason: "no_changes" };
     }
     console.warn(`[Snapshot] 创建快照失败:`, error);
-    return null;
+    return { success: false, error };
   }
 };
 
@@ -343,11 +343,14 @@ const ensureProtectiveSnapshotBeforeNavigation = async (prefix) => {
     console.log("[Navigation] Auto-save completed, proceeding to snapshot");
   }
 
-  const snapshotName = await createAutoSnapshot(state.currentClientId, resolvedPrefix);
-  if (snapshotName) {
-    console.log("[Navigation] Protective auto snapshot created:", snapshotName);
+  const snapshotResult = await createAutoSnapshot(state.currentClientId, resolvedPrefix);
+  if (snapshotResult?.success && snapshotResult.skipped) {
+    const reason = snapshotResult.reason || "unknown";
+    console.log(`[Navigation] Protective auto snapshot skipped (reason: ${reason})`);
+  } else if (snapshotResult?.success) {
+    console.log("[Navigation] Protective auto snapshot created:", snapshotResult.name);
   } else {
-    console.warn("[Navigation] Protective auto snapshot skipped or failed");
+    console.warn("[Navigation] Protective auto snapshot failed:", snapshotResult?.error);
     showToast(
       t("snapshots.createFailedWarning", "Failed to create protective snapshot"),
       "warning"
