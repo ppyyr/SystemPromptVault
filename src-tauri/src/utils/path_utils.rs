@@ -1,3 +1,4 @@
+use dirs::home_dir;
 use std::env;
 use std::path::{Component, Path, PathBuf};
 
@@ -44,6 +45,32 @@ pub fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
             .map(|cwd| clean_components(cwd.join(input)))
             .unwrap_or_else(|_| clean_components(input))
     }
+}
+
+pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
+    let input = path.as_ref();
+    let Some(home) = home_dir() else {
+        return input.to_path_buf();
+    };
+
+    if let Some(path_str) = input.to_str() {
+        if path_str == "~" {
+            return home;
+        }
+
+        if let Some(remainder) = path_str
+            .strip_prefix("~/")
+            .or_else(|| path_str.strip_prefix("~\\"))
+        {
+            let mut expanded = home;
+            if !remainder.is_empty() {
+                expanded.push(remainder);
+            }
+            return expanded;
+        }
+    }
+
+    input.to_path_buf()
 }
 
 pub fn get_config_path<P: AsRef<Path>>(project_path: P, file_type: ConfigFileType) -> PathBuf {

@@ -273,8 +273,14 @@
   },
   "contextMenu": {
     "copyPath": "Copy Full Path",
+    "copyFileName": "Copy File Name",
+    "copyRelativePath": "Copy Relative Path",
     "copySuccess": "File path copied to clipboard",
-    "copyFailed": "Failed to copy file path"
+    "copyFailed": "Failed to copy file path",
+    "copyFileNameSuccess": "File name copied to clipboard",
+    "copyFileNameFailed": "Failed to copy file name",
+    "copyRelativePathSuccess": "Relative path copied to clipboard",
+    "copyRelativePathFailed": "Failed to copy relative path"
   },
   "about": {
     "title": "About",

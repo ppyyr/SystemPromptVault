@@ -3,6 +3,7 @@ pub mod backup;
 pub mod client;
 pub mod config_file;
 pub mod file_watcher;
+pub mod path;
 pub mod project;
 pub mod prompt;
 pub mod snapshot;

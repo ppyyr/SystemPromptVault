@@ -62,7 +62,12 @@
             "core:path:allow-dirname",
             "core:path:allow-extname",
             "core:path:allow-basename",
-            "core:path:allow-is-absolute"
+            "core:path:allow-is-absolute",
+            "clipboard-manager:default",
+            "clipboard-manager:allow-write-text",
+            "dialog:default",
+            "dialog:allow-open",
+            "dialog:allow-save"
           ]
         }
       ]

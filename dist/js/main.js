@@ -21,6 +21,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { initI18n, t, applyTranslations, onLanguageChange } from "./i18n.js";
 
 const appWindow = getCurrentWindow();
@@ -1263,12 +1264,13 @@ const handleConfigFileDropdownLabelContextMenu = (event) => {
 };
 
 const handleContextMenuItemClick = async (event) => {
-  const item = event.target.closest('[data-action="copy-path"]');
+  const item = event.target.closest("[data-action]");
   if (!item) return;
 
   event.preventDefault();
   event.stopPropagation();
 
+  const action = item.dataset.action;
   const menu = elements.contextMenu;
   const filePath = menu?.dataset.contextFilePath;
 
@@ -1278,9 +1280,19 @@ const handleContextMenuItemClick = async (event) => {
     return;
   }
 
-  // 调用剪贴板复制功能
-  await copyFilePathToClipboard(filePath);
-  hideContextMenu();
+  try {
+    if (action === "copy-path") {
+      await copyFilePathToClipboard(filePath);
+    } else if (action === "copy-filename") {
+      await copyFileNameToClipboard(filePath);
+    } else if (action === "copy-relative-path") {
+      await copyRelativePathToClipboard(filePath);
+    } else {
+      console.warn("[ContextMenu] 未知的操作: ", action);
+    }
+  } finally {
+    hideContextMenu();
+  }
 };
 
 const handleDocumentClickForContextMenu = (event) => {
@@ -1307,12 +1319,44 @@ const handleDocumentKeydownForContextMenu = (event) => {
 
 const copyFilePathToClipboard = async (filePath) => {
   try {
-    // 使用浏览器原生 Clipboard API
-    await navigator.clipboard.writeText(filePath);
+    const resolvedPath = await invoke("expand_path", { path: filePath });
+    if (!resolvedPath || typeof resolvedPath !== "string") {
+      throw new Error("无效的路径");
+    }
+    await writeText(resolvedPath);
     showToast(t("contextMenu.copySuccess", "文件路径已复制到剪贴板"), "success");
   } catch (error) {
     console.error("[ContextMenu] 复制失败:", error);
     showToast(t("contextMenu.copyFailed", "复制文件路径失败"), "error");
+  }
+};
+
+const copyFileNameToClipboard = async (filePath) => {
+  try {
+    const fileName = await invoke("get_filename", { path: filePath });
+    if (!fileName || typeof fileName !== "string") {
+      throw new Error("无效的文件名");
+    }
+    await writeText(fileName);
+    showToast(t("contextMenu.copyFileNameSuccess", "文件名已复制到剪贴板"), "success");
+  } catch (error) {
+    console.error("[ContextMenu] 复制文件名失败:", error);
+    showToast(t("contextMenu.copyFileNameFailed", "复制文件名失败"), "error");
+  }
+};
+
+
+const copyRelativePathToClipboard = async (filePath) => {
+  try {
+    const relativePath = await invoke("get_relative_path", { path: filePath });
+    if (!relativePath || typeof relativePath !== "string") {
+      throw new Error("无效的相对路径");
+    }
+    await writeText(relativePath);
+    showToast(t("contextMenu.copyRelativePathSuccess", "相对路径已复制到剪贴板"), "success");
+  } catch (error) {
+    console.error("[ContextMenu] 复制相对路径失败:", error);
+    showToast(t("contextMenu.copyRelativePathFailed", "复制相对路径失败"), "error");
   }
 };
 

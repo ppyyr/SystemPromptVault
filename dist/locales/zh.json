@@ -273,8 +273,14 @@
   },
   "contextMenu": {
     "copyPath": "复制完整路径",
+    "copyFileName": "复制文件名",
+    "copyRelativePath": "复制相对路径",
     "copySuccess": "文件路径已复制到剪贴板",
-    "copyFailed": "复制文件路径失败"
+    "copyFailed": "复制文件路径失败",
+    "copyFileNameSuccess": "文件名已复制到剪贴板",
+    "copyFileNameFailed": "复制文件名失败",
+    "copyRelativePathSuccess": "相对路径已复制到剪贴板",
+    "copyRelativePathFailed": "复制相对路径失败"
   },
   "about": {
     "title": "关于",

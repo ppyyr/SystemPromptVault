@@ -29,6 +29,7 @@ pub fn run() {
         .manage(client_repository)
         .manage(file_watcher)
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(tauri::generate_handler![
             commands::template::get_templates,
             commands::template::create_template,
@@ -60,6 +61,9 @@ pub fn run() {
             commands::client::import_clients,
             commands::config_file::read_config_file,
             commands::config_file::write_config_file,
+            commands::path::expand_path,
+            commands::path::get_filename,
+            commands::path::get_relative_path,
             commands::file_watcher::start_watching_config,
             commands::file_watcher::stop_watching_config,
             commands::app_state::get_app_state,
