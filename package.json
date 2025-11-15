@@ -1,6 +1,6 @@
 {
   "name": "systemprompt-vault",
-  "version": "0.1.0",
+  "version": "0.1.15",
   "description": "基于 Tauri v2 的单文件 Prompt 管理与客户端切换工具，专注于在 `.claude/CLAUDE.md`、`.codex/AGENTS.md`、`.gemini/GEMINI.md` 等配置文件之间实现快速、可视化的配置管理。",
   "main": "index.js",
   "directories": {

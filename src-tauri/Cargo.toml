@@ -1,6 +1,6 @@
 [package]
 name = "systemprompt-vault"
-version = "0.1.0"
+version = "0.1.15"
 description = "SystemPromptVault Tauri App"
 authors = ["Saul <p@sora.im>"]
 license = "MIT"
