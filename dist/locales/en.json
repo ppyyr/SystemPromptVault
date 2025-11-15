@@ -131,6 +131,8 @@
     "autoPrefix": "Auto Snapshot",
     "startupPrefix": "Startup Snapshot",
     "autoSavePrefix": "Auto Save",
+    "beforeSettingsPrefix": "Before Settings",
+    "beforeQuitPrefix": "Before Quit",
     "autoBadge": "Auto",
     "manualBadge": "Manual",
     "autoLabelWithTime": "Auto saved {time}",

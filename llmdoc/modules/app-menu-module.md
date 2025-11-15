@@ -79,11 +79,32 @@ fn build_file_menu<R: Runtime>(app_handle: &AppHandle<R>) -> Result<Submenu<R>, 
     // 创建 Open 菜单项
     let open_item = MenuItem::with_id(app_handle, "open", "Open", true, None::<&str>)?;
 
+    // 创建 Settings 菜单项 (macOS 标准快捷键 Cmd+,)
+    let settings_item = MenuItem::with_id(
+        app_handle,
+        "settings",
+        "Settings",
+        true,
+        Some("CmdOrCtrl+,")
+    )?;
+
     // 创建分隔符
     let separator = PredefinedMenuItem::separator(app_handle)?;
 
     // 创建 Close Window 菜单项
     let close_item = PredefinedMenuItem::close_window(app_handle, None)?;
+
+    // 创建第二个分隔符
+    let separator2 = PredefinedMenuItem::separator(app_handle)?;
+
+    // 创建 Quit 菜单项 (Cmd+Q 快捷键)
+    let quit_item = MenuItem::with_id(
+        app_handle,
+        "quit",
+        "Quit",
+        true,
+        Some("CmdOrCtrl+Q")
+    )?;
 
     // 创建 File 子菜单
     let file_submenu = Submenu::with_id_and_items(
@@ -91,7 +112,7 @@ fn build_file_menu<R: Runtime>(app_handle: &AppHandle<R>) -> Result<Submenu<R>, 
         "file",
         "File",
         true,
-        &[&open_item, &separator, &close_item],
+        &[&open_item, &settings_item, &separator, &close_item, &separator2, &quit_item],
     )?;
 
     Ok(file_submenu)
@@ -134,6 +155,12 @@ pub fn handle_menu_event<R: Runtime>(
         "open" => {
             handle_open_menu(app_handle)
         }
+        "settings" => {
+            handle_settings_menu(app_handle)
+        }
+        "quit" => {
+            handle_quit_menu(app_handle)
+        }
         "about" => {
             show_about_dialog(app_handle);
             Ok(())
@@ -160,6 +187,45 @@ fn handle_open_menu<R: Runtime>(app_handle: &AppHandle<R>) -> Result<(), String>
 }
 ```
 
+#### 2.3.3 Settings 菜单处理
+
+```rust
+fn handle_settings_menu<R: Runtime>(app_handle: &AppHandle<R>) -> Result<(), String> {
+    // 显示并聚焦主窗口
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        // 向前端发送设置菜单事件
+        window
+            .emit("menu://settings", ())
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+```
+
+#### 2.3.4 Quit 菜单处理
+
+```rust
+fn handle_quit_menu<R: Runtime>(app_handle: &AppHandle<R>) -> Result<(), String> {
+    // 向主窗口发送退出前事件,让前端创建快照
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window
+            .emit("menu://quit", ())
+            .map_err(|e| e.to_string())?;
+    }
+
+    // 给前端200ms时间创建快照,然后退出应用
+    let app = app_handle.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        app.exit(0);
+    });
+
+    Ok(())
+}
+```
+
 ### 2.4 前端事件监听
 
 #### 2.4.1 文件打开事件处理
@@ -171,6 +237,43 @@ window.addEventListener('menu://file-open', () => {
     // 例如：显示文件选择对话框、导航到文件管理页面等
     console.log('Open menu item clicked');
 });
+```
+
+#### 2.4.2 Settings 菜单事件处理 (包含快照)
+
+```javascript
+// 前端代码示例 (dist/js/main.js)
+const listenToMenuEvents = async () => {
+    // Settings 菜单事件 - 跳转前创建快照
+    await listen("menu://settings", async () => {
+        console.log("[Menu] Settings menu clicked");
+        try {
+            await createAutoSnapshot(
+                state.currentClientId,
+                t("snapshots.beforeSettingsPrefix", "Before Settings")
+            );
+            console.log("[Menu] Snapshot created before navigating to settings");
+        } catch (error) {
+            console.warn("创建Settings跳转前快照失败:", error);
+        }
+        window.location.href = "settings.html";
+    });
+
+    // Quit 菜单事件 - 退出前创建快照
+    await listen("menu://quit", async () => {
+        console.log("[Menu] Quit menu triggered, creating exit snapshot...");
+        try {
+            await createAutoSnapshot(
+                state.currentClientId,
+                t("snapshots.beforeQuitPrefix", "Before Quit")
+            );
+            console.log("[Menu] Exit snapshot created successfully");
+        } catch (error) {
+            console.warn("创建退出前快照失败:", error);
+        }
+        // 后端 200ms 后自动退出,无需前端处理
+    });
+};
 ```
 
 ### 2.5 系统集成
@@ -239,12 +342,16 @@ fn main() {
 2. **菜单项状态**: 根据应用状态动态调整菜单项的可用性
 3. **响应速度**: 菜单事件响应迅速，无明显延迟
 4. **无障碍支持**: 支持屏幕阅读器等辅助技术
+5. **页面导航**: Settings 菜单项会直接将主窗口跳转到 settings.html，未保存内容会丢失（settings.html 提供返回入口）
+6. **自动快照保护**: Settings 跳转和 Quit 退出前自动创建快照，保护用户数据
+7. **退出时间窗口**: Quit 菜单给予前端 200ms 时间完成快照，确保数据安全
+8. **快照失败处理**: 快照创建失败不会阻塞 Settings 跳转或 Quit 退出
 
 ### 维护注意事项
 
 1. **菜单项管理**: 新增功能时考虑是否需要在菜单中添加对应项
 2. **国际化支持**: 菜单文本支持多语言（当前使用英文）
-3. **快捷键一致性**: 确保快捷键与系统和其他应用保持一致
+3. **快捷键一致性**: Settings 菜单项使用 macOS 标准快捷键 Cmd+, 与系统设置保持一致
 4. **测试覆盖**: 定期测试菜单功能的完整性和响应性
 
 ### 扩展性注意事项

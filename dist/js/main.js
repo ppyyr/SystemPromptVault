@@ -1491,6 +1491,7 @@ const initApp = async () => {
     }
     await listenToFileChanges();
     await listenToSnapshotRestored();
+    await listenToMenuEvents();
     await startFileWatcher(state.currentClientId);
   } catch (error) {
     showToast(getErrorMessage(error) || t("toast.initFailed", "Initialization failed"), "error");
@@ -1996,6 +1997,51 @@ const listenToSnapshotRestored = async () => {
     console.log("[Snapshot] tray://snapshot-restored listener registered successfully!");
   } catch (error) {
     console.error("[Snapshot] Failed to register tray://snapshot-restored listener:", error);
+  }
+};
+
+const listenToMenuEvents = async () => {
+  console.log("[Menu] listenToMenuEvents() called");
+  if (typeof state.menuSettingsUnlisten === "function") {
+    console.log("[Menu] Already listening for settings menu events, skipping...");
+    return;
+  }
+
+  try {
+    state.menuSettingsUnlisten = await listen("menu://settings", async () => {
+      console.log("[Menu] Settings menu clicked");
+      try {
+        await createAutoSnapshot(
+          state.currentClientId,
+          t("snapshots.beforeSettingsPrefix", "Before Settings")
+        );
+        console.log("[Menu] Snapshot created before navigating to settings");
+      } catch (error) {
+        console.warn("创建Settings跳转前快照失败:", error);
+      }
+      window.location.href = "settings.html";
+    });
+    console.log("[Menu] menu://settings listener registered successfully!");
+  } catch (error) {
+    console.error("[Menu] Failed to register menu://settings listener:", error);
+  }
+
+  try {
+    state.menuQuitUnlisten = await listen("menu://quit", async () => {
+      console.log("[Menu] Quit menu triggered, creating exit snapshot...");
+      try {
+        await createAutoSnapshot(
+          state.currentClientId,
+          t("snapshots.beforeQuitPrefix", "Before Quit")
+        );
+        console.log("[Menu] Exit snapshot created successfully");
+      } catch (error) {
+        console.warn("创建退出前快照失败:", error);
+      }
+    });
+    console.log("[Menu] menu://quit listener registered successfully!");
+  } catch (error) {
+    console.error("[Menu] Failed to register menu://quit listener:", error);
   }
 };
 

@@ -42,11 +42,20 @@ button {
 
 .btn-secondary {
   background: #e8e8e8;
-  color: var(--color-text);
+  color: #333333;
+}
+
+.dark .btn-secondary {
+  background: #4b5563;
+  color: #f3f4f6;
 }
 
 .btn-secondary:hover:not(:disabled) {
   background: #dcdcdc;
+}
+
+.dark .btn-secondary:hover:not(:disabled) {
+  background: #6b7280;
 }
 
 .btn-secondary-outline {

@@ -131,6 +131,8 @@
     "autoPrefix": "自动快照",
     "startupPrefix": "启动时自动快照",
     "autoSavePrefix": "自动保存",
+    "beforeSettingsPrefix": "设置前快照",
+    "beforeQuitPrefix": "退出前快照",
     "autoBadge": "自动",
     "manualBadge": "手动",
     "autoLabelWithTime": "自动保存 {time}",
