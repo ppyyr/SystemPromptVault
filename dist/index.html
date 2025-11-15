@@ -26,8 +26,8 @@
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js"></script>
   </head>
   <body class="bg-gray-100 dark:bg-gray-900 h-screen text-gray-900 dark:text-gray-100">
-    <div class="h-full mx-auto p-5 flex flex-col gap-6">
-      <header class="flex items-center justify-between gap-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg px-5 py-4 shadow-sm">
+    <div class="h-full mx-auto p-0 flex flex-col gap-0">
+      <header class="flex items-center justify-between gap-3 bg-blue-100 dark:bg-blue-900/50 rounded-none px-5 py-4 shadow-sm">
         <div class="flex items-center gap-3">
           <img
             src="icons/32x32.png"
@@ -65,7 +65,7 @@
       </header>
 
       <div id="splitContainer" class="flex flex-row gap-0 flex-1">
-        <section id="configSection" class="resizable-panel bg-white border border-gray-200 dark:border-gray-700 rounded-lg p-5 shadow-sm flex flex-col gap-4 min-h-[520px] w-full flex-none" style="background: rgba(255, 255, 255, 0.95);">
+        <section id="configSection" class="resizable-panel bg-white border border-gray-200 dark:border-gray-700 rounded-none p-0 shadow-sm flex flex-col gap-0 min-h-[520px]" style="background: rgba(255, 255, 255, 0.95);">
           <style>
             .dark #configSection {
               background: rgba(15, 23, 42, 0.9) !important;
@@ -206,7 +206,7 @@
           </div>
         </div>
 
-        <section id="promptSection" class="resizable-panel bg-white border border-gray-200 dark:border-gray-700 rounded-lg p-5 shadow-sm flex flex-col gap-4 min-h-[520px] w-full flex-none" style="background: rgba(255, 255, 255, 0.95);">
+        <section id="promptSection" class="resizable-panel bg-white border border-gray-200 dark:border-gray-700 rounded-none p-0 shadow-sm flex flex-col gap-0 min-h-[520px]" style="background: rgba(255, 255, 255, 0.95);">
           <style>
             .dark #promptSection {
               background: rgba(15, 23, 42, 0.9) !important;

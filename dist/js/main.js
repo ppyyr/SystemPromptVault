@@ -67,8 +67,8 @@ const elements = {};
 const TOOLTIP_DELAY = 100;
 const TOOLTIP_HIDE_DELAY = 150;
 const SPLIT_RATIO_KEY = "splitRatio";
-const SPLIT_MIN_RATIO = 0.2;
-const SPLIT_MAX_RATIO = 0.8;
+const SPLIT_MIN_RATIO = 0.0;
+const SPLIT_MAX_RATIO = 1.0;
 const DESKTOP_BREAKPOINT = 1024;
 const RESIZER_HOVER_CLASSES = ["hover:bg-gray-400", "dark:hover:bg-gray-500"];
 const RESIZER_INACTIVE_CLASSES = ["bg-gray-300", "dark:bg-gray-600"];
@@ -1454,12 +1454,13 @@ const initResizer = () => {
 
   const applySplitWidths = () => {
     if (window.innerWidth < DESKTOP_BREAKPOINT) {
-      leftPanel.style.removeProperty("width");
-      rightPanel.style.removeProperty("width");
+      leftPanel.style.removeProperty("flex");
+      rightPanel.style.removeProperty("flex");
       return;
     }
-    leftPanel.style.width = `${state.splitRatio * 100}%`;
-    rightPanel.style.width = `${(1 - state.splitRatio) * 100}%`;
+    // 使用 0 1 保持不增大但允许收缩，并各自减去 1px（2px gutter 的一半）来确保两面板加上分隔条正好等于 100%
+    leftPanel.style.flex = `0 1 max(0%, calc(${state.splitRatio * 100}% - 1px))`;
+    rightPanel.style.flex = `0 1 max(0%, calc(${(1 - state.splitRatio) * 100}% - 1px))`;
     if (state.monacoEditor) {
       state.monacoEditor.layout();
     }
@@ -1540,6 +1541,11 @@ const initResizer = () => {
   };
 
   resizer.addEventListener("mousedown", startDragging);
+  resizer.addEventListener("dblclick", () => {
+    state.splitRatio = 0.8;
+    applySplitWidths();
+    persistSplitRatio();
+  });
   window.addEventListener("resize", handleWindowResize);
   applySplitWidths();
 };

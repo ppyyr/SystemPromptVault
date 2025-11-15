@@ -1830,14 +1830,34 @@ a {
 /* 桌面端拖拽时提升宽度变更的渲染效率 */
 .resizable-panel {
   will-change: width;
+  min-width: 0; /* 允许面板收缩到任意宽度 */
+}
+
+/* 允许面板内的grid布局收缩 - 解决grid-cols-3阻止面板缩小的问题 */
+#configSection .grid,
+#promptSection .grid {
+  min-width: 0;
+}
+
+#configSection .grid > *,
+#promptSection .grid > * {
+  min-width: 0;
+}
+
+/* 允许下拉菜单和内部元素在面板收缩时自适应 */
+.resizable-panel .client-dropdown,
+.resizable-panel .client-dropdown__toggle,
+.resizable-panel .flex,
+.resizable-panel .flex > * {
+  min-width: 0;
 }
 
 /* 分割条 - 极简隐藏式设计 */
 #splitResizer {
   display: flex !important;
-  width: 8px !important;
-  min-width: 8px !important;
-  max-width: 8px !important;
+  width: 2px !important;
+  min-width: 2px !important;
+  max-width: 2px !important;
   min-height: 100%;
   background: transparent !important;
   border: none !important;
