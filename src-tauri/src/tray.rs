@@ -13,7 +13,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{App, AppHandle, Emitter, Manager, Runtime};
 
 const TRAY_ID: &str = "systempromptvault_tray";
-const SNAPSHOT_MENU_PREFIX: &str = "restore_snapshot_";
+pub(crate) const SNAPSHOT_MENU_PREFIX: &str = "restore_snapshot_";
 const SHOW_MAIN_WINDOW_MENU_ID: &str = "show_main_window";
 const QUIT_MENU_ID: &str = "quit";
 const SNAPSHOT_EVENT_NAME: &str = "tray://snapshot-restored";
@@ -205,7 +205,9 @@ fn build_tray_menu<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Menu<R>>
     Ok(menu)
 }
 
-fn build_client_submenus<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Vec<Submenu<R>>> {
+pub(crate) fn build_client_submenus<R: Runtime>(
+    app_handle: &AppHandle<R>,
+) -> TrayResult<Vec<Submenu<R>>> {
     let mut clients = collect_clients(app_handle)?;
     clients.sort_by(|a, b| a.name.cmp(&b.name));
 
@@ -230,7 +232,7 @@ fn build_client_submenus<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Ve
     Ok(submenus)
 }
 
-fn build_client_submenu<R: Runtime>(
+pub(crate) fn build_client_submenu<R: Runtime>(
     app_handle: &AppHandle<R>,
     client: &ClientConfig,
     snapshots: Vec<Snapshot>,
@@ -277,7 +279,9 @@ fn build_client_submenu<R: Runtime>(
     .map_err(TrayError::from)
 }
 
-fn collect_clients<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Vec<ClientConfig>> {
+pub(crate) fn collect_clients<R: Runtime>(
+    app_handle: &AppHandle<R>,
+) -> TrayResult<Vec<ClientConfig>> {
     let client_state = app_handle.state::<Arc<Mutex<ClientRepository>>>();
     let repo = client_state
         .inner()
@@ -286,11 +290,11 @@ fn collect_clients<R: Runtime>(app_handle: &AppHandle<R>) -> TrayResult<Vec<Clie
     repo.get_all().map_err(TrayError::from)
 }
 
-fn format_client_label(client: &ClientConfig, snapshot_count: usize) -> String {
+pub(crate) fn format_client_label(client: &ClientConfig, snapshot_count: usize) -> String {
     format!("{}({})", client.name, snapshot_count)
 }
 
-fn format_snapshot_label(snapshot: &Snapshot, is_auto: bool) -> String {
+pub(crate) fn format_snapshot_label(snapshot: &Snapshot, is_auto: bool) -> String {
     let local_time: DateTime<Local> = snapshot.created_at.with_timezone(&Local);
     let timestamp = local_time.format("%Y-%m-%d %H:%M:%S");
     if is_auto {

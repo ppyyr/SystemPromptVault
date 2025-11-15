@@ -107,6 +107,7 @@ fn main() {
             commands::snapshot::set_max_auto_snapshots,
             commands::snapshot::set_max_manual_snapshots,
             commands::snapshot::refresh_tray_menu,
+            commands::snapshot::refresh_app_menu,
         ])
         .run(tauri::generate_context!())
         .expect("SystemPromptVault Tauri 运行失败");

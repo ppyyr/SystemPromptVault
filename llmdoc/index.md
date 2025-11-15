@@ -58,7 +58,7 @@
 ### 已废弃文档
 - ~~[Tauri v2 剪贴板功能实现和 Command 系统调研报告](agent/tauri-v2-clipboard-integration-technical-research.md)~~ - 项目已采用浏览器原生 Clipboard API，移除 Tauri 插件依赖
 
-**更新日期**: 2025-11-14
+**更新日期**: 2025-11-15
 **项目版本**: 0.1.0
 **维护者**: SystemPromptVault 开发团队
-**最近更新**: About 窗口界面优化，包括PNG图标替换emoji、透明背景设计、应用名称层次结构新增；应用菜单模块完善，支持 File/Help 菜单、事件处理、系统集成；Vite 构建配置更新，新增 about.html 入口支持；i18n 防闪烁实现文档更新，补充主页副标题防闪烁应用实例
+**最近更新**: UI 交互优化文档新增跑马灯滚动效果实现，包括配置文件下拉框标签持续循环跑马灯、下拉菜单项 hover 触发跑马灯、CSS 变量动态控制、性能优化、无障碍支持；Tailwind CSS 集成指南新增自定义动画系统章节，详细说明跑马灯动画配置、keyframes 定义、使用示例、注意事项

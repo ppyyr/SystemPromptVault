@@ -1757,7 +1757,297 @@ button.setAttribute('data-tooltip', '切换主题');
 - 图标视觉识别度高，操作更直观
 - 与主题切换按钮形成统一的按钮组
 
-### 2.17 编辑器模式按钮的状态管理
+### 2.17 跑马灯滚动效果实现
+
+为解决配置文件下拉框和下拉菜单项中长文件名显示问题，系统实现了优雅的跑马灯滚动效果，支持持续循环和 hover 触发两种模式。
+
+#### 2.17.1 动画系统架构
+
+```mermaid
+graph TB
+    subgraph "Tailwind CSS 配置层"
+        Keyframes[marquee-scroll keyframes]
+        Animation[animate-marquee animation]
+        HoverAnimation[marquee-hover animation]
+    end
+
+    subgraph "CSS 样式层"
+        CSSVars[--marquee-scroll-distance 变量]
+        HoverRule[hover: animation 规则]
+        ReducedMotion[减少动画媒体查询]
+    end
+
+    subgraph "JavaScript 控制层"
+        Measure[requestAnimationFrame 测量]
+        DynamicCalc[动态距离计算]
+        ClassToggle[类名切换控制]
+    end
+
+    subgraph "UI 组件层"
+        DropdownLabel[下拉框标签]
+        DropdownOptions[下拉菜单项]
+        OverflowDetection[溢出检测]
+    end
+
+    Keyframes --> CSSVars
+    Animation --> ClassToggle
+    HoverAnimation --> HoverRule
+    Measure --> DynamicCalc
+    DynamicCalc --> ClassToggle
+    ClassToggle --> DropdownLabel
+    HoverRule --> DropdownOptions
+    OverflowDetection --> Measure
+```
+
+#### 2.17.2 Tailwind CSS 自定义动画配置
+
+**文件路径**: `tailwind.config.js`
+
+```javascript
+keyframes: {
+  'marquee-scroll': {
+    '0%, 30%': {
+      transform: 'translateX(0)',
+    },
+    '50%, 80%': {
+      transform: 'translateX(calc(-1 * var(--marquee-scroll-distance, 0px)))',
+    },
+    '100%': {
+      transform: 'translateX(0)',
+    },
+  },
+  'marquee-scroll-hover': {
+    '0%': {
+      transform: 'translateX(0)',
+    },
+    '50%': {
+      transform: 'translateX(calc(-1 * var(--marquee-scroll-distance, 0px)))',
+    },
+    '100%': {
+      transform: 'translateX(0)',
+    },
+  },
+},
+animation: {
+  'marquee': 'marquee-scroll 12s ease-in-out infinite',
+  'marquee-hover': 'marquee-scroll-hover 8s ease-in-out infinite',
+},
+```
+
+**动画特点**:
+1. **持续循环动画** (`marquee-scroll`): 12秒周期，包含30%停留时间
+2. **hover 触发动画** (`marquee-scroll-hover`): 8秒周期，立即开始无停留
+3. **CSS 变量控制**: 使用 `--marquee-scroll-distance` 动态计算滚动距离
+4. **平滑效果**: 使用 `ease-in-out` 缓动函数
+
+#### 2.17.3 配置文件下拉框标签跑马灯
+
+**HTML 结构** (`dist/index.html:116-126`):
+
+```html
+<span
+  class="client-dropdown__label flex-1 max-w-[140px] overflow-hidden relative"
+  id="configFileDropdownLabel"
+>
+  <span
+    class="inline-block min-w-full whitespace-nowrap will-change-transform pr-6"
+    id="configFileDropdownLabelText"
+  >
+    Select File
+  </span>
+</span>
+```
+
+**关键设计决策**:
+- **最大宽度限制**: `max-w-[140px]` 从200px缩短至140px，触发跑马灯效果
+- **溢出隐藏**: `overflow-hidden` 确保超长内容不破坏布局
+- **性能优化**: `will-change-transform` 提示浏览器优化transform动画
+- **右侧留白**: `pr-6` 为滚动提供视觉缓冲空间
+
+#### 2.17.4 JavaScript 动态控制逻辑
+
+**常量配置** (`dist/js/main.js:154-156`):
+
+```javascript
+const CONFIG_LABEL_SCROLL_MIN_GAP = 12;    // 最小间距 12px
+const CONFIG_LABEL_SCROLL_MAX_GAP = 48;    // 最大间距 48px
+const CONFIG_LABEL_SCROLL_GAP_RATIO = 0.15; // 间距比例 15%
+```
+
+**核心实现** (`dist/js/main.js:2332-2374`):
+
+```javascript
+const updateConfigFileLabelMarquee = () => {
+  const label = elements.configFileDropdownLabel;
+  const textNode = elements.configFileDropdownLabelText;
+
+  if (!label || !textNode) {
+    if (configFileLabelScrollFrame) {
+      cancelAnimationFrame(configFileLabelScrollFrame);
+      configFileLabelScrollFrame = null;
+    }
+    return;
+  }
+
+  // 清理现有动画
+  if (configFileLabelScrollFrame) {
+    cancelAnimationFrame(configFileLabelScrollFrame);
+  }
+
+  textNode.classList.remove("animate-marquee");
+  label.style.removeProperty("--marquee-scroll-distance");
+  textNode.style.removeProperty("transform");
+
+  // 使用 requestAnimationFrame 确保DOM更新后测量
+  configFileLabelScrollFrame = requestAnimationFrame(() => {
+    configFileLabelScrollFrame = null;
+
+    const containerWidth = label.clientWidth;
+    const textWidth = textNode.scrollWidth;
+    const overflowAmount = textWidth - containerWidth;
+
+    // 4px 容差，避免边界情况闪烁
+    if (overflowAmount <= 4) {
+      return;
+    }
+
+    // 动态计算间距：比例、最小值、最大值约束
+    const dynamicGap = Math.min(
+      Math.max(containerWidth * CONFIG_LABEL_SCROLL_GAP_RATIO, CONFIG_LABEL_SCROLL_MIN_GAP),
+      CONFIG_LABEL_SCROLL_MAX_GAP
+    );
+    const scrollDistance = overflowAmount + dynamicGap;
+
+    // 设置CSS变量并启动动画
+    label.style.setProperty("--marquee-scroll-distance", `${scrollDistance}px`);
+    textNode.classList.add("animate-marquee");
+  });
+};
+```
+
+**算法特点**:
+1. **容差处理**: 4px容差避免临界值频繁切换
+2. **动态间距**: 基于容器宽度的15%计算滚动间距，但有12-48px的边界约束
+3. **精确测量**: 使用 `clientWidth` 和 `scrollWidth` 准确计算溢出量
+4. **性能优化**: 使用 `requestAnimationFrame` 确保DOM渲染完成后再测量
+
+#### 2.17.5 下拉菜单项 hover 跑马灯
+
+**CSS 样式实现** (`dist/css/main.css:364-385`):
+
+```css
+@keyframes marquee-scroll-hover {
+  0% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(calc(-1 * var(--marquee-scroll-distance, 0px)));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.client-dropdown__option-text {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+  transition: transform 0.3s ease-in-out;
+}
+
+.client-dropdown__option:hover .client-dropdown__option-text {
+  animation: marquee-scroll-hover 8s ease-in-out infinite;
+}
+```
+
+**交互行为**:
+1. **即时响应**: hover 时立即开始动画，无延迟
+2. **自动计算**: JavaScript 动态设置 `--marquee-scroll-distance` 变量
+3. **循环显示**: 8秒周期，50%时间显示完整内容
+4. **平滑过渡**: 结合 CSS transition 提供平滑的动画体验
+
+**JavaScript 实现** (`dist/js/main.js:2466-2486`):
+
+```javascript
+// 在渲染下拉菜单项时添加 hover 跑马灯支持
+const option = document.createElement('button');
+option.className = 'client-dropdown__option';
+
+const optionText = document.createElement('span');
+optionText.className = 'client-dropdown__option-text';
+optionText.textContent = filename;
+
+// 预测量并设置CSS变量
+const measureAndSetMarquee = function() {
+  const containerWidth = this.parentElement?.clientWidth || 0;
+  const textWidth = this.scrollWidth;
+  const overflowAmount = textWidth - containerWidth;
+
+  if (overflowAmount > 4) {
+    const dynamicGap = Math.min(
+      Math.max(containerWidth * 0.15, 12),
+      48
+    );
+    const scrollDistance = overflowAmount + dynamicGap;
+    this.style.setProperty("--marquee-scroll-distance", `${scrollDistance}px`);
+  } else {
+    this.style.removeProperty("--marquee-scroll-distance");
+  }
+};
+
+// 延迟测量确保DOM完全渲染
+setTimeout(() => measureAndSetMarquee.call(optionText), 0);
+```
+
+#### 2.17.6 技术架构优势
+
+**从自定义CSS到Tailwind的迁移**:
+
+| 方面 | 旧方案 (自定义CSS) | 新方案 (Tailwind优先) |
+|------|------------------|---------------------|
+| **动画定义** | 独立keyframes文件 | Tailwind config统一管理 |
+| **类名系统** | 专用跑马灯类名 | Tailwind工具类组合 |
+| **维护性** | 分散的CSS规则 | 集中的配置管理 |
+| **一致性** | 独立的动画逻辑 | 与项目动画系统统一 |
+| **性能** | 额外的CSS文件 | Tree-shaking优化 |
+
+**CSS变量动态控制**:
+- **灵活性**: 通过CSS变量 `--marquee-scroll-distance` 实现运行时距离调整
+- **响应式**: 根据实际内容长度和容器宽度动态计算
+- **性能**: 避免JavaScript直接操作transform属性，利用CSS动画硬件加速
+- **可维护**: 动画逻辑与距离计算分离，便于调试和优化
+
+**双重动画模式**:
+1. **持续循环模式**: 适用于需要始终可见的重要信息（配置文件名）
+2. **hover触发模式**: 适用于按需查看的辅助信息（下拉菜单选项）
+3. **差异化时长**: 12秒 vs 8秒，平衡可读性和交互流畅性
+4. **缓动函数**: 统一使用 `ease-in-out` 提供自然的运动效果
+
+#### 2.17.7 无障碍和用户体验考虑
+
+**减少动画支持**:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none !important;
+  }
+}
+```
+
+**用户体验优化**:
+1. **视觉连续性**: 动画循环包含停留时间，提供阅读窗口
+2. **渐进增强**: 基础功能不依赖动画，动画作为增强体验
+3. **性能考虑**: 使用 `will-change` 属性优化动画性能
+4. **容错处理**: 4px容差避免临界状态下的频繁切换
+
+**交互设计原则**:
+- **必要性**: 只有内容真正溢出时才启用跑马灯
+- **可控性**: hover 模式让用户主动控制显示时机
+- **可预测性**: 统一的动画时长和缓动函数
+- **兼容性**: 支持减少动画偏好的用户
+
+### 2.18 编辑器模式按钮的状态管理
 
 模式切换按钮集成了状态指示功能，通过图标和颜色变化提供即时反馈。
 
@@ -1861,17 +2151,18 @@ const setModeToggleState = () => {
 ## 3. Relevant Code Modules
 
 ### 核心交互模块
-- `dist/js/main.js`: 主要交互逻辑,包含双重 tooltip 系统、下拉菜单、防抖实现、事件处理 (第 1-850 行)
+- `dist/js/main.js`: 主要交互逻辑,包含双重 tooltip 系统、下拉菜单、防抖实现、事件处理、跑马灯动态控制 (第 1-850 行、第 154-156 行常量、第 2332-2374 行跑马灯函数、第 2466-2486 行下拉菜单跑马灯)
 - `dist/js/settings.js`: 设置页面交互逻辑,包含设置下拉菜单、按钮 tooltip 系统 (第 1-350 行)
 - `dist/js/theme.js`: 主题按钮创建逻辑,包含统一的图标按钮样式和 `data-tooltip` 属性 (第 106-120 行)
-- `dist/css/main.css`: UI 样式定义,包含 tooltip 样式、下拉菜单样式、按钮图标化样式、语言选择组件、Toggle Switch组件、提示词搜索框组件 (第 1-1916 行)
+- `dist/css/main.css`: UI 样式定义,包含 tooltip 样式、下拉菜单样式、按钮图标化样式、语言选择组件、Toggle Switch组件、提示词搜索框组件、跑马灯动画 (第 1-1916 行、第 125-129 行减少动画媒体查询、第 364-385 行 hover 跑马灯)
 - `dist/css/components.css`: 组件样式,包含按钮、列表项、模态框样式
+- `tailwind.config.js`: Tailwind CSS 自定义配置,包含跑马灯 keyframes 和 animation 定义 (第 35-62 行)
 
 ### 辅助工具模块
 - `dist/js/utils.js`: 工具函数,包含防抖、节流、DOM 操作等
 
 ### HTML 结构
-- `dist/index.html`: 主页面 HTML 结构,包含提示词 tooltip、按钮 tooltip、客户端下拉菜单、标签下拉菜单、语言选择下拉菜单、图标化设置按钮 (第 3-160 行)
+- `dist/index.html`: 主页面 HTML 结构,包含提示词 tooltip、按钮 tooltip、客户端下拉菜单、标签下拉菜单、语言选择下拉菜单、图标化设置按钮、配置文件下拉框跑马灯标签 (第 3-160 行、第 116-126 行跑马灯标签结构)
 - `dist/settings.html`: 设置页面 HTML 结构,包含设置下拉菜单、按钮 tooltip、Toggle Switch组件、图标化返回按钮 (第 3-145 行)
 
 ### 无障碍支持
@@ -1951,11 +2242,38 @@ const setModeToggleState = () => {
    - 使用 `!important` 强制覆盖边框样式，需谨慎使用
    - 无边框设计依赖背景色和颜色变化提供视觉反馈
 
+### 跑马灯动画注意事项
+
+1. **动画系统**:
+   - Tailwind 配置中定义的 `marquee-scroll` 和 `marquee-scroll-hover` keyframes
+   - 使用 CSS 变量 `--marquee-scroll-distance` 动态控制滚动距离
+   - 两种模式：持续循环 (12秒) 和 hover 触发 (8秒)
+
+2. **性能优化**:
+   - 使用 `will-change: transform` 提示浏览器优化动画
+   - 使用 `requestAnimationFrame` 确保DOM渲染完成后再测量
+   - 只在内容真正溢出时启用动画 (4px容差)
+
+3. **响应式计算**:
+   - 滚动距离 = 溢出量 + 动态间距
+   - 动态间距基于容器宽度的15%，范围12-48px
+   - 使用 `clientWidth` 和 `scrollWidth` 精确测量
+
+4. **无障碍支持**:
+   - 通过 `@media (prefers-reduced-motion: reduce)` 支持减少动画偏好
+   - 动画作为渐进增强，基础功能不依赖动画
+
+5. **维护考虑**:
+   - 跑马灯动画定义在 Tailwind 配置中，便于统一管理
+   - CSS 变量分离动画逻辑与距离计算，便于调试
+   - hover 模式的 CSS 规则在 `main.css` 中定义
+
 ### 浏览器兼容性注意事项
 
 1. **事件监听**: 注意捕获阶段和冒泡阶段的兼容性 (事件委托使用捕获阶段)
 2. **CSS 支持**:
    - CSS `:has()` 选择器需要 Chrome 105+, Safari 15.4+, Firefox 121+
    - `backdrop-filter`、`transform` 需要检查目标浏览器支持
+   - CSS 变量 (`--marquee-scroll-distance`) 需要现代浏览器支持
 3. **触摸事件**: 考虑不同设备的触摸事件行为差异
 4. **性能考虑**: 在低端设备上适当调整动画和延迟参数

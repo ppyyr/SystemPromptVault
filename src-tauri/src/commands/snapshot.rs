@@ -1,3 +1,4 @@
+use crate::app_menu;
 use crate::commands::config_file::expand_tilde;
 use crate::file_watcher::ConfigFileWatcher;
 use crate::models::{ClientConfig, Snapshot, SnapshotConfig};
@@ -183,6 +184,11 @@ pub fn set_max_manual_snapshots(
 #[tauri::command]
 pub fn refresh_tray_menu(app_handle: tauri::AppHandle) -> Result<(), String> {
     tray::refresh_tray_menu(&app_handle).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn refresh_app_menu(app_handle: tauri::AppHandle) -> Result<(), String> {
+    app_menu::refresh_app_menu(&app_handle).map_err(|err| err.to_string())
 }
 
 fn restore_snapshot_core<R: Runtime>(

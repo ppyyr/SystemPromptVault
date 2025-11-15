@@ -1401,6 +1401,14 @@ const initSettings = async () => {
   await setupWindowCloseHandler();
   bindEvents();
   updateLanguageRadios();
+  const hash = window.location.hash;
+  if (hash === "#snapshots") {
+    state.activeTabId = "tabSnapshots";
+    history.replaceState(null, "", "settings.html");
+  } else if (hash === "#general") {
+    state.activeTabId = "tabGeneral";
+    history.replaceState(null, "", "settings.html");
+  }
   switchTab(state.activeTabId);
   initButtonTooltips();
 
@@ -2127,7 +2135,7 @@ const handleClientSubmit = async (event) => {
       }
       await loadClients();
       await loadSnapshotClients();
-      await SnapshotAPI.refreshTrayMenu();
+      await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
     });
     const messageKey = state.editingClientId ? "toast.clientUpdated" : "toast.clientCreated";
     const fallback = state.editingClientId ? "Client updated" : "Client created";
@@ -2272,7 +2280,7 @@ const importClientsFromContent = async (content, overwriteIds) => {
     const result = await ClientAPI.importClients(content, overwriteIds);
     await loadClients();
     await loadSnapshotClients();
-    await SnapshotAPI.refreshTrayMenu();
+    await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
     return result;
   });
   const { total = 0, added = 0, updated = 0 } = importResult || {};
@@ -2497,7 +2505,7 @@ const deleteClient = async (clientId) => {
       await ClientAPI.delete(clientId);
       await loadClients();
       await loadSnapshotClients();
-      await SnapshotAPI.refreshTrayMenu();
+      await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
     });
     showToast(t("toast.clientDeleted", "Client deleted"), "success");
   } catch (error) {
@@ -2886,7 +2894,7 @@ const saveGeneralSettings = async (event) => {
         SnapshotAPI.setMaxAutoSnapshots(state.generalSettingsClientId, maxAuto),
         SnapshotAPI.setMaxManualSnapshots(state.generalSettingsClientId, maxManual),
       ]);
-      await SnapshotAPI.refreshTrayMenu();
+      await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
       if (shouldSyncWindowBehavior) {
         await syncWindowBehaviorWithBackend(pendingWindowBehavior);
       }
@@ -2948,7 +2956,7 @@ const saveSnapshotSettings = async () => {
       SnapshotAPI.setMaxAutoSnapshots(state.generalSettingsClientId, maxAuto),
       SnapshotAPI.setMaxManualSnapshots(state.generalSettingsClientId, maxManual),
     ]);
-    await SnapshotAPI.refreshTrayMenu();
+    await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
 
     state.generalMaxAutoSnapshots = maxAuto;
     state.generalMaxManualSnapshots = maxManual;
@@ -3064,7 +3072,7 @@ const deleteSnapshot = async (clientId, snapshotId) => {
   try {
     await withLoading(async () => {
       await SnapshotAPI.delete(clientId, snapshotId);
-      await SnapshotAPI.refreshTrayMenu();
+      await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
     });
     showToast(t("toast.snapshotDeleted", "Snapshot deleted"), "success");
     await loadSnapshotsTable(clientId, { silent: true });
@@ -3096,7 +3104,7 @@ const renameSnapshot = async (clientId, snapshotId, currentName) => {
   try {
     await withLoading(async () => {
       await SnapshotAPI.rename(clientId, snapshotId, normalized);
-      await SnapshotAPI.refreshTrayMenu();
+      await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
     });
     showToast(t("toast.snapshotRenamed", "Snapshot renamed"), "success");
     await loadSnapshotsTable(clientId, { silent: true });

@@ -32,6 +32,34 @@ module.exports = {
         'lg': '16px',
         'xl': '20px',
       },
+      keyframes: {
+        'marquee-scroll': {
+          '0%, 30%': {
+            transform: 'translateX(0)',
+          },
+          '50%, 80%': {
+            transform: 'translateX(calc(-1 * var(--marquee-scroll-distance, 0px)))',
+          },
+          '100%': {
+            transform: 'translateX(0)',
+          },
+        },
+        'marquee-scroll-hover': {
+          '0%': {
+            transform: 'translateX(0)',
+          },
+          '50%': {
+            transform: 'translateX(calc(-1 * var(--marquee-scroll-distance, 0px)))',
+          },
+          '100%': {
+            transform: 'translateX(0)',
+          },
+        },
+      },
+      animation: {
+        'marquee': 'marquee-scroll 12s ease-in-out infinite',
+        'marquee-hover': 'marquee-scroll-hover 8s ease-in-out infinite',
+      },
     },
   },
   plugins: [

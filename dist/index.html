@@ -51,6 +51,7 @@
           <a
             class="btn-icon btn-icon-primary"
             href="settings.html"
+            data-role="open-settings"
             data-tooltip="设置"
             data-i18n-tooltip="common.settings"
             aria-label="设置"
@@ -112,7 +113,17 @@
                     aria-label="Select config file"
                     data-i18n-aria="config.selectFile"
                   >
-                    <span class="client-dropdown__label" id="configFileDropdownLabel">Select File</span>
+                    <span
+                      class="client-dropdown__label flex-1 max-w-[140px] overflow-hidden relative"
+                      id="configFileDropdownLabel"
+                    >
+                      <span
+                        class="inline-block min-w-full whitespace-nowrap will-change-transform pr-6"
+                        id="configFileDropdownLabelText"
+                      >
+                        Select File
+                      </span>
+                    </span>
                     <svg class="client-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                       <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path>
                     </svg>

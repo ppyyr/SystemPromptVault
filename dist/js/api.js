@@ -95,4 +95,5 @@ export const SnapshotAPI = {
   setMaxAutoSnapshots: (clientId, max) => call("set_max_auto_snapshots", { clientId, max }),
   setMaxManualSnapshots: (clientId, max) => call("set_max_manual_snapshots", { clientId, max }),
   refreshTrayMenu: () => call("refresh_tray_menu"),
+  refreshAppMenu: () => call("refresh_app_menu"),
 };

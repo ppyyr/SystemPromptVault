@@ -52,6 +52,10 @@ const state = {
   silentReloadUnlisten: null,
   snapshotRestoredUnlisten: null,
   windowBehaviorUnlisten: null,
+  menuSettingsUnlisten: null,
+  menuQuitUnlisten: null,
+  menuSnapshotCreateUnlisten: null,
+  menuSnapshotManageUnlisten: null,
   isSavingInternally: false,
   windowBehavior: { ...DEFAULT_WINDOW_BEHAVIOR },
   userHomeDir: null,
@@ -146,6 +150,10 @@ let monacoThemesDefined = false;
 let previewRenderTimer = null;
 let fallbackEditorListener = null;
 let markedConfigured = false;
+let configFileLabelScrollFrame = null;
+const CONFIG_LABEL_SCROLL_MIN_GAP = 12;
+const CONFIG_LABEL_SCROLL_MAX_GAP = 48;
+const CONFIG_LABEL_SCROLL_GAP_RATIO = 0.15;
 
 const sanitizeWindowBehaviorValue = (value, allowedValues, fallback) => {
   if (typeof value !== "string") {
@@ -282,7 +290,7 @@ const createAutoSnapshot = async (clientId, prefix = null) => {
 
   try {
     await SnapshotAPI.create(clientId, name, true, "");
-    await SnapshotAPI.refreshTrayMenu();
+    await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
     console.log(`[Snapshot] 已创建快照: ${name} (客户端: ${clientId})`);
     return name;
   } catch (error) {
@@ -293,6 +301,70 @@ const createAutoSnapshot = async (clientId, prefix = null) => {
     console.warn(`[Snapshot] 创建快照失败:`, error);
     return null;
   }
+};
+
+const createManualSnapshot = async (clientId, prefix = null) => {
+  if (!clientId) {
+    throw new Error(t("errors.missingClientId", "Missing client ID, cannot create snapshot"));
+  }
+  const resolvedPrefix =
+    typeof prefix === "string" && prefix.trim().length
+      ? prefix
+      : t("snapshots.manualPrefix", "Manual Snapshot");
+  const name = formatSnapshotName(resolvedPrefix);
+
+  try {
+    await SnapshotAPI.create(clientId, name, false, "");
+    await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
+    console.log(`[Snapshot] 手动快照已创建: ${name} (客户端: ${clientId})`);
+    return name;
+  } catch (error) {
+    console.error(`[Snapshot] 创建手动快照失败:`, error);
+    throw error;
+  }
+};
+
+const ensureProtectiveSnapshotBeforeNavigation = async (prefix) => {
+  if (!state.currentClientId) {
+    return true;
+  }
+  const resolvedPrefix =
+    typeof prefix === "string" && prefix.trim().length
+      ? prefix
+      : t("snapshots.beforeSettingsPrefix", "Before Settings");
+
+  if (state.editorDirty) {
+    console.log("[Navigation] Unsaved changes detected, auto-saving before navigation...");
+    const saved = await saveConfigFile({ silent: true, createSnapshot: false });
+    if (!saved) {
+      console.warn("[Navigation] Auto-save before navigation failed, aborting");
+      return false;
+    }
+    console.log("[Navigation] Auto-save completed, proceeding to snapshot");
+  }
+
+  const snapshotName = await createAutoSnapshot(state.currentClientId, resolvedPrefix);
+  if (snapshotName) {
+    console.log("[Navigation] Protective auto snapshot created:", snapshotName);
+  } else {
+    console.warn("[Navigation] Protective auto snapshot skipped or failed");
+    showToast(
+      t("snapshots.createFailedWarning", "Failed to create protective snapshot"),
+      "warning"
+    );
+  }
+  return true;
+};
+
+const navigateToSettingsTab = async (hash = "#general") => {
+  const prefix = t("snapshots.beforeSettingsPrefix", "Before Settings");
+  const prepared = await ensureProtectiveSnapshotBeforeNavigation(prefix);
+  if (!prepared) {
+    return false;
+  }
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  window.location.href = `settings.html${hash}`;
+  return true;
 };
 
 const handleEditorChange = () => {
@@ -312,9 +384,11 @@ const cacheElements = () => {
   elements.configFileDropdown = document.getElementById("configFileDropdown");
   elements.configFileDropdownToggle = document.getElementById("configFileDropdownToggle");
   elements.configFileDropdownLabel = document.getElementById("configFileDropdownLabel");
+  elements.configFileDropdownLabelText = document.getElementById("configFileDropdownLabelText");
   elements.configFileDropdownPanel = document.getElementById("configFileDropdownPanel");
   elements.configFileDropdownList = document.getElementById("configFileDropdownList");
   elements.configEditor = document.getElementById("configEditor");
+  elements.settingsShortcutLink = document.querySelector('[data-role="open-settings"]');
   elements.monacoEditorContainer = document.getElementById("monacoEditorContainer");
   elements.markdownPreview = document.getElementById("markdownPreview");
   elements.markdownPreviewBody = elements.markdownPreview?.querySelector(
@@ -389,6 +463,10 @@ const bindEvents = () => {
     const createSnapshot = Boolean(event.shiftKey);
     saveConfigFile({ createSnapshot });
   });
+  elements.settingsShortcutLink?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    await navigateToSettingsTab("#general");
+  });
   elements.btnToggleEditorMode?.addEventListener("click", () => {
     const nextMode = state.editorMode === "edit" ? "preview" : "edit";
     toggleEditorMode(nextMode);
@@ -416,6 +494,7 @@ const bindEvents = () => {
     if (state.monacoEditor) {
       state.monacoEditor.layout();
     }
+    updateConfigFileDropdownLabelScrolling();
   });
   elements.promptTooltip?.addEventListener("mouseenter", () => {
     tooltipState.tooltipHovered = true;
@@ -1154,8 +1233,11 @@ const hideContextMenu = () => {
 };
 
 const handleConfigFileDropdownLabelContextMenu = (event) => {
-  // 检查是否右键点击了配置文件名标签
-  const target = event.target.closest("#configFileDropdownLabel");
+  // 检查是否右键点击了配置文件切换区域
+  const target =
+    event.target instanceof Element
+      ? event.target.closest("#configFileSelectContainer")
+      : null;
   if (!target) return;
 
   event.preventDefault();
@@ -1454,6 +1536,7 @@ const initApp = async () => {
   }
 
   cacheElements();
+  updateConfigFileDropdownLabelScrolling();
   bindPromptTooltipInteractions();
   initButtonTooltips();
   hydrateRecentTags();
@@ -2010,16 +2093,10 @@ const listenToMenuEvents = async () => {
   try {
     state.menuSettingsUnlisten = await listen("menu://settings", async () => {
       console.log("[Menu] Settings menu clicked");
-      try {
-        await createAutoSnapshot(
-          state.currentClientId,
-          t("snapshots.beforeSettingsPrefix", "Before Settings")
-        );
-        console.log("[Menu] Snapshot created before navigating to settings");
-      } catch (error) {
-        console.warn("创建Settings跳转前快照失败:", error);
+      const navigated = await navigateToSettingsTab("#general");
+      if (!navigated) {
+        console.warn("[Menu] Navigation to settings aborted due to auto-save failure");
       }
-      window.location.href = "settings.html";
     });
     console.log("[Menu] menu://settings listener registered successfully!");
   } catch (error) {
@@ -2043,6 +2120,65 @@ const listenToMenuEvents = async () => {
   } catch (error) {
     console.error("[Menu] Failed to register menu://quit listener:", error);
   }
+
+  try {
+    state.menuSnapshotCreateUnlisten = await listen("menu://snapshot-create", async () => {
+      console.log("[Menu] Snapshot Create menu clicked");
+      try {
+        if (!state.currentClientId) {
+          throw new Error(t("errors.missingClientId", "Missing client ID, cannot create snapshot"));
+        }
+        const name = await showPrompt(
+          t("dialogs.snapshotNamePrompt", "Enter a snapshot name (leave blank to cancel):"),
+          ""
+        );
+        const trimmedName = name?.trim();
+        if (!trimmedName) {
+          console.log("[Menu] Snapshot creation cancelled or empty input");
+          return;
+        }
+
+        await SnapshotAPI.create(state.currentClientId, trimmedName, false, "");
+        await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
+
+        const template = t("toast.snapshotCreated", 'Snapshot "{value}" created');
+        showToast(template.replace("{value}", trimmedName), "success");
+      } catch (error) {
+        console.error("[Menu] Failed to create snapshot:", error);
+        showToast(
+          getErrorMessage(error) || t("snapshots.createFailed", "Failed to create snapshot"),
+          "error"
+        );
+      }
+    });
+    console.log("[Menu] menu://snapshot-create listener registered successfully!");
+  } catch (error) {
+    console.error("[Menu] Failed to register menu://snapshot-create listener:", error);
+  }
+
+  try {
+    state.menuSnapshotManageUnlisten = await listen("menu://snapshot-manage", async () => {
+      console.log("[Menu] Snapshot Manage menu clicked");
+      const navigated = await navigateToSettingsTab("#snapshots");
+      if (!navigated) {
+        console.warn("[Menu] Navigation to snapshot management aborted due to auto-save failure");
+      }
+    });
+    console.log("[Menu] menu://snapshot-manage listener registered successfully!");
+  } catch (error) {
+    console.error("[Menu] Failed to register menu://snapshot-manage listener:", error);
+  }
+};
+
+const cleanupMenuListeners = () => {
+  ["menuSettingsUnlisten", "menuQuitUnlisten", "menuSnapshotCreateUnlisten", "menuSnapshotManageUnlisten"].forEach(
+    (key) => {
+      if (typeof state[key] === "function") {
+        state[key]();
+        state[key] = null;
+      }
+    }
+  );
 };
 
 const cleanupFileChangeListener = () => {
@@ -2081,7 +2217,7 @@ const saveConfigFile = async ({ silent = false, createSnapshot = false } = {}) =
       if (trimmedName) {
         try {
           await SnapshotAPI.create(state.currentClientId, trimmedName, false, "");
-          await SnapshotAPI.refreshTrayMenu();
+          await Promise.all([SnapshotAPI.refreshTrayMenu(), SnapshotAPI.refreshAppMenu()]);
           console.info(`[Snapshot] 手动快照已创建：${trimmedName} (client: ${state.currentClientId})`);
           const messageTemplate = t("toast.snapshotCreated", 'Snapshot "{value}" created');
           showToast(messageTemplate.replace("{value}", trimmedName), "success");
@@ -2189,6 +2325,54 @@ const getConfigFileDisplayName = (path, fallbackLabel = "") => {
   return fileName || path || fallbackLabel;
 };
 
+const setConfigFileDropdownLabelText = (text) => {
+  const target = elements.configFileDropdownLabelText ?? elements.configFileDropdownLabel;
+  if (target) {
+    target.textContent = text;
+  }
+};
+
+const updateConfigFileDropdownLabelScrolling = () => {
+  const label = elements.configFileDropdownLabel;
+  const textNode = elements.configFileDropdownLabelText ?? label;
+  if (!label || !textNode) {
+    if (configFileLabelScrollFrame) {
+      cancelAnimationFrame(configFileLabelScrollFrame);
+      configFileLabelScrollFrame = null;
+    }
+    return;
+  }
+
+  if (configFileLabelScrollFrame) {
+    cancelAnimationFrame(configFileLabelScrollFrame);
+  }
+
+  textNode.classList.remove("animate-marquee");
+  label.style.removeProperty("--marquee-scroll-distance");
+  textNode.style.removeProperty("transform");
+
+  configFileLabelScrollFrame = requestAnimationFrame(() => {
+    configFileLabelScrollFrame = null;
+
+    const containerWidth = label.clientWidth;
+    const textWidth = textNode.scrollWidth;
+    const overflowAmount = textWidth - containerWidth;
+
+    if (overflowAmount <= 4) {
+      return;
+    }
+
+    const dynamicGap = Math.min(
+      Math.max(containerWidth * CONFIG_LABEL_SCROLL_GAP_RATIO, CONFIG_LABEL_SCROLL_MIN_GAP),
+      CONFIG_LABEL_SCROLL_MAX_GAP
+    );
+    const scrollDistance = overflowAmount + dynamicGap;
+
+    label.style.setProperty("--marquee-scroll-distance", `${scrollDistance}px`);
+    textNode.classList.add("animate-marquee");
+  });
+};
+
 const renderConfigFileDropdown = () => {
   const client = getCurrentClient();
   const container = elements.configFileSelectContainer;
@@ -2205,7 +2389,8 @@ const renderConfigFileDropdown = () => {
   if (!client || configPaths.length === 0) {
     closeConfigFileDropdown();
     if (label) {
-      label.textContent = noClientLabel;
+      setConfigFileDropdownLabelText(noClientLabel);
+      updateConfigFileDropdownLabelScrolling();
     }
     if (list) {
       list.innerHTML = "";
@@ -2228,7 +2413,8 @@ const renderConfigFileDropdown = () => {
   }
   const activeLabel = getConfigFileDisplayName(activePath, client.name || noClientLabel);
   if (label) {
-    label.textContent = activeLabel;
+    setConfigFileDropdownLabelText(activeLabel);
+    updateConfigFileDropdownLabelScrolling();
   }
 
   if (configPaths.length === 1) {
@@ -2264,11 +2450,37 @@ const renderConfigFileDropdown = () => {
     const option = document.createElement("button");
     option.type = "button";
     option.className = "client-dropdown__option";
-    option.textContent = getConfigFileDisplayName(path, client.name || path);
     option.dataset.configPath = path;
     option.setAttribute("role", "option");
     option.setAttribute("aria-selected", String(path === activePath));
     option.tabIndex = -1;
+
+    // 创建内层文本容器用于跑马灯效果
+    const textSpan = document.createElement("span");
+    textSpan.className = "client-dropdown__option-text";
+    textSpan.textContent = getConfigFileDisplayName(path, client.name || path);
+    option.appendChild(textSpan);
+
+    // 添加 hover 事件来动态设置 CSS 变量
+    option.addEventListener("mouseenter", function() {
+      const containerWidth = this.clientWidth;
+      const textWidth = textSpan.scrollWidth;
+      const overflowAmount = textWidth - containerWidth;
+
+      if (overflowAmount > 4) {
+        const dynamicGap = Math.min(
+          Math.max(containerWidth * 0.15, 12),
+          48
+        );
+        const scrollDistance = overflowAmount + dynamicGap;
+        this.style.setProperty("--marquee-scroll-distance", `${scrollDistance}px`);
+      }
+    });
+
+    option.addEventListener("mouseleave", function() {
+      this.style.removeProperty("--marquee-scroll-distance");
+    });
+
     option.addEventListener("click", () => selectConfigFilePath(path));
     fragment.appendChild(option);
   });
@@ -3230,6 +3442,7 @@ window.addEventListener("beforeunload", () => {
   stopFileWatcher();
   cleanupFileChangeListener();
   cleanupWindowBehaviorListener();
+  cleanupMenuListeners();
 });
 
 document.addEventListener("DOMContentLoaded", initApp);

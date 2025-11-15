@@ -82,6 +82,34 @@ module.exports = {
         'lg': '16px',
         'xl': '20px',
       },
+      keyframes: {
+        'marquee-scroll': {
+          '0%, 30%': {
+            transform: 'translateX(0)',
+          },
+          '50%, 80%': {
+            transform: 'translateX(calc(-1 * var(--marquee-scroll-distance, 0px)))',
+          },
+          '100%': {
+            transform: 'translateX(0)',
+          },
+        },
+        'marquee-scroll-hover': {
+          '0%': {
+            transform: 'translateX(0)',
+          },
+          '50%': {
+            transform: 'translateX(calc(-1 * var(--marquee-scroll-distance, 0px)))',
+          },
+          '100%': {
+            transform: 'translateX(0)',
+          },
+        },
+      },
+      animation: {
+        'marquee': 'marquee-scroll 12s ease-in-out infinite',
+        'marquee-hover': 'marquee-scroll-hover 8s ease-in-out infinite',
+      },
     },
   },
   plugins: [],
@@ -264,7 +292,129 @@ Tailwind CSS 构建流程已集成到 Tauri 开发和生产构建流程中：
 - 执行 `bun run tauri:build` 时，自动运行 `bun run build:css`，生成优化的生产版本 CSS
 - 开发者无需手动运行 CSS 构建命令，Tauri 会自动管理
 
-### 2.7 自定义配置详解
+### 2.7 自定义动画系统
+
+项目在 Tailwind 配置中定义了跑马灯滚动动画，用于处理配置文件下拉框和下拉菜单项中的长文件名显示。
+
+#### 2.7.1 跑马灯动画配置
+
+**keyframes 定义**:
+
+```javascript
+keyframes: {
+  'marquee-scroll': {
+    '0%, 30%': {
+      transform: 'translateX(0)',
+    },
+    '50%, 80%': {
+      transform: 'translateX(calc(-1 * var(--marquee-scroll-distance, 0px)))',
+    },
+    '100%': {
+      transform: 'translateX(0)',
+    },
+  },
+  'marquee-scroll-hover': {
+    '0%': {
+      transform: 'translateX(0)',
+    },
+    '50%': {
+      transform: 'translateX(calc(-1 * var(--marquee-scroll-distance, 0px)))',
+    },
+    '100%': {
+      transform: 'translateX(0)',
+    },
+  },
+}
+```
+
+**animation 配置**:
+
+```javascript
+animation: {
+  'marquee': 'marquee-scroll 12s ease-in-out infinite',
+  'marquee-hover': 'marquee-scroll-hover 8s ease-in-out infinite',
+}
+```
+
+**设计特点**:
+1. **持续循环动画** (`marquee`): 12秒周期，包含30%停留时间，适用于始终可见的重要信息
+2. **hover 触发动画** (`marquee-hover`): 8秒周期，立即开始无停留，适用于按需查看的辅助信息
+3. **CSS 变量控制**: 使用 `--marquee-scroll-distance` 动态计算滚动距离，由 JavaScript 运行时设置
+4. **平滑效果**: 使用 `ease-in-out` 缓动函数提供自然的运动效果
+
+#### 2.7.2 跑马灯动画使用示例
+
+**持续循环模式**:
+
+```html
+<!-- 配置文件下拉框标签 -->
+<span
+  class="client-dropdown__label flex-1 max-w-[140px] overflow-hidden relative"
+  id="configFileDropdownLabel"
+  style="--marquee-scroll-distance: 80px;"
+>
+  <span class="inline-block min-w-full whitespace-nowrap will-change-transform pr-6 animate-marquee">
+    very-long-config-file-name.md
+  </span>
+</span>
+```
+
+**hover 触发模式**:
+
+```html
+<!-- 下拉菜单项 -->
+<button class="client-dropdown__option">
+  <span
+    class="client-dropdown__option-text"
+    style="--marquee-scroll-distance: 60px;"
+  >
+    extremely-long-filename-that-needs-scrolling.md
+  </span>
+</button>
+```
+
+**CSS 样式配合**:
+
+```css
+/* hover 触发跑马灯 */
+.client-dropdown__option:hover .client-dropdown__option-text {
+  animation: marquee-scroll-hover 8s ease-in-out infinite;
+}
+
+/* 减少动画偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none !important;
+  }
+}
+```
+
+**JavaScript 动态控制**:
+
+```javascript
+// 测量溢出并设置CSS变量
+const containerWidth = label.clientWidth;
+const textWidth = textNode.scrollWidth;
+const overflowAmount = textWidth - containerWidth;
+
+if (overflowAmount > 4) {
+  const dynamicGap = Math.min(
+    Math.max(containerWidth * 0.15, 12),
+    48
+  );
+  const scrollDistance = overflowAmount + dynamicGap;
+  label.style.setProperty("--marquee-scroll-distance", `${scrollDistance}px`);
+  textNode.classList.add("animate-marquee");
+}
+```
+
+**关键点**:
+- **CSS 变量**: `--marquee-scroll-distance` 由 JavaScript 运行时计算并设置
+- **溢出检测**: 仅当内容溢出容器时启用动画（4px容差）
+- **动态间距**: 滚动距离基于容器宽度的15%，范围12-48px
+- **性能优化**: 使用 `requestAnimationFrame` 确保DOM渲染完成后再测量
+
+### 2.8 自定义配置详解
 
 #### 暗色模式配置
 
@@ -326,7 +476,7 @@ theme: {
 }
 ```
 
-### 2.8 工具类使用示例
+### 2.9 工具类使用示例
 
 #### 布局类
 
@@ -373,7 +523,7 @@ theme: {
 </div>
 ```
 
-### 2.9 自定义组件层
+### 2.10 自定义组件层
 
 项目在 `tailwind.css` 中定义了可复用的组件类：
 
@@ -431,6 +581,28 @@ theme: {
 2. **内容扫描**: 确保所有使用 Tailwind 类的文件都在 `tailwind.config.js` 的 `content` 配置中
 3. **动态类名**: 避免使用动态拼接的类名（如 `bg-${color}-500`），Tailwind 无法静态提取
 4. **构建流程**: 开发时运行 `bun run watch:css`，生产构建时运行 `bun run build:css`
+
+### 自定义动画注意事项
+
+1. **跑马灯动画系统**:
+   - `animate-marquee` 用于持续循环，`animate-marquee-hover` 用于 hover 触发
+   - 必须配合 CSS 变量 `--marquee-scroll-distance` 使用，由 JavaScript 运行时设置
+   - 支持 `prefers-reduced-motion` 媒体查询，自动禁用动画
+
+2. **CSS 变量控制**:
+   - 跑马灯距离通过 `--marquee-scroll-distance` 动态计算
+   - 使用 `requestAnimationFrame` 确保测量准确性
+   - 4px 容差避免边界情况下的频繁切换
+
+3. **性能优化**:
+   - 使用 `will-change: transform` 提示浏览器优化
+   - 避免在动画过程中触发 reflow/repaint
+   - 仅在内容真正溢出时启用动画
+
+4. **配置扩展**:
+   - 新增 keyframes 和 animation 定义在 `theme.extend` 中
+   - 保持与现有动画系统的一致性（如缓动函数）
+   - 动画时长和停留时间根据实际使用场景调整
 
 ### 性能优化
 

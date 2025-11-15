@@ -129,6 +129,7 @@
   },
   "snapshots": {
     "autoPrefix": "Auto Snapshot",
+    "manualPrefix": "Manual Snapshot",
     "startupPrefix": "Startup Snapshot",
     "autoSavePrefix": "Auto Save",
     "beforeSettingsPrefix": "Before Settings",
@@ -182,6 +183,7 @@
     "deleteSnapshotConfirm": "Delete this snapshot?",
     "renameSnapshotPrompt": "Enter a new snapshot name",
     "snapshotNamePrompt": "Enter a snapshot name (leave blank to cancel)",
+    "unsavedChangesNavigateConfirm": "You have unsaved changes. Leave without saving?",
     "importClientsSelectPrompt": "Select clients to overwrite (unchecked duplicates will be skipped):",
     "importClientsOverwriteConfirm": "Import file contains {total} client(s): {builtin} built-in (skipped), {duplicate} existing custom (overwrite), {added} new custom (added). Continue?"
   },
