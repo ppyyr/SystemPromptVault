@@ -1453,14 +1453,9 @@ const initResizer = () => {
   };
 
   const applySplitWidths = () => {
-    if (window.innerWidth < DESKTOP_BREAKPOINT) {
-      leftPanel.style.removeProperty("flex");
-      rightPanel.style.removeProperty("flex");
-      return;
-    }
-    // 使用 0 1 保持不增大但允许收缩，并各自减去 1px（2px gutter 的一半）来确保两面板加上分隔条正好等于 100%
-    leftPanel.style.flex = `0 1 max(0%, calc(${state.splitRatio * 100}% - 1px))`;
-    rightPanel.style.flex = `0 1 max(0%, calc(${(1 - state.splitRatio) * 100}% - 1px))`;
+    // 使用 1 1 允许增大和收缩，并各自减去 1px（2px gutter 的一半）来确保两面板加上分隔条正好等于 100%
+    leftPanel.style.flex = `1 1 max(0%, calc(${state.splitRatio * 100}% - 1px))`;
+    rightPanel.style.flex = `1 1 max(0%, calc(${(1 - state.splitRatio) * 100}% - 1px))`;
     if (state.monacoEditor) {
       state.monacoEditor.layout();
     }
@@ -1522,9 +1517,7 @@ const initResizer = () => {
 
   const startDragging = (event) => {
     if (event.button !== 0) return;
-    if (window.innerWidth < DESKTOP_BREAKPOINT) {
-      return;
-    }
+    // 允许所有窗口尺寸下拖拽调整
     event.preventDefault();
     isDragging = true;
     toggleBodySelection(true);
@@ -1534,9 +1527,7 @@ const initResizer = () => {
   };
 
   const handleWindowResize = () => {
-    if (isDragging && window.innerWidth < DESKTOP_BREAKPOINT) {
-      stopDragging();
-    }
+    // 移除断点限制，窗口缩放时继续允许拖拽
     requestLayoutUpdate();
   };
 
